@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.looktube.data.LookTubeRepository
 import com.looktube.model.AuthMode
+import com.looktube.model.FeedConfiguration
+import com.looktube.model.LibrarySyncState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,6 +19,8 @@ class LookTubeAppViewModel(
     private val repository: LookTubeRepository,
 ) : ViewModel() {
     val accountSession = repository.accountSession
+    val feedConfiguration = repository.feedConfiguration
+    val librarySyncState = repository.librarySyncState
     val videos = repository.videos
 
     val selectedVideo: StateFlow<VideoSummary?> = combine(
@@ -48,7 +52,31 @@ class LookTubeAppViewModel(
     }
 
     fun selectAuthMode(mode: AuthMode) {
-        repository.selectAuthMode(mode)
+        viewModelScope.launch {
+            repository.selectAuthMode(mode)
+        }
+    }
+
+    fun updateFeedUrl(feedUrl: String) {
+        viewModelScope.launch {
+            repository.updateFeedUrl(feedUrl)
+        }
+    }
+
+    fun updateUsername(username: String) {
+        viewModelScope.launch {
+            repository.updateUsername(username)
+        }
+    }
+
+    fun updatePassword(password: String) {
+        repository.updatePassword(password)
+    }
+
+    fun refreshLibrary() {
+        viewModelScope.launch {
+            repository.refreshLibrary()
+        }
     }
 
     fun selectVideo(videoId: String) {

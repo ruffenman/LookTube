@@ -12,13 +12,17 @@ The first implementation path should be feed-first, not legacy-API-first. The au
 ## What is implemented in the repo today
 - fixture-driven RSS parsing in `core:network`
 - a manual probe script in `scripts/Invoke-GiantBombFeedProbe.ps1`
-- an in-memory repository that keeps the UI and tests moving while the real integration path is validated
+- a configurable repository that persists feed URL, username, and auth mode locally
+- a session-only password field in the app shell
+- a live credentialed RSS fetch path that can replace seeded library content when configured successfully
+- seeded fallback library data that keeps the app usable and testable before live credentials are available
 
 ## What is still pending
 - confirm exact production feed URLs that best represent the first supported Premium library surface
 - confirm whether credentialed feed access is sufficient for real video playback, not just feed access
 - confirm the minimum set of headers, cookies, and redirects required for authenticated playback handoff
 - confirm how often the site behavior changes enough to require fixture refreshes
+- replace session-only password handling with a more secure persisted credential or session strategy
 
 ## Probe policy
 - live probes are opt-in only

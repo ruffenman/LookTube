@@ -33,6 +33,8 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val accountSession by viewModel.accountSession.collectAsStateWithLifecycle()
+    val feedConfiguration by viewModel.feedConfiguration.collectAsStateWithLifecycle()
+    val librarySyncState by viewModel.librarySyncState.collectAsStateWithLifecycle()
     val videos by viewModel.videos.collectAsStateWithLifecycle()
     val selectedVideo by viewModel.selectedVideo.collectAsStateWithLifecycle()
     val selectedProgress by viewModel.selectedProgress.collectAsStateWithLifecycle()
@@ -89,12 +91,19 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                     AuthRoute(
                         paddingValues = paddingValues,
                         accountSession = accountSession,
+                        feedConfiguration = feedConfiguration,
+                        syncState = librarySyncState,
                         onAuthModeSelected = viewModel::selectAuthMode,
+                        onFeedUrlChanged = viewModel::updateFeedUrl,
+                        onUsernameChanged = viewModel::updateUsername,
+                        onPasswordChanged = viewModel::updatePassword,
+                        onRefreshRequested = viewModel::refreshLibrary,
                     )
                 }
                 composable("library") {
                     LibraryRoute(
                         paddingValues = paddingValues,
+                        syncState = librarySyncState,
                         videos = videos,
                         onVideoSelected = { videoId ->
                             viewModel.selectVideo(videoId)
@@ -112,6 +121,8 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                 composable("settings") {
                     SettingsRoute(
                         paddingValues = paddingValues,
+                        feedConfiguration = feedConfiguration,
+                        syncState = librarySyncState,
                     )
                 }
             }

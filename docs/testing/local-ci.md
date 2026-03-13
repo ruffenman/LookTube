@@ -15,6 +15,7 @@ Current coverage:
 - `core:data` JVM tests
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
+- configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
 
 ## Full local gate
@@ -49,3 +50,4 @@ $env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
 - prefer sanitized local fixtures in automated tests
 - do not commit authenticated responses or cookies
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
+- current app behavior persists feed URL, username, and auth mode locally, but keeps password input session-only

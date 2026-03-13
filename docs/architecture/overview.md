@@ -11,7 +11,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `core:model`
   - auth, video, and playback domain models
 - `core:data`
-  - repository interface and current in-memory spike implementation
+  - repository interface, configurable feed-backed repository, and in-memory spike implementation
 - `core:database`
   - persistence seam for playback bookmarks
 - `core:network`
@@ -39,16 +39,17 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `core:testing` is shared by test configurations only
 
 ## Current data flow
-1. `app` creates a repository instance from the app container
+1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
-3. state flows are collected into the app shell
-4. feature modules render pure UI based on state passed from the app shell
+3. the repository loads persisted feed identity settings, keeps password session-only, and seeds fallback library data
+4. feature modules render and mutate repository state through the app shell
+5. an explicit sync action attempts a credentialed RSS fetch and replaces the seeded library on success
 
-## Why the current spike uses in-memory data
-The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy. Using an in-memory repository for the first foundation loop keeps the app buildable and testable while the network and playback seams remain explicit.
+## Why the current spike still keeps a seeded fallback
+The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy and exact production feed targets. The configurable repository now supports a real credentialed feed sync path, but it keeps seeded fallback content so the app remains usable and testable before live credentials are available.
 
 ## Near-term evolution path
 - replace the in-memory repository with a feed-backed implementation
-- validate a secure auth/session storage strategy
+- replace session-only password handling with a secure auth/session storage strategy
 - add Media3-backed playback
 - replace the in-memory bookmark store with Room or another persisted local store once the first playback slice is stable

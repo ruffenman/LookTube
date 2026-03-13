@@ -12,11 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
+import com.looktube.model.LibrarySyncState
 import com.looktube.model.VideoSummary
 
 @Composable
 fun LibraryRoute(
     paddingValues: PaddingValues,
+    syncState: LibrarySyncState,
     videos: List<VideoSummary>,
     onVideoSelected: (String) -> Unit,
 ) {
@@ -30,6 +32,13 @@ fun LibraryRoute(
     ) {
         item {
             Text("Latest Premium videos")
+        }
+
+        item {
+            LookTubeCard(
+                title = "Library sync",
+                body = syncState.message,
+            )
         }
 
         items(videos) { video ->

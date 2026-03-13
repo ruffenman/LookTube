@@ -25,7 +25,9 @@ class RssVideoFeedParser {
                         description = item.readText("description") ?: "",
                         isPremium = item.readText("category")?.contains("Premium", ignoreCase = true) == true,
                         feedCategory = item.readText("category") ?: "Uncategorized",
-                        playbackUrl = item.readAttribute("media:content", "url"),
+                        playbackUrl = item.readAttribute("media:content", "url")
+                            ?: item.readAttribute("enclosure", "url")
+                            ?: item.readText("link"),
                     ),
                 )
             }

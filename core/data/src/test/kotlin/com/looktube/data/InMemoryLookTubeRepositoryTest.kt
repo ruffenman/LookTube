@@ -1,6 +1,7 @@
 package com.looktube.data
 
 import com.looktube.model.AuthMode
+import com.looktube.model.SyncPhase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,11 +19,22 @@ class InMemoryLookTubeRepositoryTest {
     }
 
     @Test
-    fun selectingAuthModePersistsChoice() {
+    fun selectingAuthModePersistsChoice() = runTest {
         val repository = InMemoryLookTubeRepository()
 
         repository.selectAuthMode(AuthMode.SessionCookie)
 
         assertEquals(AuthMode.SessionCookie, repository.accountSession.value.authMode)
+    }
+
+    @Test
+    fun refreshLeavesSeededContentActive() = runTest {
+        val repository = InMemoryLookTubeRepository()
+
+        repository.bootstrap()
+        repository.refreshLibrary()
+
+        assertEquals(SyncPhase.Success, repository.librarySyncState.value.phase)
+        assertTrue(repository.videos.value.isNotEmpty())
     }
 }

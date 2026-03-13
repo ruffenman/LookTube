@@ -1,13 +1,20 @@
 package com.looktube.app
 
 import android.app.Application
-import com.looktube.data.InMemoryLookTubeRepository
+import com.looktube.data.ConfigurableLookTubeRepository
 import com.looktube.data.LookTubeRepository
+import com.looktube.network.HttpRssVideoFeedService
+import com.looktube.network.RssVideoFeedParser
 
 class LookTubeApplication : Application() {
     val appContainer: AppContainer by lazy {
         AppContainer(
-            repository = InMemoryLookTubeRepository(),
+            repository = ConfigurableLookTubeRepository(
+                feedConfigurationStore = SharedPreferencesFeedConfigurationStore(this),
+                videoFeedService = HttpRssVideoFeedService(
+                    parser = RssVideoFeedParser(),
+                ),
+            ),
         )
     }
 }

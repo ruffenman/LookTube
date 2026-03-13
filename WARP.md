@@ -3,6 +3,7 @@
 - Run `.\gradlew.bat verifyFast` after each thin Ralph loop slice.
 - Run `.\gradlew.bat verifyLocal -PskipManagedDevice=true` before committing unless you also validated the managed-device lane.
 - Never commit live Giant Bomb credentials, cookies, or raw authenticated feed responses.
+- Password input in the current app slice is session-only; do not assume credentials persist across restarts.
 - Record integration findings in `docs/integration/giantbomb.md` before changing implementation assumptions.
 - Record architecture tradeoffs as ADRs under `docs/decisions/`.
 - Keep this file short; deeper context belongs under `docs/`.

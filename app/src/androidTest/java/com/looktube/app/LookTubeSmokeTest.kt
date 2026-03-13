@@ -14,5 +14,6 @@ class LookTubeSmokeTest {
     fun showsTopLevelShell() {
         composeRule.onNodeWithText("LookTube").assertIsDisplayed()
         composeRule.onNodeWithText("Choose the sign-in strategy to validate first.").assertIsDisplayed()
+        composeRule.onNodeWithText("Feed URL").assertIsDisplayed()
     }
 }

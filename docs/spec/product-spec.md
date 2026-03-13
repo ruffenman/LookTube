@@ -29,7 +29,8 @@ Validate the first real Premium-capable integration path and prove an authentica
 
 ### Acceptance criteria
 - one chosen auth mode is documented and justified
-- the app can bootstrap authenticated library data from a real Giant Bomb Premium-capable surface
+- the app can store feed URL, username, and chosen auth mode locally while keeping password handling explicit
+- the app can bootstrap configured library sync state from a real Giant Bomb Premium-capable surface
 - selecting a library item reaches a playable screen with the real media handoff seam in place
 - failures for expired credentials or missing access are visible to the user
 

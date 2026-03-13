@@ -6,8 +6,9 @@ The repository is in Phase 0 foundation work:
 - native Android project scaffolded in Kotlin + Compose
 - app architecture split into `app`, `core:*`, and `feature:*` modules
 - fixture-driven parser and repository tests in place
+- configurable feed-backed repository path wired behind a persisted local settings seam
 - docs, ADR, and Ralph loop validation commands established
-- live Giant Bomb auth and playback still require the dedicated integration spike
+- live Giant Bomb auth and playback still require the dedicated integration spike, but the app can now persist feed URL/username/auth mode and attempt a real credentialed feed sync
 
 ## Ralph loop commands
 Use these commands as the default development loop on Windows:
@@ -50,7 +51,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. validate Giant Bomb Premium auth mode via a dedicated integration spike
-2. replace in-memory feed data with a feed-backed repository path
+1. validate the exact Giant Bomb Premium feed URL and successful credentialed sync with real account inputs
+2. replace session-only password handling with a secure persisted credential/session strategy
 3. wire real playback using Media3
 4. add screenshot regression coverage once the first stable visual slice lands
