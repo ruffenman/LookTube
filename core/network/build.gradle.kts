@@ -1,0 +1,18 @@
+plugins {
+    alias(libs.plugins.kotlin.jvm)
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+dependencies {
+    implementation(project(":core:model"))
+
+    testImplementation(project(":core:testing"))
+    testImplementation(libs.junit4)
+}
+
+tasks.test {
+    useJUnit()
+}
