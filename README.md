@@ -7,6 +7,7 @@ The repository is in Phase 0 foundation work:
 - app architecture split into `app`, `core:*`, and `feature:*` modules
 - fixture-driven parser and repository tests in place
 - configurable feed-backed repository path wired behind a persisted local settings seam
+- Media3-backed player surface wired for videos that expose a playback URL
 - docs, ADR, and Ralph loop validation commands established
 - live Giant Bomb auth and playback still require the dedicated integration spike, but the app can now persist feed URL/username/auth mode and attempt a real credentialed feed sync
 
@@ -53,5 +54,5 @@ Run the managed-device smoke lane when emulator support is ready:
 ## Near-term implementation focus
 1. validate the exact Giant Bomb Premium feed URL and successful credentialed sync with real account inputs
 2. replace session-only password handling with a secure persisted credential/session strategy
-3. wire real playback using Media3
+3. validate a real Giant Bomb Premium playback URL end to end through the Media3 player
 4. add screenshot regression coverage once the first stable visual slice lands

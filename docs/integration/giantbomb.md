@@ -16,6 +16,7 @@ The first implementation path should be feed-first, not legacy-API-first. The au
 - a session-only password field in the app shell
 - a live credentialed RSS fetch path that can replace seeded library content when configured successfully
 - seeded fallback library data that keeps the app usable and testable before live credentials are available
+- a Media3-backed player screen that can attempt playback when a synced item exposes a stream URL
 
 ## What is still pending
 - confirm exact production feed URLs that best represent the first supported Premium library surface

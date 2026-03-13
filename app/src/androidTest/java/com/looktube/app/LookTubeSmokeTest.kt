@@ -1,6 +1,7 @@
 package com.looktube.app
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
@@ -15,5 +16,7 @@ class LookTubeSmokeTest {
         composeRule.onNodeWithText("LookTube").assertIsDisplayed()
         composeRule.onNodeWithText("Choose the sign-in strategy to validate first.").assertIsDisplayed()
         composeRule.onNodeWithText("Feed URL").assertIsDisplayed()
+        composeRule.onNodeWithText("Player").performClick()
+        composeRule.onNodeWithText("Playback unavailable").assertIsDisplayed()
     }
 }

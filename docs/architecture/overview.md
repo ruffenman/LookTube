@@ -25,7 +25,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `feature:library`
   - Premium library browse surface
 - `feature:player`
-  - playback handoff surface
+  - Media3-backed playback surface with graceful fallback when no playback URL is available
 - `feature:settings`
   - diagnostics and operator commands
 
@@ -51,5 +51,5 @@ The project still needs a short external integration spike to confirm the best G
 ## Near-term evolution path
 - replace the in-memory repository with a feed-backed implementation
 - replace session-only password handling with a secure auth/session storage strategy
-- add Media3-backed playback
+- harden Media3 playback and persist live watch progress
 - replace the in-memory bookmark store with Room or another persisted local store once the first playback slice is stable

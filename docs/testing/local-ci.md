@@ -17,6 +17,7 @@ Current coverage:
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
+- managed-device smoke coverage now also checks the player fallback surface
 
 ## Full local gate
 Run before a stable checkpoint commit:
