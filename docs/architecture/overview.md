@@ -42,7 +42,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
 3. the repository loads persisted feed identity settings, keeps password session-only, and seeds fallback library data
-4. feature modules render and mutate repository state through the app shell
+4. feature modules render and mutate repository state through the app shell, including a Premium sign-in screen that calls an explicit sign-in action
 5. an explicit sync action attempts a credentialed RSS fetch and replaces the seeded library on success
 
 ## Why the current spike still keeps a seeded fallback

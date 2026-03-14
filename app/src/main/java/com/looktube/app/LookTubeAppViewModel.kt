@@ -72,6 +72,17 @@ class LookTubeAppViewModel(
     fun updatePassword(password: String) {
         repository.updatePassword(password)
     }
+    fun signInToPremiumFeed() {
+        viewModelScope.launch {
+            repository.signInToPremiumFeed()
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            repository.signOut()
+        }
+    }
 
     fun refreshLibrary() {
         viewModelScope.launch {

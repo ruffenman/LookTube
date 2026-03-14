@@ -89,6 +89,31 @@ class ConfigurableLookTubeRepository(
         feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
         publishStatus(initialStatusFor(feedConfigurationState.value))
     }
+    override suspend fun signInToPremiumFeed() {
+        selectAuthMode(AuthMode.CredentialedFeed)
+        refreshLibrary()
+    }
+
+    override suspend fun signOut() {
+        hasSuccessfulCredentialedSync = false
+        feedConfigurationStore.setAuthMode(null)
+        feedConfigurationStore.setUsername("")
+        feedConfigurationState.value = feedConfigurationState.value.copy(
+            authMode = null,
+            username = "",
+            password = "",
+        )
+        videosState.value = seededVideos
+        selectedVideoIdState.value = seededVideos.firstOrNull()?.id
+        playbackProgressState.value = seededPlaybackProgress
+        publishStatus(
+            LibrarySyncState(
+                phase = SyncPhase.Idle,
+                message = "Signed out. Feed URL was preserved for the next sign-in.",
+                lastSuccessfulSyncSummary = null,
+            ),
+        )
+    }
 
     override suspend fun refreshLibrary() {
         val configuration = feedConfigurationState.value
@@ -97,7 +122,7 @@ class ConfigurableLookTubeRepository(
                 publishStatus(
                     LibrarySyncState(
                         phase = SyncPhase.Error,
-                        message = "Choose an auth mode before syncing the library.",
+                        message = "Sign in to Giant Bomb Premium before syncing the library.",
                         lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
                     ),
                 )
@@ -214,22 +239,22 @@ class ConfigurableLookTubeRepository(
             )
             configuration.feedUrl.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Configure a Giant Bomb Premium feed URL to replace the seeded library.",
+                message = "Enter a Giant Bomb Premium feed URL to sign in and replace the seeded library.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             configuration.username.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Enter the Premium username to continue.",
+                message = "Saved feed URL detected. Enter the Premium username to continue signing in.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             configuration.password.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed settings loaded. Enter the password for this app session and sync.",
+                message = "Saved feed settings loaded. Enter the password for this app session and sign in.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             else -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Configured feed is ready to sync.",
+                message = "Credentials are ready. Sign in to sync the Premium feed.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
         }

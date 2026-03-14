@@ -93,11 +93,11 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         accountSession = accountSession,
                         feedConfiguration = feedConfiguration,
                         syncState = librarySyncState,
-                        onAuthModeSelected = viewModel::selectAuthMode,
                         onFeedUrlChanged = viewModel::updateFeedUrl,
                         onUsernameChanged = viewModel::updateUsername,
                         onPasswordChanged = viewModel::updatePassword,
-                        onRefreshRequested = viewModel::refreshLibrary,
+                        onSignInRequested = viewModel::signInToPremiumFeed,
+                        onSignOutRequested = viewModel::signOut,
                     )
                 }
                 composable("library") {

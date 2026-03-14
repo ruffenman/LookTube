@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,9 +16,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.model.AccountSession
-import com.looktube.model.AuthMode
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.SyncPhase
 
 @Composable
 fun AuthRoute(
@@ -25,12 +26,17 @@ fun AuthRoute(
     accountSession: AccountSession,
     feedConfiguration: FeedConfiguration,
     syncState: LibrarySyncState,
-    onAuthModeSelected: (AuthMode) -> Unit,
     onFeedUrlChanged: (String) -> Unit,
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
-    onRefreshRequested: () -> Unit,
+    onSignInRequested: () -> Unit,
+    onSignOutRequested: () -> Unit,
 ) {
+    val isSigningIn = syncState.phase == SyncPhase.Refreshing
+    val canSignIn = feedConfiguration.feedUrl.isNotBlank() &&
+        feedConfiguration.username.isNotBlank() &&
+        feedConfiguration.password.isNotBlank() &&
+        !isSigningIn
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -38,35 +44,33 @@ fun AuthRoute(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Choose the sign-in strategy to validate first.")
+        Text(
+            if (accountSession.isSignedIn) {
+                "Signed in to Giant Bomb Premium"
+            } else {
+                "Sign in to Giant Bomb Premium"
+            },
+        )
 
         LookTubeCard(
-            title = "Current auth spike status",
+            title = if (accountSession.isSignedIn) {
+                "Account status"
+            } else {
+                "Sign-in status"
+            },
             body = accountSession.notes,
         )
 
         LookTubeCard(
-            title = "Current library sync status",
+            title = "Library sync status",
             body = syncState.message,
         )
-
-        Button(
-            onClick = { onAuthModeSelected(AuthMode.CredentialedFeed) },
-        ) {
-            Text("Validate credentialed feed mode")
-        }
-
-        Button(
-            onClick = { onAuthModeSelected(AuthMode.SessionCookie) },
-        ) {
-            Text("Validate session-cookie mode")
-        }
 
         OutlinedTextField(
             value = feedConfiguration.feedUrl,
             onValueChange = onFeedUrlChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Feed URL") },
+            label = { Text("Premium feed URL") },
             singleLine = true,
         )
 
@@ -86,11 +90,34 @@ fun AuthRoute(
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
         )
+        LookTubeCard(
+            title = "Current supported login path",
+            body = "This build signs in through the credentialed Premium feed path. Session-cookie website sign-in is still planned, but not wired yet.",
+        )
 
         Button(
-            onClick = onRefreshRequested,
+            onClick = onSignInRequested,
+            enabled = canSignIn,
         ) {
-            Text("Sync configured feed")
+            if (isSigningIn) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 12.dp),
+                )
+                Text("Signing in…")
+            } else if (accountSession.isSignedIn) {
+                Text("Re-sync Premium library")
+            } else {
+                Text("Sign in and sync")
+            }
+        }
+
+        if (accountSession.isSignedIn || feedConfiguration.username.isNotBlank() || feedConfiguration.password.isNotBlank()) {
+            Button(
+                onClick = onSignOutRequested,
+                enabled = !isSigningIn,
+            ) {
+                Text("Sign out")
+            }
         }
     }
 }

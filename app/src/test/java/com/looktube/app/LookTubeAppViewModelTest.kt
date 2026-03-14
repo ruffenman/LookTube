@@ -36,10 +36,8 @@ class LookTubeAppViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.videos.value.isNotEmpty())
-
-        viewModel.selectAuthMode(AuthMode.CredentialedFeed)
-        advanceUntilIdle()
-        assertEquals(AuthMode.CredentialedFeed, viewModel.accountSession.value.authMode)
+        assertEquals(null, viewModel.accountSession.value.authMode)
+        assertEquals(false, viewModel.accountSession.value.isSignedIn)
     }
 
     @Test
@@ -56,11 +54,35 @@ class LookTubeAppViewModelTest {
         viewModel.updateFeedUrl("https://example.com/feed.xml")
         viewModel.updateUsername("jorge")
         viewModel.updatePassword("session-secret")
-        viewModel.refreshLibrary()
+        viewModel.signInToPremiumFeed()
         advanceUntilIdle()
 
         assertEquals(SyncPhase.Success, viewModel.librarySyncState.value.phase)
         assertEquals("live-app-1", viewModel.videos.value.single().id)
+    }
+
+    @Test
+    fun signOutReturnsToSeededState() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            videoFeedService = FakeVideoFeedService(),
+        )
+
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.updateUsername("jorge")
+        viewModel.updatePassword("session-secret")
+        viewModel.signInToPremiumFeed()
+        advanceUntilIdle()
+
+        viewModel.signOut()
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.accountSession.value.isSignedIn)
+        assertEquals("", viewModel.feedConfiguration.value.username)
+        assertEquals("premium-quick-look-1", viewModel.videos.value.first().id)
     }
 }
 

@@ -18,6 +18,7 @@ Current coverage:
 - configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
 - managed-device smoke coverage now also checks the player fallback surface
+- managed-device smoke coverage also verifies the Premium sign-in screen copy
 
 ## Full local gate
 Run before a stable checkpoint commit:

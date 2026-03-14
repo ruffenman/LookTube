@@ -24,6 +24,9 @@ interface LookTubeRepository {
     suspend fun updateUsername(username: String)
 
     fun updatePassword(password: String)
+    suspend fun signInToPremiumFeed()
+
+    suspend fun signOut()
 
     suspend fun refreshLibrary()
 

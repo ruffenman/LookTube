@@ -80,6 +80,31 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override fun updatePassword(password: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
     }
+    override suspend fun signInToPremiumFeed() {
+        selectAuthMode(AuthMode.CredentialedFeed)
+        refreshLibrary()
+    }
+
+    override suspend fun signOut() {
+        accountSessionState.value = accountSessionState.value.copy(
+            isSignedIn = false,
+            accountLabel = null,
+            authMode = null,
+            notes = "Signed out of the in-memory spike repository.",
+        )
+        feedConfigurationState.value = feedConfigurationState.value.copy(
+            authMode = null,
+            username = "",
+            password = "",
+        )
+        syncState.value = LibrarySyncState(
+            phase = SyncPhase.Idle,
+            message = "Signed out. Seeded content is active.",
+        )
+        videosState.value = ConfigurableLookTubeRepository.seededVideos
+        selectedVideoIdState.value = ConfigurableLookTubeRepository.seededVideos.first().id
+        playbackProgressState.value = ConfigurableLookTubeRepository.seededPlaybackProgress
+    }
 
     override suspend fun refreshLibrary() {
         syncState.value = LibrarySyncState(

@@ -31,6 +31,7 @@ Validate the first real Premium-capable integration path and prove an authentica
 - one chosen auth mode is documented and justified
 - the app can store feed URL, username, and chosen auth mode locally while keeping password handling explicit
 - the app can bootstrap configured library sync state from a real Giant Bomb Premium-capable surface
+- the auth surface reads like a user-facing Premium sign-in flow rather than an internal integration spike
 - selecting a library item reaches a Media3-backed playable screen when a feed item exposes a playback URL
 - failures for expired credentials or missing access are visible to the user
 
