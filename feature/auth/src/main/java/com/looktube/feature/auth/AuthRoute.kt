@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,15 +36,50 @@ fun AuthRoute(
     onSignOutRequested: () -> Unit,
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
-    val canSignIn = feedConfiguration.feedUrl.isNotBlank() &&
-        feedConfiguration.username.isNotBlank() &&
-        feedConfiguration.password.isNotBlank() &&
-        !isSigningIn
+    val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
+    val colorScheme = MaterialTheme.colorScheme
+    val accountStatusLabel = when {
+        accountSession.isSignedIn -> "Connected"
+        feedConfiguration.feedUrl.isBlank() -> "Setup required"
+        syncState.phase == SyncPhase.Error -> "Needs attention"
+        else -> "Ready"
+    }
+    val accountStatusContainerColor = when (accountStatusLabel) {
+        "Connected" -> colorScheme.primaryContainer
+        "Needs attention" -> colorScheme.errorContainer
+        "Ready" -> colorScheme.secondaryContainer
+        else -> colorScheme.surfaceVariant
+    }
+    val accountStatusContentColor = when (accountStatusLabel) {
+        "Connected" -> colorScheme.onPrimaryContainer
+        "Needs attention" -> colorScheme.onErrorContainer
+        "Ready" -> colorScheme.onSecondaryContainer
+        else -> colorScheme.onSurfaceVariant
+    }
+    val libraryStatusLabel = when (syncState.phase) {
+        SyncPhase.Idle -> "Idle"
+        SyncPhase.Refreshing -> "Syncing"
+        SyncPhase.Success -> "Synced"
+        SyncPhase.Error -> "Error"
+    }
+    val libraryStatusContainerColor = when (syncState.phase) {
+        SyncPhase.Idle -> colorScheme.surfaceVariant
+        SyncPhase.Refreshing -> colorScheme.tertiaryContainer
+        SyncPhase.Success -> colorScheme.primaryContainer
+        SyncPhase.Error -> colorScheme.errorContainer
+    }
+    val libraryStatusContentColor = when (syncState.phase) {
+        SyncPhase.Idle -> colorScheme.onSurfaceVariant
+        SyncPhase.Refreshing -> colorScheme.onTertiaryContainer
+        SyncPhase.Success -> colorScheme.onPrimaryContainer
+        SyncPhase.Error -> colorScheme.onErrorContainer
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
@@ -59,11 +97,26 @@ fun AuthRoute(
                 "Sign-in status"
             },
             body = accountSession.notes,
+            containerColor = accountStatusContainerColor,
+            contentColor = accountStatusContentColor,
+            statusLabel = accountStatusLabel,
+            statusLabelContainerColor = accountStatusContentColor,
+            statusLabelContentColor = accountStatusContainerColor,
         )
 
         LookTubeCard(
             title = "Library sync status",
             body = syncState.message,
+            containerColor = libraryStatusContainerColor,
+            contentColor = libraryStatusContentColor,
+            statusLabel = libraryStatusLabel,
+            statusLabelContainerColor = libraryStatusContentColor,
+            statusLabelContentColor = libraryStatusContainerColor,
+        )
+
+        LookTubeCard(
+            title = "Supported feed input",
+            body = "Paste the RSS URL copied from Giant Bomb feeds. Username and password are optional fallback fields for feed variants that still require basic auth.",
         )
 
         OutlinedTextField(
@@ -78,7 +131,7 @@ fun AuthRoute(
             value = feedConfiguration.username,
             onValueChange = onUsernameChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Premium username") },
+            label = { Text("Premium username (optional)") },
             singleLine = true,
         )
 
@@ -86,13 +139,13 @@ fun AuthRoute(
             value = feedConfiguration.password,
             onValueChange = onPasswordChanged,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Password (session only)") },
+            label = { Text("Password (optional, session only)") },
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
         )
         LookTubeCard(
-            title = "Current supported login path",
-            body = "This build signs in through the credentialed Premium feed path. Session-cookie website sign-in is still planned, but not wired yet.",
+            title = "Current supported access path",
+            body = "This build syncs the copied Premium feed URL directly. Session-cookie website sign-in is still planned, but not wired yet.",
         )
 
         Button(
@@ -103,11 +156,11 @@ fun AuthRoute(
                 CircularProgressIndicator(
                     modifier = Modifier.padding(end = 12.dp),
                 )
-                Text("Signing in…")
+                Text("Syncing…")
             } else if (accountSession.isSignedIn) {
                 Text("Re-sync Premium library")
             } else {
-                Text("Sign in and sync")
+                Text("Sync Premium feed")
             }
         }
 

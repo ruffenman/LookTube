@@ -2,8 +2,11 @@ package com.looktube.app
 
 import com.looktube.data.ConfigurableLookTubeRepository
 import com.looktube.data.FeedConfigurationStore
+import com.looktube.data.SyncedLibraryStore
+import com.looktube.database.InMemoryPlaybackBookmarkStore
 import com.looktube.model.AuthMode
 import com.looktube.model.PersistedFeedConfiguration
+import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
 import com.looktube.model.VideoSummary
 import com.looktube.network.VideoFeedRequest
@@ -13,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -29,7 +33,10 @@ class LookTubeAppViewModelTest {
     fun bootstrapsSampleFeedAndTracksAuthMode() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
             videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
         val viewModel = LookTubeAppViewModel(repository)
@@ -44,16 +51,16 @@ class LookTubeAppViewModelTest {
     fun refreshesConfiguredFeedThroughViewModel() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
             videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
         val viewModel = LookTubeAppViewModel(repository)
         advanceUntilIdle()
 
-        viewModel.selectAuthMode(AuthMode.CredentialedFeed)
         viewModel.updateFeedUrl("https://example.com/feed.xml")
-        viewModel.updateUsername("jorge")
-        viewModel.updatePassword("session-secret")
         viewModel.signInToPremiumFeed()
         advanceUntilIdle()
 
@@ -65,15 +72,16 @@ class LookTubeAppViewModelTest {
     fun signOutReturnsToSeededState() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
             videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
         )
 
         val viewModel = LookTubeAppViewModel(repository)
         advanceUntilIdle()
 
         viewModel.updateFeedUrl("https://example.com/feed.xml")
-        viewModel.updateUsername("jorge")
-        viewModel.updatePassword("session-secret")
         viewModel.signInToPremiumFeed()
         advanceUntilIdle()
 
@@ -107,6 +115,20 @@ private class FakeFeedConfigurationStore : FeedConfigurationStore {
 
     override suspend fun setUsername(username: String) {
         state.value = state.value.copy(username = username)
+    }
+}
+
+private class FakeSyncedLibraryStore : SyncedLibraryStore {
+    private val state = MutableStateFlow<PersistedLibrarySnapshot?>(null)
+
+    override val persistedSnapshot: StateFlow<PersistedLibrarySnapshot?> = state.asStateFlow()
+
+    override suspend fun save(snapshot: PersistedLibrarySnapshot) {
+        state.value = snapshot
+    }
+
+    override suspend fun clear() {
+        state.value = null
     }
 }
 

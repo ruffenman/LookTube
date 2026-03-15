@@ -8,7 +8,5 @@ data class FeedConfiguration(
 ) {
     val canAttemptCredentialedFeedSync: Boolean
         get() = authMode == AuthMode.CredentialedFeed &&
-            feedUrl.isNotBlank() &&
-            username.isNotBlank() &&
-            password.isNotBlank()
+            feedUrl.isNotBlank()
 }

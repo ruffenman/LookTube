@@ -22,6 +22,7 @@ class LookTubeAppViewModel(
     val feedConfiguration = repository.feedConfiguration
     val librarySyncState = repository.librarySyncState
     val videos = repository.videos
+    val playbackProgress = repository.playbackProgress
 
     val selectedVideo: StateFlow<VideoSummary?> = combine(
         repository.videos,

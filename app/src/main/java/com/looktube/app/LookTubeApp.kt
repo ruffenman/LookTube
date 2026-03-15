@@ -1,50 +1,91 @@
 package com.looktube.app
 
+import android.content.ComponentName
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.PlayCircle
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.VideoLibrary
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.rememberNavController
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.auth.AuthRoute
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.feature.player.PlayerRoute
 import com.looktube.feature.settings.SettingsRoute
+import com.looktube.model.displaySeriesTitle
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LookTubeApp(viewModel: LookTubeAppViewModel) {
-    val navController = rememberNavController()
-    val backStackEntry by navController.currentBackStackEntryAsState()
     val accountSession by viewModel.accountSession.collectAsStateWithLifecycle()
     val feedConfiguration by viewModel.feedConfiguration.collectAsStateWithLifecycle()
     val librarySyncState by viewModel.librarySyncState.collectAsStateWithLifecycle()
     val videos by viewModel.videos.collectAsStateWithLifecycle()
+    val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val selectedVideo by viewModel.selectedVideo.collectAsStateWithLifecycle()
     val selectedProgress by viewModel.selectedProgress.collectAsStateWithLifecycle()
+    val playbackController = rememberPlaybackController()
+    val scope = rememberCoroutineScope()
 
     val topLevelDestinations = listOf(
         TopLevelDestination("auth", "Auth", Icons.Outlined.AccountCircle),
         TopLevelDestination("library", "Library", Icons.Outlined.VideoLibrary),
         TopLevelDestination("player", "Player", Icons.Outlined.PlayCircle),
-        TopLevelDestination("settings", "Settings", Icons.Outlined.Settings),
+        TopLevelDestination("settings", "Shows", Icons.Outlined.CollectionsBookmark),
     )
+    val pagerState = rememberPagerState(initialPage = 0) { topLevelDestinations.size }
+
+    LaunchedEffect(selectedVideo?.id, playbackController) {
+        val controller = playbackController ?: return@LaunchedEffect
+        val video = selectedVideo ?: return@LaunchedEffect
+        val playbackUrl = video.playbackUrl ?: return@LaunchedEffect
+        if (controller.currentMediaItem?.mediaId != video.id) {
+            controller.setMediaItem(
+                MediaItem.Builder()
+                    .setMediaId(video.id)
+                    .setUri(playbackUrl)
+                    .setMediaMetadata(
+                        MediaMetadata.Builder()
+                            .setTitle(video.title)
+                            .setArtist(video.displaySeriesTitle)
+                            .build(),
+                    )
+                    .build(),
+            )
+            controller.prepare()
+            selectedProgress?.let { progress ->
+                if (progress.positionSeconds > 0) {
+                    controller.seekTo(progress.positionSeconds * 1_000)
+                }
+            }
+            controller.playWhenReady = true
+        }
+    }
 
     LookTubeTheme {
         Scaffold(
@@ -58,16 +99,12 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
             },
             bottomBar = {
                 NavigationBar {
-                    topLevelDestinations.forEach { destination ->
+                    topLevelDestinations.forEachIndexed { index, destination ->
                         NavigationBarItem(
-                            selected = backStackEntry?.destination?.route == destination.route,
+                            selected = pagerState.currentPage == index,
                             onClick = {
-                                navController.navigate(destination.route) {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
+                                scope.launch {
+                                    pagerState.animateScrollToPage(index)
                                 }
                             },
                             icon = {
@@ -82,13 +119,13 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                 }
             },
         ) { paddingValues ->
-            NavHost(
-                navController = navController,
-                startDestination = "auth",
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
             ) {
-                composable("auth") {
-                    AuthRoute(
+                when (topLevelDestinations[it].route) {
+                    "auth" -> AuthRoute(
                         paddingValues = paddingValues,
                         accountSession = accountSession,
                         feedConfiguration = feedConfiguration,
@@ -99,33 +136,65 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         onSignInRequested = viewModel::signInToPremiumFeed,
                         onSignOutRequested = viewModel::signOut,
                     )
-                }
-                composable("library") {
-                    LibraryRoute(
+
+                    "library" -> LibraryRoute(
                         paddingValues = paddingValues,
                         syncState = librarySyncState,
                         videos = videos,
+                        playbackProgress = playbackProgress,
                         onVideoSelected = { videoId ->
                             viewModel.selectVideo(videoId)
-                            navController.navigate("player")
+                            scope.launch { pagerState.animateScrollToPage(2) }
                         },
                     )
-                }
-                composable("player") {
-                    PlayerRoute(
+
+                    "player" -> PlayerRoute(
                         paddingValues = paddingValues,
                         selectedVideo = selectedVideo,
                         playbackProgress = selectedProgress,
+                        player = playbackController,
                     )
-                }
-                composable("settings") {
-                    SettingsRoute(
+
+                    else -> SettingsRoute(
                         paddingValues = paddingValues,
-                        feedConfiguration = feedConfiguration,
-                        syncState = librarySyncState,
+                        videos = videos,
+                        playbackProgress = playbackProgress,
+                        onVideoSelected = { videoId ->
+                            viewModel.selectVideo(videoId)
+                            scope.launch { pagerState.animateScrollToPage(2) }
+                        },
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun rememberPlaybackController(): MediaController? {
+    val context = LocalContext.current
+    var controller by remember { mutableStateOf<MediaController?>(null) }
+    val controllerFuture = remember(context) {
+        MediaController.Builder(
+            context,
+            SessionToken(context, ComponentName(context, PlaybackService::class.java)),
+        ).buildAsync()
+    }
+
+    DisposableEffect(context, controllerFuture) {
+        controllerFuture.addListener(
+            {
+                controller = runCatching { controllerFuture.get() }.getOrNull()
+            },
+            context.mainExecutor,
+        )
+        onDispose {
+            controller?.release()
+            if (!controllerFuture.isDone) {
+                controllerFuture.cancel(true)
+            }
+        }
+    }
+
+    return controller
 }

@@ -53,8 +53,8 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         val seededVideos = ConfigurableLookTubeRepository.seededVideos
 
         videosState.value = seededVideos
-        selectedVideoIdState.value = seededVideos.first().id
-        playbackProgressState.value = ConfigurableLookTubeRepository.seededPlaybackProgress
+        selectedVideoIdState.value = null
+        playbackProgressState.value = emptyMap()
     }
 
 
@@ -81,7 +81,13 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
     }
     override suspend fun signInToPremiumFeed() {
-        selectAuthMode(AuthMode.CredentialedFeed)
+        if (feedConfigurationState.value.authMode != AuthMode.CredentialedFeed) {
+            feedConfigurationState.value = feedConfigurationState.value.copy(authMode = AuthMode.CredentialedFeed)
+            accountSessionState.value = accountSessionState.value.copy(
+                authMode = AuthMode.CredentialedFeed,
+                notes = "Spike credentialed feed access first to confirm Premium video RSS reliability.",
+            )
+        }
         refreshLibrary()
     }
 
@@ -102,8 +108,8 @@ class InMemoryLookTubeRepository : LookTubeRepository {
             message = "Signed out. Seeded content is active.",
         )
         videosState.value = ConfigurableLookTubeRepository.seededVideos
-        selectedVideoIdState.value = ConfigurableLookTubeRepository.seededVideos.first().id
-        playbackProgressState.value = ConfigurableLookTubeRepository.seededPlaybackProgress
+        selectedVideoIdState.value = null
+        playbackProgressState.value = emptyMap()
     }
 
     override suspend fun refreshLibrary() {

@@ -17,6 +17,8 @@ class RssVideoFeedParserTest {
         assertEquals(2, videos.size)
         assertTrue(videos.all { it.isPremium })
         assertEquals("https://video.example.com/premium-1.m3u8", videos.first().playbackUrl)
+        assertEquals("Blight Club", videos.first().seriesTitle)
+        assertEquals("https://image.example.com/blight-club-1.jpg", videos.first().thumbnailUrl)
     }
 
     @Test
@@ -39,5 +41,27 @@ class RssVideoFeedParserTest {
 
         assertEquals(1, videos.size)
         assertEquals("https://video.example.com/enclosure-1.mp4", videos.single().playbackUrl)
+    }
+
+    @Test
+    fun infersSeriesAndThumbnailFromDescriptionWhenFeedCategoryIsGeneric() {
+        val fixture = """
+            <rss version="2.0">
+                <channel>
+                    <item>
+                        <guid>quick-look-1</guid>
+                        <title>Quick Look: Future Cop L.A.P.D.</title>
+                        <description><![CDATA[<p>Preview.</p><img src="https://image.example.com/quick-look-1.jpg" />]]></description>
+                        <category>Premium</category>
+                        <enclosure url="https://video.example.com/quick-look-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals("Quick Look", videos.single().seriesTitle)
+        assertEquals("https://image.example.com/quick-look-1.jpg", videos.single().thumbnailUrl)
     }
 }

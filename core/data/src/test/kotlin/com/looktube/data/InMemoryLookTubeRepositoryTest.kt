@@ -15,7 +15,7 @@ class InMemoryLookTubeRepositoryTest {
         repository.bootstrap()
 
         assertTrue(repository.videos.value.any { it.isPremium })
-        assertTrue(repository.selectedVideoId.value != null)
+        assertEquals(null, repository.selectedVideoId.value)
     }
 
     @Test

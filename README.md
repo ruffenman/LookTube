@@ -8,9 +8,9 @@ The repository is in Phase 0 foundation work:
 - fixture-driven parser and repository tests in place
 - configurable feed-backed repository path wired behind a persisted local settings seam
 - Media3-backed player surface wired for videos that expose a playback URL
-- a real Premium sign-in screen now drives the supported credentialed-feed login path
+- a real Premium feed access screen now supports copied RSS feed URLs as the primary sync path
 - docs, ADR, and Ralph loop validation commands established
-- live Giant Bomb auth and playback still require the dedicated integration spike, but the app can now persist feed URL/username/auth mode and attempt a real credentialed feed sync
+- live Giant Bomb auth and playback still require the dedicated integration spike, but the app can now persist feed URL/username/auth mode and attempt a real Premium feed sync, with username/password treated as optional fallback inputs
 
 ## Ralph loop commands
 Use these commands as the default development loop on Windows:
@@ -53,7 +53,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. validate the exact Giant Bomb Premium feed URL and successful credentialed sync with real account inputs
+1. validate successful sync and playback with a copied Giant Bomb Premium RSS URL
 2. replace session-only password handling with a secure persisted credential/session strategy
 3. validate a real Giant Bomb Premium playback URL end to end through the Media3 player
 4. add screenshot regression coverage once the first stable visual slice lands

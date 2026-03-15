@@ -16,7 +16,10 @@ class LookTubeSmokeTest {
         composeRule.onNodeWithText("LookTube").assertIsDisplayed()
         composeRule.onNodeWithText("Sign in to Giant Bomb Premium").assertIsDisplayed()
         composeRule.onNodeWithText("Premium feed URL").assertIsDisplayed()
+        composeRule.onNodeWithText("Sync Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Player").performClick()
-        composeRule.onNodeWithText("Playback unavailable").assertIsDisplayed()
+        composeRule.onNodeWithText("Choose something to watch").assertIsDisplayed()
+        composeRule.onNodeWithText("Shows").performClick()
+        composeRule.onNodeWithText("Sync a feed first to browse shows and jump into videos by series.").assertIsDisplayed()
     }
 }

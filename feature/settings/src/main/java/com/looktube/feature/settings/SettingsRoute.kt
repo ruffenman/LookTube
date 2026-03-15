@@ -1,30 +1,55 @@
 package com.looktube.feature.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.looktube.designsystem.LookTubeCard
-import com.looktube.model.FeedConfiguration
-import com.looktube.model.LibrarySyncState
+import com.looktube.model.PlaybackProgress
+import com.looktube.model.bestDurationSeconds
+import com.looktube.model.displaySeriesTitle
+import com.looktube.model.seriesGroupingKey
+import com.looktube.model.VideoSummary
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun SettingsRoute(
     paddingValues: PaddingValues,
-    feedConfiguration: FeedConfiguration,
-    syncState: LibrarySyncState,
+    videos: List<VideoSummary>,
+    playbackProgress: Map<String, PlaybackProgress>,
+    onVideoSelected: (String) -> Unit,
 ) {
-    val diagnosticsCards = listOf(
-        "Fast Ralph loop" to ".\\gradlew.bat verifyFast",
-        "Full local gate" to ".\\gradlew.bat verifyLocal -PskipManagedDevice=true",
-        "Premium feed probe" to ".\\gradlew.bat integrationProbeGiantBomb",
-    )
+    val seriesGroups = videos
+        .groupBy(VideoSummary::seriesGroupingKey)
+        .values
+        .map { seriesVideos ->
+            SeriesGroup(
+                title = seriesVideos
+                    .map(VideoSummary::displaySeriesTitle)
+                    .groupingBy { it }
+                    .eachCount()
+                    .maxByOrNull { it.value }
+                    ?.key
+                    ?: seriesVideos.first().displaySeriesTitle,
+                videos = seriesVideos.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE },
+            )
+        }
+        .sortedByDescending { it.videos.size }
 
     LazyColumn(
         modifier = Modifier
@@ -35,33 +60,113 @@ fun SettingsRoute(
         contentPadding = PaddingValues(vertical = 16.dp),
     ) {
         item {
-            Text("Diagnostics and operating notes")
+            Text("Shows")
         }
+        if (seriesGroups.isEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = "Sync a feed first to browse shows and jump into videos by series.",
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+        } else {
+            items(seriesGroups) { group ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = group.title,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = "${group.videos.size} videos",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        group.videos.take(8).forEachIndexed { index, video ->
+                            if (index > 0) {
+                                HorizontalDivider()
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onVideoSelected(video.id) }
+                                    .padding(vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(
+                                    text = video.title,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                if (video.description.isNotBlank()) {
+                                    Text(
+                                        text = video.description,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                buildEpisodeMetadata(video, playbackProgress[video.id]).takeIf(String::isNotBlank)?.let { metadata ->
+                                    Text(
+                                        text = metadata,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                playbackProgress[video.id]?.takeIf { it.durationSeconds > 0 }?.let { progress ->
+                                    LinearProgressIndicator(
+                                        progress = { (progress.positionSeconds.toFloat() / progress.durationSeconds.toFloat()).coerceIn(0f, 1f) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
+                        }
+                        if (group.videos.size > 8) {
+                            Text(
+                                text = "+ ${group.videos.size - 8} more videos",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
-        item {
-            LookTubeCard(
-                title = "Persisted feed identity",
-                body = buildString {
-                    appendLine("Auth mode: ${feedConfiguration.authMode ?: "Unconfigured"}")
-                    appendLine("Feed URL: ${feedConfiguration.feedUrl.ifBlank { "Not set" }}")
-                    appendLine("Username: ${feedConfiguration.username.ifBlank { "Not set" }}")
-                    append("Password persistence: session only")
-                },
-            )
-        }
+private data class SeriesGroup(
+    val title: String,
+    val videos: List<VideoSummary>,
+)
 
-        item {
-            LookTubeCard(
-                title = "Latest sync status",
-                body = syncState.message,
-            )
-        }
+private fun buildEpisodeMetadata(
+    video: VideoSummary,
+    progress: PlaybackProgress?,
+): String = buildList {
+    video.publishedAtEpochMillis?.let(::formatPublishedDate)?.let(::add)
+    video.bestDurationSeconds(progress)?.let(::formatDuration)?.let(::add)
+}.joinToString(" • ")
 
-        items(diagnosticsCards) { (title, body) ->
-            LookTubeCard(
-                title = title,
-                body = body,
-            )
-        }
+private fun formatPublishedDate(epochMillis: Long): String =
+    DateTimeFormatter.ofPattern("MMM d, yyyy")
+        .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()))
+
+private fun formatDuration(seconds: Long): String {
+    val hours = seconds / 3_600
+    val minutes = (seconds % 3_600) / 60
+    val remainingSeconds = seconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, remainingSeconds)
+    } else {
+        "%d:%02d".format(minutes, remainingSeconds)
     }
 }

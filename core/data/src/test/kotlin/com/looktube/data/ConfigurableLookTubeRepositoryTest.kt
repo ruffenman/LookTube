@@ -1,7 +1,9 @@
 package com.looktube.data
 
+import com.looktube.database.InMemoryPlaybackBookmarkStore
 import com.looktube.model.AuthMode
 import com.looktube.model.PersistedFeedConfiguration
+import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
 import com.looktube.model.VideoSummary
 import com.looktube.network.VideoFeedRequest
@@ -26,6 +28,8 @@ class ConfigurableLookTubeRepositoryTest {
         )
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = store,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
             videoFeedService = FakeVideoFeedService(),
         )
 
@@ -38,18 +42,18 @@ class ConfigurableLookTubeRepositoryTest {
     }
 
     @Test
-    fun refreshLoadsConfiguredFeedWhenCredentialedModeIsReady() = runTest {
+    fun refreshLoadsConfiguredFeedWhenUrlOnlyModeIsReady() = runTest {
         val store = FakeFeedConfigurationStore()
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = store,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
             videoFeedService = FakeVideoFeedService(),
         )
 
         repository.bootstrap()
         repository.selectAuthMode(AuthMode.CredentialedFeed)
         repository.updateFeedUrl("https://example.com/premium.xml")
-        repository.updateUsername("jorge")
-        repository.updatePassword("session-secret")
         repository.refreshLibrary()
 
         assertEquals(SyncPhase.Success, repository.librarySyncState.value.phase)
@@ -59,9 +63,34 @@ class ConfigurableLookTubeRepositoryTest {
     }
 
     @Test
+    fun refreshStillPassesOptionalCredentialsToFeedService() = runTest {
+        val store = FakeFeedConfigurationStore()
+        val recordingService = RecordingVideoFeedService()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = store,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = recordingService,
+        )
+
+        repository.bootstrap()
+        repository.selectAuthMode(AuthMode.CredentialedFeed)
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.updateUsername("jorge")
+        repository.updatePassword("session-secret")
+        repository.refreshLibrary()
+
+        assertEquals("https://example.com/premium.xml", recordingService.lastRequest?.feedUrl)
+        assertEquals("jorge", recordingService.lastRequest?.username)
+        assertEquals("session-secret", recordingService.lastRequest?.password)
+    }
+
+    @Test
     fun refreshSurfacesUnsupportedSessionCookieMode() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
             videoFeedService = FakeVideoFeedService(),
         )
 
@@ -98,6 +127,20 @@ private class FakeFeedConfigurationStore(
     }
 }
 
+private class FakeSyncedLibraryStore : SyncedLibraryStore {
+    private val state = MutableStateFlow<PersistedLibrarySnapshot?>(null)
+
+    override val persistedSnapshot: StateFlow<PersistedLibrarySnapshot?> = state.asStateFlow()
+
+    override suspend fun save(snapshot: PersistedLibrarySnapshot) {
+        state.value = snapshot
+    }
+
+    override suspend fun clear() {
+        state.value = null
+    }
+}
+
 private class FakeVideoFeedService : VideoFeedService {
     override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> {
         return listOf(
@@ -110,5 +153,14 @@ private class FakeVideoFeedService : VideoFeedService {
                 playbackUrl = "https://video.example.com/live-1.m3u8",
             ),
         )
+    }
+}
+
+private class RecordingVideoFeedService : VideoFeedService {
+    var lastRequest: VideoFeedRequest? = null
+
+    override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> {
+        lastRequest = request
+        return FakeVideoFeedService().loadVideos(request)
     }
 }

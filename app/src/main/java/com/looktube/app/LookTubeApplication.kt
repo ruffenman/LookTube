@@ -3,14 +3,21 @@ package com.looktube.app
 import android.app.Application
 import com.looktube.data.ConfigurableLookTubeRepository
 import com.looktube.data.LookTubeRepository
+import com.looktube.database.PlaybackBookmarkStore
 import com.looktube.network.HttpRssVideoFeedService
 import com.looktube.network.RssVideoFeedParser
 
 class LookTubeApplication : Application() {
     val appContainer: AppContainer by lazy {
+        val feedConfigurationStore = SharedPreferencesFeedConfigurationStore(this)
+        val syncedLibraryStore = SharedPreferencesSyncedLibraryStore(this)
+        val playbackBookmarkStore = SharedPreferencesPlaybackBookmarkStore(this)
         AppContainer(
+            playbackBookmarkStore = playbackBookmarkStore,
             repository = ConfigurableLookTubeRepository(
-                feedConfigurationStore = SharedPreferencesFeedConfigurationStore(this),
+                feedConfigurationStore = feedConfigurationStore,
+                syncedLibraryStore = syncedLibraryStore,
+                playbackBookmarkStore = playbackBookmarkStore,
                 videoFeedService = HttpRssVideoFeedService(
                     parser = RssVideoFeedParser(),
                 ),
@@ -20,5 +27,6 @@ class LookTubeApplication : Application() {
 }
 
 data class AppContainer(
+    val playbackBookmarkStore: PlaybackBookmarkStore,
     val repository: LookTubeRepository,
 )
