@@ -58,11 +58,26 @@ fun LibraryRoute(
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
-    val seriesFilters = remember(videos) {
-        listOf(ALL_SERIES_FILTER) + videos
+    val latestPublishedAtBySeries = remember(videos) {
+        videos.groupBy(VideoSummary::displaySeriesTitle)
+            .mapValues { (_, groupedVideos) ->
+                groupedVideos.maxOfOrNull { it.publishedAtEpochMillis ?: Long.MIN_VALUE } ?: Long.MIN_VALUE
+            }
+    }
+    val seriesFilters = remember(videos, sortOption, latestPublishedAtBySeries) {
+        val sortedFilters = videos
             .map(VideoSummary::displaySeriesTitle)
             .distinct()
-            .sorted()
+            .sortedWith(
+                when (sortOption) {
+                    LibrarySortOption.Latest -> compareByDescending<String> { latestPublishedAtBySeries[it] ?: Long.MIN_VALUE }
+                        .thenBy { it.lowercase() }
+                    LibrarySortOption.Title,
+                    LibrarySortOption.Show,
+                    -> compareBy(String::lowercase)
+                },
+            )
+        listOf(ALL_SERIES_FILTER) + sortedFilters
     }
     val visibleVideos = remember(videos, sortOption, selectedSeriesFilter) {
         videos
@@ -70,10 +85,11 @@ fun LibraryRoute(
             .filter { selectedSeriesFilter == ALL_SERIES_FILTER || it.displaySeriesTitle == selectedSeriesFilter }
             .let { filtered ->
                 when (sortOption) {
-                    LibrarySortOption.Latest -> filtered
+                    LibrarySortOption.Latest -> filtered.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
                     LibrarySortOption.Title -> filtered.sortedBy { it.title.lowercase() }
                     LibrarySortOption.Show -> filtered.sortedWith(
                         compareBy<VideoSummary> { it.displaySeriesTitle.lowercase() }
+                            .thenByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
                             .thenBy { it.title.lowercase() },
                     )
                 }

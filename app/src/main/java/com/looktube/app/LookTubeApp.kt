@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +52,7 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
     val selectedProgress by viewModel.selectedProgress.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
     val scope = rememberCoroutineScope()
+    var isPlayerFullscreen by rememberSaveable { mutableStateOf(false) }
 
     val topLevelDestinations = listOf(
         TopLevelDestination("auth", "Auth", Icons.Outlined.AccountCircle),
@@ -86,35 +88,44 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
             controller.playWhenReady = true
         }
     }
+    LaunchedEffect(pagerState.currentPage, selectedVideo?.id) {
+        if (pagerState.currentPage != 2 || selectedVideo == null) {
+            isPlayerFullscreen = false
+        }
+    }
 
     LookTubeTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
+                if (!isPlayerFullscreen) {
                 TopAppBar(
                     title = {
                         Text("LookTube")
                     },
                 )
+                }
             },
             bottomBar = {
-                NavigationBar {
-                    topLevelDestinations.forEachIndexed { index, destination ->
-                        NavigationBarItem(
-                            selected = pagerState.currentPage == index,
-                            onClick = {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(index)
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = destination.icon,
-                                    contentDescription = destination.label,
-                                )
-                            },
-                            label = { Text(destination.label) },
-                        )
+                if (!isPlayerFullscreen) {
+                    NavigationBar {
+                        topLevelDestinations.forEachIndexed { index, destination ->
+                            NavigationBarItem(
+                                selected = pagerState.currentPage == index,
+                                onClick = {
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                },
+                                icon = {
+                                    Icon(
+                                        imageVector = destination.icon,
+                                        contentDescription = destination.label,
+                                    )
+                                },
+                                label = { Text(destination.label) },
+                            )
+                        }
                     }
                 }
             },
@@ -123,6 +134,7 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = 1,
+                userScrollEnabled = !isPlayerFullscreen,
             ) {
                 when (topLevelDestinations[it].route) {
                     "auth" -> AuthRoute(
@@ -153,6 +165,8 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         selectedVideo = selectedVideo,
                         playbackProgress = selectedProgress,
                         player = playbackController,
+                        isFullscreen = isPlayerFullscreen,
+                        onFullscreenChanged = { isPlayerFullscreen = it },
                     )
 
                     else -> SettingsRoute(

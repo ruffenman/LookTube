@@ -3,6 +3,7 @@ package com.looktube.feature.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,10 +11,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -37,43 +44,57 @@ fun AuthRoute(
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
+    var optionalCredentialsExpanded by rememberSaveable {
+        mutableStateOf(feedConfiguration.username.isNotBlank() || feedConfiguration.password.isNotBlank())
+    }
     val colorScheme = MaterialTheme.colorScheme
-    val accountStatusLabel = when {
-        accountSession.isSignedIn -> "Connected"
+    val statusLabel = when {
+        isSigningIn -> "Syncing"
+        accountSession.isSignedIn -> "Synced"
         feedConfiguration.feedUrl.isBlank() -> "Setup required"
         syncState.phase == SyncPhase.Error -> "Needs attention"
         else -> "Ready"
     }
-    val accountStatusContainerColor = when (accountStatusLabel) {
-        "Connected" -> colorScheme.primaryContainer
+    val statusContainerColor = when (statusLabel) {
+        "Synced" -> colorScheme.primaryContainer
+        "Syncing" -> colorScheme.tertiaryContainer
         "Needs attention" -> colorScheme.errorContainer
         "Ready" -> colorScheme.secondaryContainer
         else -> colorScheme.surfaceVariant
     }
-    val accountStatusContentColor = when (accountStatusLabel) {
-        "Connected" -> colorScheme.onPrimaryContainer
+    val statusContentColor = when (statusLabel) {
+        "Synced" -> colorScheme.onPrimaryContainer
+        "Syncing" -> colorScheme.onTertiaryContainer
         "Needs attention" -> colorScheme.onErrorContainer
         "Ready" -> colorScheme.onSecondaryContainer
         else -> colorScheme.onSurfaceVariant
     }
-    val libraryStatusLabel = when (syncState.phase) {
-        SyncPhase.Idle -> "Idle"
-        SyncPhase.Refreshing -> "Syncing"
-        SyncPhase.Success -> "Synced"
-        SyncPhase.Error -> "Error"
+    val primaryInstruction = when {
+        isSigningIn -> "Wait while LookTube refreshes your copied Premium feed."
+        feedConfiguration.feedUrl.isBlank() -> "Paste the RSS URL copied from Giant Bomb feeds, then sync your library."
+        accountSession.isSignedIn -> "Your synced library is already saved on this device. Sync again any time to refresh it."
+        else -> "Your feed URL is ready. Tap Sync Premium feed to load the library."
     }
-    val libraryStatusContainerColor = when (syncState.phase) {
-        SyncPhase.Idle -> colorScheme.surfaceVariant
-        SyncPhase.Refreshing -> colorScheme.tertiaryContainer
-        SyncPhase.Success -> colorScheme.primaryContainer
-        SyncPhase.Error -> colorScheme.errorContainer
+    val statusBody = buildString {
+        append(syncState.message)
+        syncState.lastSuccessfulSyncSummary?.let { summary ->
+            append("\n\n")
+            append(summary)
+        }
+        if (feedConfiguration.password.isNotBlank()) {
+            append("\n\nThe optional password is stored only for this app session.")
+        }
+        if (accountSession.isSignedIn || syncState.phase == SyncPhase.Success) {
+            append("\n\nClear synced data removes the cached library and saved progress but keeps the feed URL.")
+        }
     }
-    val libraryStatusContentColor = when (syncState.phase) {
-        SyncPhase.Idle -> colorScheme.onSurfaceVariant
-        SyncPhase.Refreshing -> colorScheme.onTertiaryContainer
-        SyncPhase.Success -> colorScheme.onPrimaryContainer
-        SyncPhase.Error -> colorScheme.onErrorContainer
-    }
+    val canClearData = !isSigningIn && (
+        accountSession.isSignedIn ||
+            syncState.lastSuccessfulSyncSummary != null ||
+            feedConfiguration.username.isNotBlank() ||
+            feedConfiguration.password.isNotBlank()
+        )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -82,41 +103,21 @@ fun AuthRoute(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            if (accountSession.isSignedIn) {
-                "Signed in to Giant Bomb Premium"
-            } else {
-                "Sign in to Giant Bomb Premium"
-            },
+        Text("Connect your Giant Bomb Premium feed")
+
+        LookTubeCard(
+            title = "Next step",
+            body = primaryInstruction,
         )
 
         LookTubeCard(
-            title = if (accountSession.isSignedIn) {
-                "Account status"
-            } else {
-                "Sign-in status"
-            },
-            body = accountSession.notes,
-            containerColor = accountStatusContainerColor,
-            contentColor = accountStatusContentColor,
-            statusLabel = accountStatusLabel,
-            statusLabelContainerColor = accountStatusContentColor,
-            statusLabelContentColor = accountStatusContainerColor,
-        )
-
-        LookTubeCard(
-            title = "Library sync status",
-            body = syncState.message,
-            containerColor = libraryStatusContainerColor,
-            contentColor = libraryStatusContentColor,
-            statusLabel = libraryStatusLabel,
-            statusLabelContainerColor = libraryStatusContentColor,
-            statusLabelContentColor = libraryStatusContainerColor,
-        )
-
-        LookTubeCard(
-            title = "Supported feed input",
-            body = "Paste the RSS URL copied from Giant Bomb feeds. Username and password are optional fallback fields for feed variants that still require basic auth.",
+            title = "Premium feed status",
+            body = statusBody,
+            containerColor = statusContainerColor,
+            contentColor = statusContentColor,
+            statusLabel = statusLabel,
+            statusLabelContainerColor = statusContentColor,
+            statusLabelContentColor = statusContainerColor,
         )
 
         OutlinedTextField(
@@ -127,49 +128,69 @@ fun AuthRoute(
             singleLine = true,
         )
 
-        OutlinedTextField(
-            value = feedConfiguration.username,
-            onValueChange = onUsernameChanged,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Premium username (optional)") },
-            singleLine = true,
-        )
-
-        OutlinedTextField(
-            value = feedConfiguration.password,
-            onValueChange = onPasswordChanged,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Password (optional, session only)") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-        )
-        LookTubeCard(
-            title = "Current supported access path",
-            body = "This build syncs the copied Premium feed URL directly. Session-cookie website sign-in is still planned, but not wired yet.",
-        )
-
-        Button(
-            onClick = onSignInRequested,
-            enabled = canSignIn,
-        ) {
-            if (isSigningIn) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(end = 12.dp),
+        FilterChip(
+            selected = optionalCredentialsExpanded,
+            onClick = { optionalCredentialsExpanded = !optionalCredentialsExpanded },
+            label = {
+                Text(
+                    if (optionalCredentialsExpanded) {
+                        "Hide optional basic-auth credentials"
+                    } else {
+                        "Optional basic-auth credentials"
+                    },
                 )
-                Text("Syncing…")
-            } else if (accountSession.isSignedIn) {
-                Text("Re-sync Premium library")
-            } else {
-                Text("Sync Premium feed")
-            }
+            },
+        )
+
+        if (optionalCredentialsExpanded) {
+            LookTubeCard(
+                title = "Optional fallback",
+                body = "Most copied Giant Bomb feed URLs already contain access keys. Only fill these fields if a specific feed variant still requires basic auth.",
+            )
+
+            OutlinedTextField(
+                value = feedConfiguration.username,
+                onValueChange = onUsernameChanged,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Premium username (optional)") },
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = feedConfiguration.password,
+                onValueChange = onPasswordChanged,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Password (optional, session only)") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            )
         }
 
-        if (accountSession.isSignedIn || feedConfiguration.username.isNotBlank() || feedConfiguration.password.isNotBlank()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Button(
-                onClick = onSignOutRequested,
-                enabled = !isSigningIn,
+                onClick = onSignInRequested,
+                enabled = canSignIn,
             ) {
-                Text("Sign out")
+                if (isSigningIn) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(end = 12.dp),
+                    )
+                    Text("Syncing…")
+                } else if (accountSession.isSignedIn) {
+                    Text("Re-sync Premium library")
+                } else {
+                    Text("Sync Premium feed")
+                }
+            }
+
+            if (canClearData) {
+                OutlinedButton(
+                    onClick = onSignOutRequested,
+                ) {
+                    Text("Clear synced data")
+                }
             }
         }
     }

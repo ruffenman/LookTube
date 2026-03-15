@@ -14,7 +14,7 @@ class LookTubeSmokeTest {
     @Test
     fun showsTopLevelShell() {
         composeRule.onNodeWithText("LookTube").assertIsDisplayed()
-        composeRule.onNodeWithText("Sign in to Giant Bomb Premium").assertIsDisplayed()
+        composeRule.onNodeWithText("Connect your Giant Bomb Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Premium feed URL").assertIsDisplayed()
         composeRule.onNodeWithText("Sync Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Player").performClick()

@@ -1,6 +1,7 @@
 package com.looktube.network
 
 import com.looktube.model.VideoSummary
+import com.looktube.model.toHeuristicShowTitleOrNull
 import java.io.StringReader
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -46,6 +47,7 @@ class RssVideoFeedParser {
                             ?: item.readAttribute("enclosure", "url")
                             ?: item.readText("link"),
                         seriesTitle = feedCategory.takeUnless(String::isGenericFeedCategory)
+                            ?.toHeuristicShowTitleOrNull()
                             ?: title.inferSeriesTitle(),
                         thumbnailUrl = item.readAttribute("media:thumbnail", "url")
                             ?: description.extractFirstImageUrl(),
@@ -88,16 +90,17 @@ private fun String.inferSeriesTitle(): String? {
     separators.forEach { separator ->
         val prefix = substringBefore(separator, missingDelimiterValue = "")
             .trim()
-            .takeIf { it.isNotBlank() && it.length <= 40 }
+            .toHeuristicShowTitleOrNull()
+            ?.takeIf { it.length <= 40 }
         if (prefix != null) {
             return prefix
         }
     }
     val episodeIndex = indexOf(" episode ", ignoreCase = true)
     if (episodeIndex > 0) {
-        return substring(0, episodeIndex).trim().takeIf(String::isNotEmpty)
+        return substring(0, episodeIndex).trim().toHeuristicShowTitleOrNull()
     }
-    return null
+    return toHeuristicShowTitleOrNull()
 }
 
 private fun String.extractFirstImageUrl(): String? =

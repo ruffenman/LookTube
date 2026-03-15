@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.view.GestureDetector
+import android.view.MotionEvent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,15 +24,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -46,9 +46,10 @@ fun PlayerRoute(
     selectedVideo: VideoSummary?,
     playbackProgress: PlaybackProgress?,
     player: Player?,
+    isFullscreen: Boolean,
+    onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val activity = rememberActivity(LocalContext.current)
-    var isFullscreen by rememberSaveable(selectedVideo?.id) { mutableStateOf(false) }
 
     DisposableEffect(activity, isFullscreen) {
         val hostActivity = activity
@@ -98,7 +99,7 @@ fun PlayerRoute(
         isFullscreen -> FullscreenPlayerSurface(
             player = player,
             isFullscreen = true,
-            onFullscreenToggle = { isFullscreen = false },
+            onFullscreenToggle = { onFullscreenChanged(false) },
         )
 
         else -> Column(
@@ -115,7 +116,7 @@ fun PlayerRoute(
             EmbeddedPlayerSurface(
                 player = player,
                 isFullscreen = false,
-                onFullscreenToggle = { isFullscreen = true },
+                onFullscreenToggle = { onFullscreenChanged(true) },
             )
             LookTubeCard(
                 title = "Playback spike status",
@@ -161,13 +162,30 @@ private fun EmbeddedPlayerSurface(
     isFullscreen: Boolean,
     onFullscreenToggle: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val doubleTapGestureDetector = remember(context, onFullscreenToggle) {
+        GestureDetector(
+            context,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(event: MotionEvent): Boolean {
+                    onFullscreenToggle()
+                    return true
+                }
+            },
+        )
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                },
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
@@ -194,11 +212,28 @@ private fun FullscreenPlayerSurface(
     isFullscreen: Boolean,
     onFullscreenToggle: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val doubleTapGestureDetector = remember(context, onFullscreenToggle) {
+        GestureDetector(
+            context,
+            object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDoubleTap(event: MotionEvent): Boolean {
+                    onFullscreenToggle()
+                    return true
+                }
+            },
+        )
+    }
     Box(
         modifier = Modifier.fillMaxSize(),
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                },
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true

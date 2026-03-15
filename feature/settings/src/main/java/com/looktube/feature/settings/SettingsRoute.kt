@@ -1,27 +1,40 @@
 package com.looktube.feature.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.bestDurationSeconds
+import com.looktube.model.castGroupingKey
+import com.looktube.model.castGroupingTitle
 import com.looktube.model.displaySeriesTitle
 import com.looktube.model.seriesGroupingKey
+import com.looktube.model.topicGroupingKey
+import com.looktube.model.topicGroupingTitle
 import com.looktube.model.VideoSummary
 import java.time.Instant
 import java.time.ZoneId
@@ -34,22 +47,31 @@ fun SettingsRoute(
     playbackProgress: Map<String, PlaybackProgress>,
     onVideoSelected: (String) -> Unit,
 ) {
-    val seriesGroups = videos
-        .groupBy(VideoSummary::seriesGroupingKey)
-        .values
-        .map { seriesVideos ->
-            SeriesGroup(
-                title = seriesVideos
-                    .map(VideoSummary::displaySeriesTitle)
-                    .groupingBy { it }
-                    .eachCount()
-                    .maxByOrNull { it.value }
-                    ?.key
-                    ?: seriesVideos.first().displaySeriesTitle,
-                videos = seriesVideos.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE },
+    var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
+    val seriesGroups = remember(videos, groupingMode) {
+        videos
+            .groupBy { video ->
+                when (groupingMode) {
+                    HeuristicGroupingMode.Show -> video.seriesGroupingKey
+                    HeuristicGroupingMode.Cast -> video.castGroupingKey
+                    HeuristicGroupingMode.Topic -> video.topicGroupingKey
+                }
+            }
+            .values
+            .map { groupedVideos ->
+                val sortedVideos = groupedVideos.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
+                SeriesGroup(
+                    title = groupedVideos.resolveGroupTitle(groupingMode),
+                    videos = sortedVideos,
+                    latestPublishedAt = sortedVideos.firstOrNull()?.publishedAtEpochMillis ?: Long.MIN_VALUE,
+                )
+            }
+            .sortedWith(
+                compareByDescending<SeriesGroup> { it.latestPublishedAt }
+                    .thenByDescending { it.videos.size }
+                    .thenBy { it.title.lowercase() },
             )
-        }
-        .sortedByDescending { it.videos.size }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -61,6 +83,20 @@ fun SettingsRoute(
     ) {
         item {
             Text("Shows")
+        }
+        item {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                HeuristicGroupingMode.entries.forEach { mode ->
+                    FilterChip(
+                        selected = groupingMode == mode,
+                        onClick = { groupingMode = mode },
+                        label = { Text(mode.label) },
+                    )
+                }
+            }
         }
         if (seriesGroups.isEmpty()) {
             item {
@@ -146,7 +182,26 @@ fun SettingsRoute(
 private data class SeriesGroup(
     val title: String,
     val videos: List<VideoSummary>,
+    val latestPublishedAt: Long,
 )
+
+private enum class HeuristicGroupingMode(val label: String) {
+    Show("By show"),
+    Cast("By cast"),
+    Topic("By topic"),
+}
+
+private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): String =
+    when (mode) {
+        HeuristicGroupingMode.Show -> map(VideoSummary::displaySeriesTitle)
+        HeuristicGroupingMode.Cast -> map(VideoSummary::castGroupingTitle)
+        HeuristicGroupingMode.Topic -> map(VideoSummary::topicGroupingTitle)
+    }
+        .groupingBy { it }
+        .eachCount()
+        .maxWithOrNull(compareBy<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        ?.key
+        ?: first().displaySeriesTitle
 
 private fun buildEpisodeMetadata(
     video: VideoSummary,

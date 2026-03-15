@@ -64,4 +64,25 @@ class RssVideoFeedParserTest {
         assertEquals("Quick Look", videos.single().seriesTitle)
         assertEquals("https://image.example.com/quick-look-1.jpg", videos.single().thumbnailUrl)
     }
+
+    @Test
+    fun stripsEpisodeNumbersFromHeuristicShowTitles() {
+        val fixture = """
+            <rss version="2.0">
+                <channel>
+                    <item>
+                        <guid>bombcast-1</guid>
+                        <title>Giant Bombcast 901: Ranking the Best Sandwiches in Games</title>
+                        <description>Podcast coverage.</description>
+                        <category>Premium</category>
+                        <enclosure url="https://video.example.com/bombcast-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals("Giant Bombcast", videos.single().seriesTitle)
+    }
 }
