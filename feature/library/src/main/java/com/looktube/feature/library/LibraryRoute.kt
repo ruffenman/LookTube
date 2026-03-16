@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -140,6 +141,7 @@ fun LibraryRoute(
             }
             .sortedWith(sectionComparator(sortOption))
     }
+    val videoCardTextEndPadding = if (sections.isEmpty()) 0.dp else JUMP_RAIL_TEXT_CLEARANCE
     val sectionStartIndices = remember(sections) {
         buildList {
             var currentIndex = GROUP_LIST_START_INDEX
@@ -249,6 +251,7 @@ fun LibraryRoute(
                         VideoListCard(
                             video = video,
                             progress = playbackProgress[video.id],
+                            textEndPadding = videoCardTextEndPadding,
                             modifier = Modifier.clickable { onVideoSelected(video.id) },
                         )
                     }
@@ -399,6 +402,11 @@ private enum class LibrarySortOption(val label: String) {
 private const val ALL_SERIES_FILTER = "All shows"
 private const val GROUP_LIST_START_INDEX = 4
 private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
+private val JUMP_RAIL_WIDTH = 176.dp
+private val JUMP_RAIL_LABEL_WIDTH = 156.dp
+private val JUMP_RAIL_LABEL_END_PADDING = 6.dp
+private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING
+private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 
 private fun List<VideoSummary>.sortedFor(sortOption: LibrarySortOption): List<VideoSummary> =
     when (sortOption) {
@@ -478,6 +486,7 @@ private fun SeriesSectionHeader(section: SeriesSection) {
 private fun VideoListCard(
     video: VideoSummary,
     progress: PlaybackProgress?,
+    textEndPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val progressFraction = progress?.takeIf { it.durationSeconds > 0 }
@@ -500,7 +509,12 @@ private fun VideoListCard(
                     color = Color.Black.copy(alpha = 0.52f),
                 ) {
                     Column(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(
+                            start = 16.dp,
+                            top = 12.dp,
+                            end = 16.dp + textEndPadding,
+                            bottom = 12.dp,
+                        ),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         Text(
@@ -525,7 +539,12 @@ private fun VideoListCard(
                 )
             }
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(
+                    start = 16.dp,
+                    top = 16.dp,
+                    end = 16.dp + textEndPadding,
+                    bottom = 16.dp,
+                ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
@@ -614,16 +633,16 @@ private fun ShowJumpRail(
     )
 
     Row(
-        modifier = modifier.width(176.dp),
+        modifier = modifier.width(JUMP_RAIL_WIDTH),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .width(156.dp)
+                .width(JUMP_RAIL_LABEL_WIDTH)
                 .graphicsLayer(alpha = labelAlpha)
-                .padding(end = 6.dp),
+                .padding(end = JUMP_RAIL_LABEL_END_PADDING),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.End,
             contentPadding = PaddingValues(vertical = 8.dp),
@@ -677,7 +696,7 @@ private fun JumpRailTrack(
 ) {
     BoxWithConstraints(
         modifier = Modifier
-            .width(8.dp)
+            .width(JUMP_RAIL_TRACK_WIDTH)
             .fillMaxHeight(),
     ) {
         val thumbHeight = 40.dp
@@ -701,7 +720,7 @@ private fun JumpRailTrack(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = thumbOffset)
-                .size(width = 8.dp, height = thumbHeight)
+                .size(width = JUMP_RAIL_TRACK_WIDTH, height = thumbHeight)
                 .clip(RoundedCornerShape(999.dp))
                 .background(MaterialTheme.colorScheme.primary),
         )
