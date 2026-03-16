@@ -29,12 +29,13 @@ The first implementation path should be feed-first, not legacy-API-first. The au
 
 ## Probe policy
 - live probes are opt-in only
-- credentials must come from environment variables
+- the copied feed URL must come from an environment variable, and fallback basic-auth credentials must also come from environment variables if they are needed
 - no secrets or raw authenticated payloads should be committed
+- probe output should stay structural only: status, content type, item count, and other non-sensitive shape notes instead of raw XML previews
 - when a live integration assumption changes, update this document before changing code behavior
 
 ## Next probe checklist
 1. identify the exact target Premium feed URL
 2. run `.\gradlew.bat integrationProbeGiantBomb`
-3. capture status code, content type, item count, and non-sensitive structural notes
+3. capture whether the probe used feed-url-only access or fallback basic auth, plus status code, content type, item count, and non-sensitive structural notes
 4. update this document and the learnings log with the validation date and outcome

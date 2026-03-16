@@ -66,8 +66,9 @@ Use only when you have local Giant Bomb Premium credentials available as environ
 
 ```powershell path=null start=null
 $env:LOOKTUBE_GIANTBOMB_FEED_URL = "{{LOOKTUBE_GIANTBOMB_FEED_URL}}"
-$env:LOOKTUBE_GIANTBOMB_USERNAME = "{{LOOKTUBE_GIANTBOMB_USERNAME}}"
-$env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
+# Optional only if the copied feed URL still requires basic auth:
+# $env:LOOKTUBE_GIANTBOMB_USERNAME = "{{LOOKTUBE_GIANTBOMB_USERNAME}}"
+# $env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
 .\gradlew.bat integrationProbeGiantBomb
 ```
 
