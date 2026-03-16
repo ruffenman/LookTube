@@ -16,18 +16,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -74,12 +73,11 @@ fun LibraryRoute(
     playbackProgress: Map<String, PlaybackProgress>,
     onVideoSelected: (String) -> Unit,
 ) {
-    var browseMode by rememberSaveable { mutableStateOf(LibraryBrowseMode.Videos) }
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
-    val groupedListState = rememberLazyListState()
+    val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val latestPublishedAtBySeries = remember(videos) {
@@ -103,25 +101,14 @@ fun LibraryRoute(
             )
         listOf(ALL_SERIES_FILTER) + sortedFilters
     }
-    val visibleVideos = remember(videos, sortOption, selectedSeriesFilter) {
-        videos
-            .asSequence()
-            .filter { selectedSeriesFilter == ALL_SERIES_FILTER || it.displaySeriesTitle == selectedSeriesFilter }
-            .let { filtered ->
-                when (sortOption) {
-                    LibrarySortOption.Latest -> filtered.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-                    LibrarySortOption.Title -> filtered.sortedBy { it.title.lowercase() }
-                    LibrarySortOption.Show -> filtered.sortedWith(
-                        compareBy<VideoSummary> { it.displaySeriesTitle.lowercase() }
-                            .thenByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-                            .thenBy { it.title.lowercase() },
-                    )
-                }
-            }
-            .toList()
+    val filteredVideos = remember(videos, selectedSeriesFilter) {
+        videos.filter { selectedSeriesFilter == ALL_SERIES_FILTER || it.displaySeriesTitle == selectedSeriesFilter }
     }
-    val seriesGroups = remember(videos, groupingMode) {
-        videos
+    val sortedVideos = remember(filteredVideos, sortOption) {
+        filteredVideos.sortedFor(sortOption)
+    }
+    val sections = remember(sortedVideos, sortOption, groupingMode) {
+        sortedVideos
             .groupBy { video ->
                 when (groupingMode) {
                     HeuristicGroupingMode.Show -> video.seriesGroupingKey
@@ -131,121 +118,143 @@ fun LibraryRoute(
             }
             .values
             .map { groupedVideos ->
-                val sortedVideos = groupedVideos.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-                SeriesGroup(
+                SeriesSection(
                     title = groupedVideos.resolveGroupTitle(groupingMode),
-                    videos = sortedVideos,
-                    latestPublishedAt = sortedVideos.firstOrNull()?.publishedAtEpochMillis ?: Long.MIN_VALUE,
+                    videos = groupedVideos.sortedFor(sortOption),
+                    latestPublishedAt = groupedVideos.maxOfOrNull { it.publishedAtEpochMillis ?: Long.MIN_VALUE } ?: Long.MIN_VALUE,
                 )
             }
-            .sortedWith(
-                compareByDescending<SeriesGroup> { it.latestPublishedAt }
-                    .thenByDescending { it.videos.size }
-                    .thenBy { it.title.lowercase() },
-            )
+            .sortedWith(sectionComparator(sortOption))
     }
-    val currentGroupIndex by remember(seriesGroups, groupedListState) {
+    val sectionStartIndices = remember(sections) {
+        buildList {
+            var currentIndex = GROUP_LIST_START_INDEX
+            sections.forEach { section ->
+                add(currentIndex)
+                currentIndex += 1 + section.videos.size
+            }
+        }
+    }
+    val currentGroupIndex by remember(sections, sectionStartIndices, listState) {
         derivedStateOf {
-            if (seriesGroups.isEmpty()) {
+            if (sections.isEmpty()) {
                 0
             } else {
-                (groupedListState.firstVisibleItemIndex - GROUP_LIST_START_INDEX)
-                    .coerceIn(0, seriesGroups.lastIndex)
+                sectionStartIndices.indexOfLast { it <= listState.firstVisibleItemIndex }
+                    .coerceAtLeast(0)
             }
         }
     }
 
-    LaunchedEffect(currentGroupIndex, seriesGroups.size) {
-        if (seriesGroups.isNotEmpty()) {
-            showRailState.animateScrollToItem(currentGroupIndex.coerceAtMost(seriesGroups.lastIndex))
+    LaunchedEffect(currentGroupIndex, sections.size) {
+        if (sections.isNotEmpty()) {
+            showRailState.animateScrollToItem(currentGroupIndex.coerceAtMost(sections.lastIndex))
         }
     }
 
-    when (browseMode) {
-        LibraryBrowseMode.Videos -> {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
-            ) {
-                item {
-                    Text("Library")
-                }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues),
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, top = 0.dp, end = if (sections.isEmpty()) 16.dp else 112.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
+        ) {
+            item {
+                Text("Library")
+            }
 
-                item {
-                    LookTubeCard(
-                        title = "Library sync",
-                        body = syncState.message,
-                    )
-                }
+            item {
+                LookTubeCard(
+                    title = "Library sync",
+                    body = syncState.message,
+                )
+            }
 
-                item {
-                    BrowseModeRow(
-                        browseMode = browseMode,
-                        onBrowseModeChanged = { browseMode = it },
-                    )
+            item {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    HeuristicGroupingMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = groupingMode == mode,
+                            onClick = { groupingMode = mode },
+                            label = { Text(mode.label) },
+                        )
+                    }
                 }
+            }
 
-                item {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Box {
-                            FilterChip(
-                                selected = false,
-                                onClick = { sortMenuExpanded = true },
-                                label = { Text("Sort: ${sortOption.label}") },
-                            )
-                            DropdownMenu(
-                                expanded = sortMenuExpanded,
-                                onDismissRequest = { sortMenuExpanded = false },
-                            ) {
-                                LibrarySortOption.entries.forEach { option ->
-                                    DropdownMenuItem(
-                                        text = { Text(option.label) },
-                                        onClick = {
-                                            sortOption = option
-                                            sortMenuExpanded = false
-                                        },
-                                    )
-                                }
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            item {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box {
+                        FilterChip(
+                            selected = false,
+                            onClick = { sortMenuExpanded = true },
+                            label = { Text("Sort: ${sortOption.label}") },
+                        )
+                        DropdownMenu(
+                            expanded = sortMenuExpanded,
+                            onDismissRequest = { sortMenuExpanded = false },
                         ) {
-                            seriesFilters.forEach { filter ->
-                                FilterChip(
-                                    selected = selectedSeriesFilter == filter,
-                                    onClick = { selectedSeriesFilter = filter },
-                                    label = { Text(filter) },
+                            LibrarySortOption.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.label) },
+                                    onClick = {
+                                        sortOption = option
+                                        sortMenuExpanded = false
+                                    },
                                 )
                             }
                         }
                     }
-                }
-
-                if (visibleVideos.isEmpty()) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                text = when {
-                                    videos.isEmpty() -> "Sync a feed first to load your library."
-                                    selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
-                                    else -> "No videos are available in the synced library yet."
-                                },
-                                modifier = Modifier.padding(16.dp),
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        seriesFilters.forEach { filter ->
+                            FilterChip(
+                                selected = selectedSeriesFilter == filter,
+                                onClick = { selectedSeriesFilter = filter },
+                                label = { Text(filter) },
                             )
                         }
                     }
-                } else {
-                    items(visibleVideos) { video ->
+                }
+            }
+
+            if (sortedVideos.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = when {
+                                videos.isEmpty() -> "Sync a feed first to load your library."
+                                selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
+                                else -> "No videos are available in the synced library yet."
+                            },
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+            } else {
+                sections.forEach { section ->
+                    item(key = "section-${section.title}") {
+                        SeriesSectionHeader(section = section)
+                    }
+                    items(
+                        items = section.videos,
+                        key = { video -> "${section.title}-${video.id}" },
+                    ) { video ->
                         VideoListCard(
                             video = video,
                             progress = playbackProgress[video.id],
@@ -256,160 +265,30 @@ fun LibraryRoute(
             }
         }
 
-        LibraryBrowseMode.Groups -> {
-            Box(
+        if (sections.isNotEmpty()) {
+            ShowJumpRail(
+                groups = sections,
+                listState = showRailState,
+                currentGroupIndex = currentGroupIndex,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-            ) {
-                LazyColumn(
-                    state = groupedListState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = 16.dp, top = 0.dp, end = if (seriesGroups.isEmpty()) 16.dp else 112.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(vertical = 16.dp),
-                ) {
-                    item {
-                        Text("Library")
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .padding(end = 12.dp, top = 16.dp, bottom = 16.dp),
+                onGroupSelected = { groupIndex ->
+                    scope.launch {
+                        listState.animateScrollToItem(sectionStartIndices[groupIndex])
                     }
-                    item {
-                        LookTubeCard(
-                            title = "Library sync",
-                            body = syncState.message,
-                        )
-                    }
-                    item {
-                        BrowseModeRow(
-                            browseMode = browseMode,
-                            onBrowseModeChanged = { browseMode = it },
-                        )
-                    }
-                    item {
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            HeuristicGroupingMode.entries.forEach { mode ->
-                                FilterChip(
-                                    selected = groupingMode == mode,
-                                    onClick = { groupingMode = mode },
-                                    label = { Text(mode.label) },
-                                )
-                            }
-                        }
-                    }
-                    if (seriesGroups.isEmpty()) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(
-                                    text = "Sync a feed first to browse grouped videos.",
-                                    modifier = Modifier.padding(16.dp),
-                                )
-                            }
-                        }
-                    } else {
-                        items(seriesGroups) { group ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    Text(
-                                        text = group.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                    Text(
-                                        text = "${group.videos.size} videos",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                    group.videos.take(8).forEachIndexed { index, video ->
-                                        if (index > 0) {
-                                            HorizontalDivider()
-                                        }
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { onVideoSelected(video.id) }
-                                                .padding(vertical = 8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
-                                            Text(
-                                                text = video.title,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                            )
-                                            if (video.description.isNotBlank()) {
-                                                Text(
-                                                    text = video.description,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            }
-                                            buildMetadataLine(video, playbackProgress[video.id]).takeIf(String::isNotBlank)?.let { metadata ->
-                                                Text(
-                                                    text = metadata,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                )
-                                            }
-                                            playbackProgress[video.id]?.takeIf { it.durationSeconds > 0 }?.let { progress ->
-                                                LinearProgressIndicator(
-                                                    progress = { (progress.positionSeconds.toFloat() / progress.durationSeconds.toFloat()).coerceIn(0f, 1f) },
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                )
-                                            }
-                                        }
-                                    }
-                                    if (group.videos.size > 8) {
-                                        Text(
-                                            text = "+ ${group.videos.size - 8} more videos",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (seriesGroups.isNotEmpty()) {
-                    ShowJumpRail(
-                        groups = seriesGroups,
-                        listState = showRailState,
-                        currentGroupIndex = currentGroupIndex,
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .fillMaxHeight()
-                            .padding(end = 12.dp, top = 16.dp, bottom = 16.dp),
-                        onGroupSelected = { groupIndex ->
-                            scope.launch {
-                                groupedListState.animateScrollToItem(GROUP_LIST_START_INDEX + groupIndex)
-                            }
-                        },
-                    )
-                }
-            }
+                },
+            )
         }
     }
 }
 
-private data class SeriesGroup(
+private data class SeriesSection(
     val title: String,
     val videos: List<VideoSummary>,
     val latestPublishedAt: Long,
 )
-
-private enum class LibraryBrowseMode(val label: String) {
-    Videos("Videos"),
-    Groups("Groups"),
-}
 
 private enum class HeuristicGroupingMode(val label: String) {
     Show("By show"),
@@ -426,24 +305,26 @@ private enum class LibrarySortOption(val label: String) {
 private const val ALL_SERIES_FILTER = "All shows"
 private const val GROUP_LIST_START_INDEX = 4
 
-@Composable
-private fun BrowseModeRow(
-    browseMode: LibraryBrowseMode,
-    onBrowseModeChanged: (LibraryBrowseMode) -> Unit,
-) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        LibraryBrowseMode.entries.forEach { mode ->
-            FilterChip(
-                selected = browseMode == mode,
-                onClick = { onBrowseModeChanged(mode) },
-                label = { Text(mode.label) },
-            )
-        }
+private fun List<VideoSummary>.sortedFor(sortOption: LibrarySortOption): List<VideoSummary> =
+    when (sortOption) {
+        LibrarySortOption.Latest -> sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
+        LibrarySortOption.Title -> sortedBy { it.title.lowercase() }
+        LibrarySortOption.Show -> sortedWith(
+            compareBy<VideoSummary> { it.displaySeriesTitle.lowercase() }
+                .thenByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
+                .thenBy { it.title.lowercase() },
+        )
     }
-}
+
+private fun sectionComparator(sortOption: LibrarySortOption): Comparator<SeriesSection> =
+    when (sortOption) {
+        LibrarySortOption.Latest -> compareByDescending<SeriesSection> { it.latestPublishedAt }
+            .thenBy { it.title.lowercase() }
+        LibrarySortOption.Title,
+        LibrarySortOption.Show,
+        -> compareBy<SeriesSection> { it.title.lowercase() }
+            .thenByDescending { it.latestPublishedAt }
+    }
 
 private fun buildMetadataLine(
     video: VideoSummary,
@@ -465,6 +346,28 @@ private fun formatDuration(seconds: Long): String {
         "%d:%02d:%02d".format(hours, minutes, remainingSeconds)
     } else {
         "%d:%02d".format(minutes, remainingSeconds)
+    }
+}
+
+@Composable
+private fun SeriesSectionHeader(section: SeriesSection) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = section.title,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = "${section.videos.size} videos",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
     }
 }
 
@@ -573,7 +476,7 @@ private fun VideoThumbnail(video: VideoSummary) {
 
 @Composable
 private fun ShowJumpRail(
-    groups: List<SeriesGroup>,
+    groups: List<SeriesSection>,
     listState: LazyListState,
     currentGroupIndex: Int,
     modifier: Modifier = Modifier,

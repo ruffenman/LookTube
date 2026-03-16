@@ -18,9 +18,9 @@ class LookTubeSmokeTest {
         composeRule.onNodeWithText("Premium feed URL").assertIsDisplayed()
         composeRule.onNodeWithText("Sync Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Library").performClick()
-        composeRule.onNodeWithText("Videos").assertIsDisplayed()
-        composeRule.onNodeWithText("Groups").performClick()
-        composeRule.onNodeWithText("Sync a feed first to browse grouped videos.").assertIsDisplayed()
+        composeRule.onNodeWithText("By show").assertIsDisplayed()
+        composeRule.onNodeWithText("Sort: Latest").assertIsDisplayed()
+        composeRule.onNodeWithText("Sync a feed first to load your library.").assertIsDisplayed()
         composeRule.onNodeWithText("Player").performClick()
         composeRule.onNodeWithText("Choose something to watch").assertIsDisplayed()
     }
