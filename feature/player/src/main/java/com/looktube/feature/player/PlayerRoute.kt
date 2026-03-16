@@ -137,11 +137,11 @@ fun PlayerRoute(
                     appendLine("Feed category: ${selectedVideo.feedCategory}")
                     appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
                     if (playbackProgress != null) {
-                        appendLine("Resume at ${playbackProgress.positionSeconds}s of ${playbackProgress.durationSeconds}s.")
+                        appendLine("Resume at ${formatPlaybackTime(playbackProgress.positionSeconds)} of ${formatPlaybackTime(playbackProgress.durationSeconds)}.")
                     } else {
                         appendLine("No stored resume point yet.")
                     }
-                    append("Double-tap the video or use the corner button to toggle fullscreen.")
+                    append("Double-tap the video or use the fullscreen button to toggle fullscreen.")
                 },
             )
         }

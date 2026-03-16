@@ -7,11 +7,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -305,6 +306,7 @@ fun LibraryRoute(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun BrowseControlChipRow(
     contentEndPadding: Dp,
     content: @Composable RowScope.() -> Unit,
@@ -314,11 +316,10 @@ private fun BrowseControlChipRow(
             .fillMaxWidth()
             .padding(end = contentEndPadding),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             content = content,
         )
     }
@@ -560,7 +561,7 @@ private fun SeriesSectionHeader(section: SeriesSection) {
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "${section.videos.size} videos",
+                text = "${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
