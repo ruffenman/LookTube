@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.looktube.designsystem.LookTubeCard
+import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
@@ -193,7 +195,10 @@ fun LibraryRoute(
             contentPadding = PaddingValues(vertical = 16.dp),
         ) {
             item {
-                Text("Library")
+                LookTubePageHeader(
+                    title = "Library",
+                    subtitle = "Browse your synced Premium videos by show, cast, or topic and jump between sections quickly.",
+                )
             }
 
             item {
@@ -204,58 +209,17 @@ fun LibraryRoute(
             }
 
             item {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    HeuristicGroupingMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = groupingMode == mode,
-                            onClick = { groupingMode = mode },
-                            label = { Text(mode.label) },
-                        )
-                    }
-                }
-            }
-
-            item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Box {
-                        FilterChip(
-                            selected = false,
-                            onClick = { sortMenuExpanded = true },
-                            label = { Text("Sort: ${sortOption.label}") },
-                        )
-                        DropdownMenu(
-                            expanded = sortMenuExpanded,
-                            onDismissRequest = { sortMenuExpanded = false },
-                        ) {
-                            LibrarySortOption.entries.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option.label) },
-                                    onClick = {
-                                        sortOption = option
-                                        sortMenuExpanded = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        seriesFilters.forEach { filter ->
-                            FilterChip(
-                                selected = selectedSeriesFilter == filter,
-                                onClick = { selectedSeriesFilter = filter },
-                                label = { Text(filter) },
-                            )
-                        }
-                    }
-                }
+                BrowseControlsPanel(
+                    groupingMode = groupingMode,
+                    onGroupingModeChanged = { groupingMode = it },
+                    sortOption = sortOption,
+                    sortMenuExpanded = sortMenuExpanded,
+                    onSortMenuExpandedChanged = { sortMenuExpanded = it },
+                    onSortOptionChanged = { sortOption = it },
+                    seriesFilters = seriesFilters,
+                    selectedSeriesFilter = selectedSeriesFilter,
+                    onSeriesFilterChanged = { selectedSeriesFilter = it },
+                )
             }
 
             if (sortedVideos.isEmpty()) {
@@ -310,6 +274,107 @@ fun LibraryRoute(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun BrowseControlsPanel(
+    groupingMode: HeuristicGroupingMode,
+    onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
+    sortOption: LibrarySortOption,
+    sortMenuExpanded: Boolean,
+    onSortMenuExpandedChanged: (Boolean) -> Unit,
+    onSortOptionChanged: (LibrarySortOption) -> Unit,
+    seriesFilters: List<String>,
+    selectedSeriesFilter: String,
+    onSeriesFilterChanged: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            BrowseControlSection(
+                label = "Browse by",
+                content = {
+                    HeuristicGroupingMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = groupingMode == mode,
+                            onClick = { onGroupingModeChanged(mode) },
+                            label = { Text(mode.label) },
+                        )
+                    }
+                },
+            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "Order",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Box {
+                    FilterChip(
+                        selected = false,
+                        onClick = { onSortMenuExpandedChanged(true) },
+                        label = { Text("Sort: ${sortOption.label}") },
+                    )
+                    DropdownMenu(
+                        expanded = sortMenuExpanded,
+                        onDismissRequest = { onSortMenuExpandedChanged(false) },
+                    ) {
+                        LibrarySortOption.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.label) },
+                                onClick = {
+                                    onSortOptionChanged(option)
+                                    onSortMenuExpandedChanged(false)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            BrowseControlSection(
+                label = "Filter show",
+                content = {
+                    seriesFilters.forEach { filter ->
+                        FilterChip(
+                            selected = selectedSeriesFilter == filter,
+                            onClick = { onSeriesFilterChanged(filter) },
+                            label = { Text(filter) },
+                        )
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BrowseControlSection(
+    label: String,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            content = content,
+        )
     }
 }
 

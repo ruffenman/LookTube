@@ -23,7 +23,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `feature:auth`
   - auth mode validation surface
 - `feature:library`
-  - consolidated Premium library browse surface with flat and grouped exploration modes
+  - consolidated Premium library browse surface with grouped exploration, rich cards, and flyout jump navigation
 - `feature:player`
   - Media3-backed playback surface with graceful fallback when no playback URL is available
 
@@ -39,15 +39,15 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 ## Current data flow
 1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
-3. the repository loads persisted feed identity settings, keeps password session-only and optional, and seeds fallback library data
-4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen that calls an explicit sync action
-5. an explicit sync action attempts a direct RSS fetch first and replaces the seeded library on success, while still passing optional basic-auth credentials when present
+3. the repository loads persisted feed identity settings, keeps password session-only and optional, restores the last synced library snapshot, and exposes persisted playback progress
+4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen, a consolidated grouped library surface, and a shared Media3 player route
+5. an explicit sync action attempts a direct RSS fetch first and replaces the cached library on success, while still passing optional basic-auth credentials when present
 
 ## Why the current spike still keeps a seeded fallback
 The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy and exact production feed targets. The configurable repository now supports a real Premium feed sync path, but it keeps seeded fallback content so the app remains usable and testable before live credentials are available.
 
 ## Near-term evolution path
-- replace the in-memory repository with a feed-backed implementation
 - replace session-only password handling with a secure auth/session storage strategy
-- harden Media3 playback and persist live watch progress
-- replace the in-memory bookmark store with Room or another persisted local store once the first playback slice is stable
+- continue hardening Media3 playback and real-device resume behavior
+- improve visual regression coverage for the now-richer library/player surfaces
+- keep refining grouping heuristics and browse affordances as more live feed edge cases appear

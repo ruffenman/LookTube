@@ -2,15 +2,15 @@
 LookTube is an Android-first Giant Bomb companion app focused on one primary outcome: sign into a Giant Bomb Premium account and watch Premium video content without navigating the website in a browser.
 
 ## Current status
-The repository is in Phase 0 foundation work:
-- native Android project scaffolded in Kotlin + Compose
-- app architecture split into `app`, `core:*`, and `feature:*` modules
-- fixture-driven parser and repository tests in place
-- configurable feed-backed repository path wired behind a persisted local settings seam
-- Media3-backed player surface wired for videos that expose a playback URL
-- a real Premium feed access screen now supports copied RSS feed URLs as the primary sync path
-- docs, ADR, and Ralph loop validation commands established
-- live Giant Bomb auth and playback still require the dedicated integration spike, but the app can now persist feed URL/username/auth mode and attempt a real Premium feed sync, with username/password treated as optional fallback inputs
+The repository is now past the initial foundation spike and includes a usable Android browse/playback slice:
+- native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
+- copied Giant Bomb Premium RSS URLs supported as the primary sync path, with optional fallback basic-auth fields
+- persisted synced-library state and playback resume state across app restarts
+- app-level Media3 playback service/session with background playback and fullscreen support
+- consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
+- fixture-driven parser/repository tests plus managed smoke coverage
+- maintained docs, ADR, and Ralph loop validation commands
+- live Giant Bomb auth/session strategy and exact long-term playback integration still need additional hardening beyond the current feed-first path
 
 ## Ralph loop commands
 Use these commands as the default development loop on Windows:
@@ -53,7 +53,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. validate successful sync and playback with a copied Giant Bomb Premium RSS URL
-2. replace session-only password handling with a secure persisted credential/session strategy
-3. validate a real Giant Bomb Premium playback URL end to end through the Media3 player
-4. add screenshot regression coverage once the first stable visual slice lands
+1. replace session-only password handling with a secure persisted credential/session strategy if copied feed URLs prove insufficient
+2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
+3. add screenshot-oriented visual regression coverage for the now-stable browse/player surfaces
+4. tighten any remaining Giant Bomb-specific playback or session edge cases found during device validation

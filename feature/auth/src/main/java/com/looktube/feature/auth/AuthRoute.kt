@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
+import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
@@ -105,7 +106,10 @@ fun AuthRoute(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("Connect your Giant Bomb Premium feed")
+        LookTubePageHeader(
+            title = "Connect your Giant Bomb Premium feed",
+            subtitle = "Paste the feed URL you copied from Giant Bomb, then refresh your saved library.",
+        )
 
         LookTubeCard(
             title = "Next step",

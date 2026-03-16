@@ -14,35 +14,23 @@ Premium Giant Bomb subscribers should be able to open an Android app, authentica
 - downloads or offline playback before streaming is stable
 - generalized Giant Bomb site parity
 
-## Phase 0 slice
-Build the Android foundation, doc system, repository seams, validation commands, and feed parsing spike harness.
+## Current validated state
+The current app already covers a substantial first-use slice for a Premium subscriber:
+- copied Premium RSS feed URLs can be configured and synced from the Auth surface
+- the app persists the last successful synced library and saved playback progress
+- Library combines grouped browsing, sort/filter controls, rich video cards, and jump navigation
+- Player uses a shared Media3 session/service model with fullscreen and resume support
+- the main shell is covered by automated smoke validation and regular Ralph loop gates
+
+## Next slice
+Harden the path from copied feed sync to daily repeat use.
 
 ### Acceptance criteria
-- the repository contains a buildable Android app shell with modular boundaries aligned to the architecture docs
-- `verifyFast` runs fixture-driven tests plus doc checks
-- `verifyLocal` adds lint and a managed-device smoke lane
-- the app exposes an auth spike screen, a library baseline screen, a player placeholder, and a diagnostics/settings surface
-- Giant Bomb integration assumptions and open questions are documented in one maintained place
-
-## Phase 1 slice
-Validate the first real Premium-capable integration path and prove an authenticated video can move from library to player.
-
-### Acceptance criteria
-- one chosen auth mode is documented and justified
-- the app can store feed URL, username, and chosen auth mode locally while keeping password handling explicit
-- the app can bootstrap configured library sync state from a real Giant Bomb Premium-capable surface
-- the auth surface reads like a user-facing Premium sign-in flow rather than an internal integration spike
-- selecting a library item reaches a Media3-backed playable screen when a feed item exposes a playback URL
-- failures for expired credentials or missing access are visible to the user
-
-## Phase 2 slice
-Improve daily usability for a Premium subscriber.
-
-### Acceptance criteria
-- latest Premium videos and continue-watching are available from the home or library surface
-- playback resume state persists across app restarts
-- the main navigation flow is covered by automated smoke coverage
-- docs and ADRs reflect the validated architecture, not earlier assumptions
+- copied-feed sync remains the primary user-facing path unless a more robust Premium session flow proves necessary
+- playback and background/session behavior remain stable across more real Giant Bomb feed variants
+- browse ergonomics continue improving from device feedback without regressing the grouped-library model
+- screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
+- docs reflect the validated product shape instead of the earlier scaffold-only phases
 
 ## Ralph loop definition
 1. pick the thinnest user-visible slice from this spec
@@ -55,5 +43,5 @@ Improve daily usability for a Premium subscriber.
 
 ## Open questions
 - Is a direct credentialed-feed path enough for the first usable release, or does Giant Bomb Premium video require a browser-backed session flow?
-- Which exact Giant Bomb feed surface should become the first supported library view?
-- When real playback is wired, what minimum Media3 configuration is required for background and resume behavior?
+- Which additional Giant Bomb feed or page metadata should be folded into show-grouping heuristics?
+- What is the lightest-weight visual regression strategy that fits the current Android/Compose workflow?
