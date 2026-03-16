@@ -8,7 +8,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - persisted synced-library state and playback resume state across app restarts
 - app-level Media3 playback service/session with background playback and fullscreen support
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
-- committed Roborazzi visual baseline coverage for the Library browse surface
+- committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player fallback states
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
 - live Giant Bomb auth/session strategy and exact long-term playback integration still need additional hardening beyond the current feed-first path
@@ -56,5 +56,5 @@ Run the managed-device smoke lane when emulator support is ready:
 ## Near-term implementation focus
 1. replace session-only password handling with a secure persisted credential/session strategy if copied feed URLs prove insufficient
 2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
-3. add screenshot-oriented visual regression coverage for the now-stable browse/player surfaces
+3. keep expanding screenshot-oriented visual regression coverage around the app shell and richer playback states
 4. tighten any remaining Giant Bomb-specific playback or session edge cases found during device validation

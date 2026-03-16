@@ -17,7 +17,7 @@ Current coverage:
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
-- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands
+- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player fallback surfaces
 - managed-device smoke coverage now also checks the player fallback surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
@@ -52,6 +52,13 @@ Verify the current UI against committed baselines:
 ```powershell path=null start=null
 .\gradlew.bat verifyScreenshots
 ```
+
+Current committed baselines cover:
+- Library browse surface
+- Auth setup-required state
+- Auth synced state with fallback credentials expanded
+- Player empty-queue state
+- Player preparing state
 
 ## Live integration probe
 Use only when you have local Giant Bomb Premium credentials available as environment variables:
