@@ -129,4 +129,26 @@ class RssVideoFeedParserTest {
 
         assertEquals("Voicemail Dump Truck", videos.single().seriesTitle)
     }
+
+    @Test
+    fun canonicalizesUpfAbbreviationToUnprofessionalFridays() {
+        val fixture = """
+            <rss version="2.0">
+                <channel>
+                    <item>
+                        <guid>upf-1</guid>
+                        <title>UPF 03/15/2026</title>
+                        <description>Friday chaos, snacks, and multiplayer nonsense.</description>
+                        <category>Premium</category>
+                        <link>https://www.giantbomb.com/shows/upf-03152026/2970-55555</link>
+                        <enclosure url="https://video.example.com/upf-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals("Unprofessional Fridays", videos.single().seriesTitle)
+    }
 }

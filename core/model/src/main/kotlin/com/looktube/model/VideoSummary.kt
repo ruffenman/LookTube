@@ -221,6 +221,7 @@ private val KNOWN_SHOW_TITLE_PATTERNS = listOf(
     Regex("""^.*\b(?:BONUS DUMP|RE-DUMP)\b.*$""", RegexOption.IGNORE_CASE) to "Voicemail Dump Truck",
     Regex("""^.*\.mp3$""", RegexOption.IGNORE_CASE) to "Voicemail Dump Truck",
     Regex("""^Game Mess Mornings\b.*$""", RegexOption.IGNORE_CASE) to "Game Mess Mornings",
+    Regex("""^UPF\b.*$""", RegexOption.IGNORE_CASE) to "Unprofessional Fridays",
 )
 
 private val SHOW_TITLE_TRAILING_PATTERNS = listOf(
@@ -239,6 +240,8 @@ private val KNOWN_SHOW_SLUGS = mapOf(
     "game-mess-mornings" to "Game Mess Mornings",
     "quick-look" to "Quick Look",
     "quick-looks" to "Quick Look",
+    "upf" to "Unprofessional Fridays",
+    "unprofessional-fridays" to "Unprofessional Fridays",
     "blight-club" to "Blight Club",
     "best-of-giant-bomb" to "Best of Giant Bomb",
     "bomb-a-thon" to "Bomb-A-Thon",
