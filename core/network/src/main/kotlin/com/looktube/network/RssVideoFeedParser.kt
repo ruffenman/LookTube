@@ -1,6 +1,7 @@
 package com.looktube.network
 
 import com.looktube.model.VideoSummary
+import com.looktube.model.toHeuristicShowTitleFromUrlOrNull
 import com.looktube.model.toHeuristicShowTitleOrNull
 import java.io.StringReader
 import java.time.ZonedDateTime
@@ -35,6 +36,7 @@ class RssVideoFeedParser {
                 val title = item.readText("title") ?: "Untitled"
                 val description = item.readText("description") ?: ""
                 val feedCategory = item.readText("category") ?: "Uncategorized"
+                val pageUrl = item.readText("link")
                 add(
                     VideoSummary(
                         id = item.readText("guid") ?: "item-$index",
@@ -45,9 +47,10 @@ class RssVideoFeedParser {
                         feedCategory = feedCategory,
                         playbackUrl = item.readAttribute("media:content", "url")
                             ?: item.readAttribute("enclosure", "url")
-                            ?: item.readText("link"),
+                            ?: pageUrl,
                         seriesTitle = feedCategory.takeUnless(String::isGenericFeedCategory)
                             ?.toHeuristicShowTitleOrNull()
+                            ?: pageUrl.toHeuristicShowTitleFromUrlOrNull()
                             ?: title.inferSeriesTitle(),
                         thumbnailUrl = item.readAttribute("media:thumbnail", "url")
                             ?: description.extractFirstImageUrl(),

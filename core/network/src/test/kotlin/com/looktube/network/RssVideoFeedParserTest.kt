@@ -85,4 +85,48 @@ class RssVideoFeedParserTest {
 
         assertEquals("Giant Bombcast", videos.single().seriesTitle)
     }
+
+    @Test
+    fun infersShowFromGiantBombShowPageLinkWhenTitleIsOnlyEpisodeNumber() {
+        val fixture = """
+            <rss version="2.0">
+                <channel>
+                    <item>
+                        <guid>bombcast-link-1</guid>
+                        <title>931: Bleepbloop Remote</title>
+                        <description>Podcast coverage.</description>
+                        <category>Premium</category>
+                        <link>https://www.giantbomb.com/shows/giant-bombcast-931-bleepbloop-remote/2970-99999</link>
+                        <enclosure url="https://video.example.com/bombcast-link-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals("Giant Bombcast", videos.single().seriesTitle)
+    }
+
+    @Test
+    fun infersVoicemailDumpTruckForBonusDumpTitles() {
+        val fixture = """
+            <rss version="2.0">
+                <channel>
+                    <item>
+                        <guid>dump-1</guid>
+                        <title>183 BONUS DUMP</title>
+                        <description>Extra speakeasy dumpin'.</description>
+                        <category>Premium</category>
+                        <link>https://www.giantbomb.com/shows/183-bonus-dump/2970-23712/premium-video</link>
+                        <enclosure url="https://video.example.com/dump-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals("Voicemail Dump Truck", videos.single().seriesTitle)
+    }
 }

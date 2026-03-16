@@ -30,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -167,6 +166,7 @@ private fun EmbeddedPlayerSurface(
         GestureDetector(
             context,
             object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(event: MotionEvent): Boolean = true
                 override fun onDoubleTap(event: MotionEvent): Boolean {
                     onFullscreenToggle()
                     return true
@@ -180,20 +180,23 @@ private fun EmbeddedPlayerSurface(
             .aspectRatio(16f / 9f),
     ) {
         AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInteropFilter { motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                },
+            modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
                     this.player = player
+                    setOnTouchListener { _, motionEvent ->
+                        doubleTapGestureDetector.onTouchEvent(motionEvent)
+                        false
+                    }
                 }
             },
             update = { playerView ->
                 playerView.player = player
+                playerView.setOnTouchListener { _, motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                }
             },
         )
         FullscreenToggleButton(
@@ -217,6 +220,7 @@ private fun FullscreenPlayerSurface(
         GestureDetector(
             context,
             object : GestureDetector.SimpleOnGestureListener() {
+                override fun onDown(event: MotionEvent): Boolean = true
                 override fun onDoubleTap(event: MotionEvent): Boolean {
                     onFullscreenToggle()
                     return true
@@ -228,20 +232,23 @@ private fun FullscreenPlayerSurface(
         modifier = Modifier.fillMaxSize(),
     ) {
         AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInteropFilter { motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                },
+            modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
                     this.player = player
+                    setOnTouchListener { _, motionEvent ->
+                        doubleTapGestureDetector.onTouchEvent(motionEvent)
+                        false
+                    }
                 }
             },
             update = { playerView ->
                 playerView.player = player
+                playerView.setOnTouchListener { _, motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                }
             },
         )
         FullscreenToggleButton(

@@ -3,30 +3,44 @@ package com.looktube.feature.settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.bestDurationSeconds
 import com.looktube.model.castGroupingKey
@@ -39,6 +53,7 @@ import com.looktube.model.VideoSummary
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsRoute(
@@ -47,6 +62,9 @@ fun SettingsRoute(
     playbackProgress: Map<String, PlaybackProgress>,
     onVideoSelected: (String) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    val showRailState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     val seriesGroups = remember(videos, groupingMode) {
         videos
@@ -72,109 +90,146 @@ fun SettingsRoute(
                     .thenBy { it.title.lowercase() },
             )
     }
+    val currentGroupIndex by remember(seriesGroups, listState) {
+        derivedStateOf {
+            if (seriesGroups.isEmpty()) {
+                0
+            } else {
+                (listState.firstVisibleItemIndex - SHOW_LIST_START_INDEX)
+                    .coerceIn(0, seriesGroups.lastIndex)
+            }
+        }
+    }
+    LaunchedEffect(currentGroupIndex, seriesGroups.size) {
+        if (seriesGroups.isNotEmpty()) {
+            showRailState.animateScrollToItem(currentGroupIndex.coerceAtMost(seriesGroups.lastIndex))
+        }
+    }
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
+            .padding(paddingValues),
     ) {
-        item {
-            Text("Shows")
-        }
-        item {
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                HeuristicGroupingMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = groupingMode == mode,
-                        onClick = { groupingMode = mode },
-                        label = { Text(mode.label) },
-                    )
-                }
-            }
-        }
-        if (seriesGroups.isEmpty()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 16.dp, top = 0.dp, end = if (seriesGroups.isEmpty()) 16.dp else 112.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
+        ) {
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
+                Text("Shows")
+            }
+            item {
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text = "Sync a feed first to browse shows and jump into videos by series.",
-                        modifier = Modifier.padding(16.dp),
-                    )
+                    HeuristicGroupingMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = groupingMode == mode,
+                            onClick = { groupingMode = mode },
+                            label = { Text(mode.label) },
+                        )
+                    }
                 }
             }
-        } else {
-            items(seriesGroups) { group ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+            if (seriesGroups.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = group.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Sync a feed first to browse shows and jump into videos by series.",
+                            modifier = Modifier.padding(16.dp),
                         )
-                        Text(
-                            text = "${group.videos.size} videos",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        group.videos.take(8).forEachIndexed { index, video ->
-                            if (index > 0) {
-                                HorizontalDivider()
-                            }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onVideoSelected(video.id) }
-                                    .padding(vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = video.title,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                if (video.description.isNotBlank()) {
-                                    Text(
-                                        text = video.description,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                                buildEpisodeMetadata(video, playbackProgress[video.id]).takeIf(String::isNotBlank)?.let { metadata ->
-                                    Text(
-                                        text = metadata,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                playbackProgress[video.id]?.takeIf { it.durationSeconds > 0 }?.let { progress ->
-                                    LinearProgressIndicator(
-                                        progress = { (progress.positionSeconds.toFloat() / progress.durationSeconds.toFloat()).coerceIn(0f, 1f) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                }
-                            }
-                        }
-                        if (group.videos.size > 8) {
+                    }
+                }
+            } else {
+                items(seriesGroups) { group ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
                             Text(
-                                text = "+ ${group.videos.size - 8} more videos",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = group.title,
+                                style = MaterialTheme.typography.titleMedium,
                             )
+                            Text(
+                                text = "${group.videos.size} videos",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            group.videos.take(8).forEachIndexed { index, video ->
+                                if (index > 0) {
+                                    HorizontalDivider()
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onVideoSelected(video.id) }
+                                        .padding(vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = video.title,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                    )
+                                    if (video.description.isNotBlank()) {
+                                        Text(
+                                            text = video.description,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    buildEpisodeMetadata(video, playbackProgress[video.id]).takeIf(String::isNotBlank)?.let { metadata ->
+                                        Text(
+                                            text = metadata,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    playbackProgress[video.id]?.takeIf { it.durationSeconds > 0 }?.let { progress ->
+                                        LinearProgressIndicator(
+                                            progress = { (progress.positionSeconds.toFloat() / progress.durationSeconds.toFloat()).coerceIn(0f, 1f) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                    }
+                                }
+                            }
+                            if (group.videos.size > 8) {
+                                Text(
+                                    text = "+ ${group.videos.size - 8} more videos",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+        if (seriesGroups.isNotEmpty()) {
+            ShowJumpRail(
+                groups = seriesGroups,
+                listState = showRailState,
+                currentGroupIndex = currentGroupIndex,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .padding(end = 12.dp, top = 16.dp, bottom = 16.dp),
+                onGroupSelected = { groupIndex ->
+                    scope.launch {
+                        listState.animateScrollToItem(SHOW_LIST_START_INDEX + groupIndex)
+                    }
+                },
+            )
         }
     }
 }
@@ -189,6 +244,63 @@ private enum class HeuristicGroupingMode(val label: String) {
     Show("By show"),
     Cast("By cast"),
     Topic("By topic"),
+}
+
+private const val SHOW_LIST_START_INDEX = 2
+
+@Composable
+private fun ShowJumpRail(
+    groups: List<SeriesGroup>,
+    listState: LazyListState,
+    currentGroupIndex: Int,
+    modifier: Modifier = Modifier,
+    onGroupSelected: (Int) -> Unit,
+) {
+    Surface(
+        modifier = modifier.width(96.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        tonalElevation = 4.dp,
+        shadowElevation = 4.dp,
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(vertical = 8.dp, horizontal = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            itemsIndexed(groups) { index, group ->
+                val selected = index == currentGroupIndex
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    onClick = { onGroupSelected(index) },
+                ) {
+                    Text(
+                        text = group.title,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): String =

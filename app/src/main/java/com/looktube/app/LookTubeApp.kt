@@ -1,6 +1,7 @@
 package com.looktube.app
 
 import android.content.ComponentName
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -26,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
@@ -52,7 +54,10 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
     val selectedProgress by viewModel.selectedProgress.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
     val scope = rememberCoroutineScope()
-    var isPlayerFullscreen by rememberSaveable { mutableStateOf(false) }
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    var fullscreenModeName by rememberSaveable { mutableStateOf(PlayerFullscreenMode.Off.name) }
+    val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
+    val isPlayerFullscreen = fullscreenMode != PlayerFullscreenMode.Off
 
     val topLevelDestinations = listOf(
         TopLevelDestination("auth", "Auth", Icons.Outlined.AccountCircle),
@@ -88,9 +93,20 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
             controller.playWhenReady = true
         }
     }
-    LaunchedEffect(pagerState.currentPage, selectedVideo?.id) {
-        if (pagerState.currentPage != 2 || selectedVideo == null) {
-            isPlayerFullscreen = false
+    LaunchedEffect(pagerState.currentPage, selectedVideo?.id, isLandscape, fullscreenModeName) {
+        when {
+            pagerState.currentPage != 2 || selectedVideo == null -> {
+                fullscreenModeName = PlayerFullscreenMode.Off.name
+            }
+            isLandscape && fullscreenMode == PlayerFullscreenMode.Off -> {
+                fullscreenModeName = PlayerFullscreenMode.AutoLandscape.name
+            }
+            !isLandscape && (
+                fullscreenMode == PlayerFullscreenMode.AutoLandscape ||
+                    fullscreenMode == PlayerFullscreenMode.LandscapeSuppressed
+                ) -> {
+                fullscreenModeName = PlayerFullscreenMode.Off.name
+            }
         }
     }
 
@@ -166,7 +182,13 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         playbackProgress = selectedProgress,
                         player = playbackController,
                         isFullscreen = isPlayerFullscreen,
-                        onFullscreenChanged = { isPlayerFullscreen = it },
+                        onFullscreenChanged = { enabled ->
+                            fullscreenModeName = when {
+                                enabled -> PlayerFullscreenMode.Manual.name
+                                isLandscape -> PlayerFullscreenMode.LandscapeSuppressed.name
+                                else -> PlayerFullscreenMode.Off.name
+                            }
+                        },
                     )
 
                     else -> SettingsRoute(
@@ -211,4 +233,11 @@ private fun rememberPlaybackController(): MediaController? {
     }
 
     return controller
+}
+
+private enum class PlayerFullscreenMode {
+    Off,
+    Manual,
+    AutoLandscape,
+    LandscapeSuppressed,
 }
