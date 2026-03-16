@@ -4,6 +4,12 @@
 - Current Premium feed links should be treated as copyable RSS inputs first; some copied feed URLs already carry the access key material needed for direct sync.
 - Giant Bomb also states that legacy structured APIs for games, people, companies, and related content are not currently available.
 
+## 2026-03-16 live probe result
+- A real `premium-videos` 1080p feed URL succeeded in `feed-url-only` mode with HTTP 200 and `application/rss+xml; charset=utf-8`.
+- The same feed URL also succeeded with `direct-feed-basic-auth-fallback`, and the structural counts matched the direct URL-only pass exactly: 84 items, 84 `media:content` tags, 84 `enclosure` tags, and 84 item links.
+- For this validated Premium feed shape, the copied feed URL alone appears sufficient for feed access; optional fallback Basic auth did not change the structural result.
+- Playback handoff is still a separate question. This probe validated feed access shape only, not whether stream URLs remain directly playable without broader session behavior.
+
 ## Design consequence
 The first implementation path should stay feed-first, not legacy-API-first. Until Giant Bomb exposes an official supported media/mobile integration path, LookTube should avoid browser-backed sign-in flows, cookie harvesting, or other website automation. The main integration question is narrower:
 - direct copied-feed access
@@ -21,10 +27,10 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 
 ## What is still pending
 - confirm exact production feed URLs that best represent the first supported Premium library surface
-- confirm whether credentialed feed access is sufficient for real video playback, not just feed access
+- confirm whether copied Premium feed URLs are also sufficient for real video playback, not just feed access
 - confirm the minimum set of headers, cookies, and redirects required for authenticated playback handoff
 - confirm how often the site behavior changes enough to require fixture refreshes
-- validate whether copied feed URLs already cover repeat use, or whether some real Premium feeds still need direct-feed basic-auth fallback
+- validate whether other real Premium feed variants also behave like the validated `premium-videos` probe, or whether any still need direct-feed basic-auth fallback
 - do not introduce website-login/session automation unless Giant Bomb publishes an official supported path
 
 ## Probe policy
