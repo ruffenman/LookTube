@@ -19,6 +19,7 @@ val requiredDocs = listOf(
     "docs/integration/giantbomb.md",
     "docs/testing/local-ci.md",
     "docs/decisions/ADR-0001-foundation.md",
+    "docs/decisions/ADR-0002-auth-persistence.md",
     "docs/learned-notes/2026-03.md",
 )
 
