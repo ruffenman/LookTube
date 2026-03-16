@@ -62,7 +62,7 @@ Current committed baselines cover:
 - Player preparing state
 
 ## Live integration probe
-Use only when you have local Giant Bomb Premium credentials available as environment variables:
+Use only when you have a local Giant Bomb Premium feed URL available as an environment variable:
 
 ```powershell path=null start=null
 $env:LOOKTUBE_GIANTBOMB_FEED_URL = "{{LOOKTUBE_GIANTBOMB_FEED_URL}}"
@@ -71,6 +71,8 @@ $env:LOOKTUBE_GIANTBOMB_FEED_URL = "{{LOOKTUBE_GIANTBOMB_FEED_URL}}"
 # $env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
 .\gradlew.bat integrationProbeGiantBomb
 ```
+
+The probe always attempts `feed-url-only` first and, when both fallback credential variables are present, also attempts `direct-feed-basic-auth-fallback` so you can compare outcomes without changing the script.
 
 ## Fixture policy
 - prefer sanitized local fixtures in automated tests

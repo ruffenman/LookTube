@@ -23,6 +23,8 @@ Use these commands as the default development loop on Windows:
 .\gradlew.bat integrationProbeGiantBomb
 ```
 
+`integrationProbeGiantBomb` now compares feed-url-only access against direct-feed Basic auth fallback when fallback credentials are present, while emitting structural-only results.
+
 If `local.properties` is missing, bootstrap it first:
 
 ```powershell path=null start=null

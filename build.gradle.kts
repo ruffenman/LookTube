@@ -79,6 +79,6 @@ tasks.register("recordScreenshots") {
 
 tasks.register<Exec>("integrationProbeGiantBomb") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    description = "Opt-in manual probe for Giant Bomb Premium feed integration using local credentials."
+    description = "Opt-in manual comparison probe for Giant Bomb Premium feeds using feed-url-only access and optional direct-feed basic-auth fallback."
     commandLine("pwsh", "-NoLogo", "-File", "scripts/Invoke-GiantBombFeedProbe.ps1")
 }
