@@ -23,11 +23,9 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `feature:auth`
   - auth mode validation surface
 - `feature:library`
-  - Premium library browse surface
+  - consolidated Premium library browse surface with flat and grouped exploration modes
 - `feature:player`
   - Media3-backed playback surface with graceful fallback when no playback URL is available
-- `feature:settings`
-  - diagnostics and operator commands
 
 ## Dependency direction
 - `app` depends on `core:*` and `feature:*`

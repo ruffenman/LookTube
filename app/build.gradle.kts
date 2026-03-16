@@ -69,7 +69,6 @@ dependencies {
     implementation(project(":feature:auth"))
     implementation(project(":feature:library"))
     implementation(project(":feature:player"))
-    implementation(project(":feature:settings"))
 
     implementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(platform(libs.androidx.compose.bom))

@@ -7,7 +7,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +37,6 @@ import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.auth.AuthRoute
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.feature.player.PlayerRoute
-import com.looktube.feature.settings.SettingsRoute
 import com.looktube.model.displaySeriesTitle
 import kotlinx.coroutines.launch
 
@@ -63,7 +61,6 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
         TopLevelDestination("auth", "Auth", Icons.Outlined.AccountCircle),
         TopLevelDestination("library", "Library", Icons.Outlined.VideoLibrary),
         TopLevelDestination("player", "Player", Icons.Outlined.PlayCircle),
-        TopLevelDestination("settings", "Shows", Icons.Outlined.CollectionsBookmark),
     )
     val pagerState = rememberPagerState(initialPage = 0) { topLevelDestinations.size }
 
@@ -176,7 +173,7 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         },
                     )
 
-                    "player" -> PlayerRoute(
+                    else -> PlayerRoute(
                         paddingValues = paddingValues,
                         selectedVideo = selectedVideo,
                         playbackProgress = selectedProgress,
@@ -191,15 +188,6 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         },
                     )
 
-                    else -> SettingsRoute(
-                        paddingValues = paddingValues,
-                        videos = videos,
-                        playbackProgress = playbackProgress,
-                        onVideoSelected = { videoId ->
-                            viewModel.selectVideo(videoId)
-                            scope.launch { pagerState.animateScrollToPage(2) }
-                        },
-                    )
                 }
             }
         }

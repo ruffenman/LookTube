@@ -12,14 +12,16 @@ class LookTubeSmokeTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun showsTopLevelShell() {
+    fun showsMergedLibraryShell() {
         composeRule.onNodeWithText("LookTube").assertIsDisplayed()
         composeRule.onNodeWithText("Connect your Giant Bomb Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Premium feed URL").assertIsDisplayed()
         composeRule.onNodeWithText("Sync Premium feed").assertIsDisplayed()
+        composeRule.onNodeWithText("Library").performClick()
+        composeRule.onNodeWithText("Videos").assertIsDisplayed()
+        composeRule.onNodeWithText("Groups").performClick()
+        composeRule.onNodeWithText("Sync a feed first to browse grouped videos.").assertIsDisplayed()
         composeRule.onNodeWithText("Player").performClick()
         composeRule.onNodeWithText("Choose something to watch").assertIsDisplayed()
-        composeRule.onNodeWithText("Shows").performClick()
-        composeRule.onNodeWithText("Sync a feed first to browse shows and jump into videos by series.").assertIsDisplayed()
     }
 }

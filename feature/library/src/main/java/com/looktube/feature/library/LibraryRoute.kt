@@ -9,43 +9,62 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.looktube.designsystem.LookTubeCard
-import com.looktube.model.PlaybackProgress
-import com.looktube.model.bestDurationSeconds
-import com.looktube.model.displaySeriesTitle
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
+import com.looktube.model.bestDurationSeconds
+import com.looktube.model.castGroupingKey
+import com.looktube.model.castGroupingTitle
+import com.looktube.model.displaySeriesTitle
+import com.looktube.model.seriesGroupingKey
+import com.looktube.model.topicGroupingKey
+import com.looktube.model.topicGroupingTitle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 @Composable
 fun LibraryRoute(
@@ -55,9 +74,14 @@ fun LibraryRoute(
     playbackProgress: Map<String, PlaybackProgress>,
     onVideoSelected: (String) -> Unit,
 ) {
+    var browseMode by rememberSaveable { mutableStateOf(LibraryBrowseMode.Videos) }
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
+    var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    val groupedListState = rememberLazyListState()
+    val showRailState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
     val latestPublishedAtBySeries = remember(videos) {
         videos.groupBy(VideoSummary::displaySeriesTitle)
             .mapValues { (_, groupedVideos) ->
@@ -96,70 +120,326 @@ fun LibraryRoute(
             }
             .toList()
     }
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-    ) {
-        item {
-            Text("Latest Premium videos")
-        }
-
-        item {
-            LookTubeCard(
-                title = "Library sync",
-                body = syncState.message,
+    val seriesGroups = remember(videos, groupingMode) {
+        videos
+            .groupBy { video ->
+                when (groupingMode) {
+                    HeuristicGroupingMode.Show -> video.seriesGroupingKey
+                    HeuristicGroupingMode.Cast -> video.castGroupingKey
+                    HeuristicGroupingMode.Topic -> video.topicGroupingKey
+                }
+            }
+            .values
+            .map { groupedVideos ->
+                val sortedVideos = groupedVideos.sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
+                SeriesGroup(
+                    title = groupedVideos.resolveGroupTitle(groupingMode),
+                    videos = sortedVideos,
+                    latestPublishedAt = sortedVideos.firstOrNull()?.publishedAtEpochMillis ?: Long.MIN_VALUE,
+                )
+            }
+            .sortedWith(
+                compareByDescending<SeriesGroup> { it.latestPublishedAt }
+                    .thenByDescending { it.videos.size }
+                    .thenBy { it.title.lowercase() },
             )
+    }
+    val currentGroupIndex by remember(seriesGroups, groupedListState) {
+        derivedStateOf {
+            if (seriesGroups.isEmpty()) {
+                0
+            } else {
+                (groupedListState.firstVisibleItemIndex - GROUP_LIST_START_INDEX)
+                    .coerceIn(0, seriesGroups.lastIndex)
+            }
         }
+    }
 
-        item {
-            Column(
+    LaunchedEffect(currentGroupIndex, seriesGroups.size) {
+        if (seriesGroups.isNotEmpty()) {
+            showRailState.animateScrollToItem(currentGroupIndex.coerceAtMost(seriesGroups.lastIndex))
+        }
+    }
+
+    when (browseMode) {
+        LibraryBrowseMode.Videos -> {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(vertical = 16.dp),
             ) {
-                Box {
-                    FilterChip(
-                        selected = false,
-                        onClick = { sortMenuExpanded = true },
-                        label = { Text("Sort: ${sortOption.label}") },
+                item {
+                    Text("Library")
+                }
+
+                item {
+                    LookTubeCard(
+                        title = "Library sync",
+                        body = syncState.message,
                     )
-                    DropdownMenu(
-                        expanded = sortMenuExpanded,
-                        onDismissRequest = { sortMenuExpanded = false },
+                }
+
+                item {
+                    BrowseModeRow(
+                        browseMode = browseMode,
+                        onBrowseModeChanged = { browseMode = it },
+                    )
+                }
+
+                item {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        LibrarySortOption.entries.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option.label) },
-                                onClick = {
-                                    sortOption = option
-                                    sortMenuExpanded = false
-                                },
+                        Box {
+                            FilterChip(
+                                selected = false,
+                                onClick = { sortMenuExpanded = true },
+                                label = { Text("Sort: ${sortOption.label}") },
                             )
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false },
+                            ) {
+                                LibrarySortOption.entries.forEach { option ->
+                                    DropdownMenuItem(
+                                        text = { Text(option.label) },
+                                        onClick = {
+                                            sortOption = option
+                                            sortMenuExpanded = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            seriesFilters.forEach { filter ->
+                                FilterChip(
+                                    selected = selectedSeriesFilter == filter,
+                                    onClick = { selectedSeriesFilter = filter },
+                                    label = { Text(filter) },
+                                )
+                            }
                         }
                     }
                 }
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    seriesFilters.forEach { filter ->
-                        FilterChip(
-                            selected = selectedSeriesFilter == filter,
-                            onClick = { selectedSeriesFilter = filter },
-                            label = { Text(filter) },
+
+                if (visibleVideos.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = when {
+                                    videos.isEmpty() -> "Sync a feed first to load your library."
+                                    selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
+                                    else -> "No videos are available in the synced library yet."
+                                },
+                                modifier = Modifier.padding(16.dp),
+                            )
+                        }
+                    }
+                } else {
+                    items(visibleVideos) { video ->
+                        VideoListCard(
+                            video = video,
+                            progress = playbackProgress[video.id],
+                            modifier = Modifier.clickable { onVideoSelected(video.id) },
                         )
                     }
                 }
             }
         }
 
-        items(visibleVideos) { video ->
-            VideoListCard(
-                video = video,
-                progress = playbackProgress[video.id],
-                modifier = Modifier.clickable { onVideoSelected(video.id) },
+        LibraryBrowseMode.Groups -> {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+            ) {
+                LazyColumn(
+                    state = groupedListState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 16.dp, top = 0.dp, end = if (seriesGroups.isEmpty()) 16.dp else 112.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp),
+                ) {
+                    item {
+                        Text("Library")
+                    }
+                    item {
+                        LookTubeCard(
+                            title = "Library sync",
+                            body = syncState.message,
+                        )
+                    }
+                    item {
+                        BrowseModeRow(
+                            browseMode = browseMode,
+                            onBrowseModeChanged = { browseMode = it },
+                        )
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            HeuristicGroupingMode.entries.forEach { mode ->
+                                FilterChip(
+                                    selected = groupingMode == mode,
+                                    onClick = { groupingMode = mode },
+                                    label = { Text(mode.label) },
+                                )
+                            }
+                        }
+                    }
+                    if (seriesGroups.isEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = "Sync a feed first to browse grouped videos.",
+                                    modifier = Modifier.padding(16.dp),
+                                )
+                            }
+                        }
+                    } else {
+                        items(seriesGroups) { group ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Text(
+                                        text = group.title,
+                                        style = MaterialTheme.typography.titleMedium,
+                                    )
+                                    Text(
+                                        text = "${group.videos.size} videos",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    group.videos.take(8).forEachIndexed { index, video ->
+                                        if (index > 0) {
+                                            HorizontalDivider()
+                                        }
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { onVideoSelected(video.id) }
+                                                .padding(vertical = 8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            Text(
+                                                text = video.title,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                            )
+                                            if (video.description.isNotBlank()) {
+                                                Text(
+                                                    text = video.description,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    maxLines = 2,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                            buildMetadataLine(video, playbackProgress[video.id]).takeIf(String::isNotBlank)?.let { metadata ->
+                                                Text(
+                                                    text = metadata,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            playbackProgress[video.id]?.takeIf { it.durationSeconds > 0 }?.let { progress ->
+                                                LinearProgressIndicator(
+                                                    progress = { (progress.positionSeconds.toFloat() / progress.durationSeconds.toFloat()).coerceIn(0f, 1f) },
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (group.videos.size > 8) {
+                                        Text(
+                                            text = "+ ${group.videos.size - 8} more videos",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (seriesGroups.isNotEmpty()) {
+                    ShowJumpRail(
+                        groups = seriesGroups,
+                        listState = showRailState,
+                        currentGroupIndex = currentGroupIndex,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .padding(end = 12.dp, top = 16.dp, bottom = 16.dp),
+                        onGroupSelected = { groupIndex ->
+                            scope.launch {
+                                groupedListState.animateScrollToItem(GROUP_LIST_START_INDEX + groupIndex)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class SeriesGroup(
+    val title: String,
+    val videos: List<VideoSummary>,
+    val latestPublishedAt: Long,
+)
+
+private enum class LibraryBrowseMode(val label: String) {
+    Videos("Videos"),
+    Groups("Groups"),
+}
+
+private enum class HeuristicGroupingMode(val label: String) {
+    Show("By show"),
+    Cast("By cast"),
+    Topic("By topic"),
+}
+
+private enum class LibrarySortOption(val label: String) {
+    Latest("Latest"),
+    Title("Title"),
+    Show("Show"),
+}
+
+private const val ALL_SERIES_FILTER = "All shows"
+private const val GROUP_LIST_START_INDEX = 4
+
+@Composable
+private fun BrowseModeRow(
+    browseMode: LibraryBrowseMode,
+    onBrowseModeChanged: (LibraryBrowseMode) -> Unit,
+) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        LibraryBrowseMode.entries.forEach { mode ->
+            FilterChip(
+                selected = browseMode == mode,
+                onClick = { onBrowseModeChanged(mode) },
+                label = { Text(mode.label) },
             )
         }
     }
@@ -187,14 +467,6 @@ private fun formatDuration(seconds: Long): String {
         "%d:%02d".format(minutes, remainingSeconds)
     }
 }
-
-private enum class LibrarySortOption(val label: String) {
-    Latest("Latest"),
-    Title("Title"),
-    Show("Show"),
-}
-
-private const val ALL_SERIES_FILTER = "All shows"
 
 @Composable
 private fun VideoListCard(
@@ -298,3 +570,70 @@ private fun VideoThumbnail(video: VideoSummary) {
         }
     }
 }
+
+@Composable
+private fun ShowJumpRail(
+    groups: List<SeriesGroup>,
+    listState: LazyListState,
+    currentGroupIndex: Int,
+    modifier: Modifier = Modifier,
+    onGroupSelected: (Int) -> Unit,
+) {
+    Surface(
+        modifier = modifier.width(96.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        tonalElevation = 4.dp,
+        shadowElevation = 4.dp,
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(vertical = 8.dp, horizontal = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            itemsIndexed(groups) { index, group ->
+                val selected = index == currentGroupIndex
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (selected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    onClick = { onGroupSelected(index) },
+                ) {
+                    Text(
+                        text = group.title,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): String =
+    when (mode) {
+        HeuristicGroupingMode.Show -> map(VideoSummary::displaySeriesTitle)
+        HeuristicGroupingMode.Cast -> map(VideoSummary::castGroupingTitle)
+        HeuristicGroupingMode.Topic -> map(VideoSummary::topicGroupingTitle)
+    }
+        .groupingBy { it }
+        .eachCount()
+        .maxWithOrNull(compareBy<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        ?.key
+        ?: first().displaySeriesTitle

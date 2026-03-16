@@ -27,5 +27,4 @@ include(
     ":feature:auth",
     ":feature:library",
     ":feature:player",
-    ":feature:settings",
 )
