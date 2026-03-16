@@ -17,6 +17,7 @@ Premium Giant Bomb subscribers should be able to open an Android app, authentica
 ## Current validated state
 The current app already covers a substantial first-use slice for a Premium subscriber:
 - copied Premium RSS feed URLs can be configured and synced from the Auth surface
+- copied feed URL persistence now protects saved feed identity at rest while keeping password input session-only
 - the app persists the last successful synced library and saved playback progress
 - Library combines grouped browsing, sort/filter controls, rich video cards, and jump navigation
 - Player uses a shared Media3 session/service model with fullscreen and resume support
@@ -30,6 +31,7 @@ Harden the path from copied feed sync to daily repeat use.
 - playback and background/session behavior remain stable across more real Giant Bomb feed variants
 - browse ergonomics continue improving from device feedback without regressing the grouped-library model
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
+- saved feed identity remains protected at rest while broader Giant Bomb session strategy is still being validated
 - docs reflect the validated product shape instead of the earlier scaffold-only phases
 
 ## Ralph loop definition

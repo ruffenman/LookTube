@@ -5,6 +5,7 @@ LookTube is an Android-first Giant Bomb companion app focused on one primary out
 The repository is now past the initial foundation spike and includes a usable Android browse/playback slice:
 - native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
 - copied Giant Bomb Premium RSS URLs supported as the primary sync path, with optional fallback basic-auth fields
+- copied Giant Bomb Premium RSS URLs and saved usernames now persist encrypted at rest, while passwords remain session-only
 - persisted synced-library state and playback resume state across app restarts
 - app-level Media3 playback service/session with background playback and fullscreen support
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
@@ -54,7 +55,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. replace session-only password handling with a secure persisted credential/session strategy if copied feed URLs prove insufficient
+1. replace session-only password handling with a stronger persisted credential or session strategy if copied feed URLs prove insufficient
 2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
 3. keep expanding screenshot-oriented visual regression coverage around the app shell and richer playback states
 4. tighten any remaining Giant Bomb-specific playback or session edge cases found during device validation

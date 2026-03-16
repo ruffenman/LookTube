@@ -39,7 +39,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 ## Current data flow
 1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
-3. the repository loads persisted feed identity settings, keeps password session-only and optional, restores the last synced library snapshot, and exposes persisted playback progress
+3. the repository loads feed identity settings from an app-owned encrypted-at-rest store, keeps password session-only and optional, restores the last synced library snapshot, and exposes persisted playback progress
 4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen, a consolidated grouped library surface, and a shared Media3 player route
 5. an explicit sync action attempts a direct RSS fetch first and replaces the cached library on success, while still passing optional basic-auth credentials when present
 
@@ -47,7 +47,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy and exact production feed targets. The configurable repository now supports a real Premium feed sync path, but it keeps seeded fallback content so the app remains usable and testable before live credentials are available.
 
 ## Near-term evolution path
-- replace session-only password handling with a secure auth/session storage strategy
+- replace session-only password handling with a broader secure auth/session strategy
 - continue hardening Media3 playback and real-device resume behavior
 - improve visual regression coverage for the now-richer library/player surfaces
 - keep refining grouping heuristics and browse affordances as more live feed edge cases appear
