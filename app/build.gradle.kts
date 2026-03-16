@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -60,6 +61,10 @@ android {
     }
 }
 
+roborazzi {
+    outputDir.set(file("src/screenshots"))
+}
+
 dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:database"))
@@ -89,8 +94,13 @@ dependencies {
     implementation(libs.media3.session)
 
     testImplementation(project(":core:testing"))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 

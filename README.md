@@ -8,6 +8,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - persisted synced-library state and playback resume state across app restarts
 - app-level Media3 playback service/session with background playback and fullscreen support
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
+- committed Roborazzi visual baseline coverage for the Library browse surface
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
 - live Giant Bomb auth/session strategy and exact long-term playback integration still need additional hardening beyond the current feed-first path

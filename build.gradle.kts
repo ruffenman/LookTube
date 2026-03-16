@@ -3,6 +3,12 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.roborazzi) apply false
+}
+tasks.register("verifyScreenshots") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Verifies committed visual baselines against the current UI."
+    dependsOn(":app:verifyRoborazziDebug")
 }
 
 val requiredDocs = listOf(
@@ -51,6 +57,7 @@ tasks.register("verifyLocal") {
     description = "Runs the full local validation gate, including lint and managed-device smoke tests unless skipped."
     dependsOn(
         "verifyFast",
+        "verifyScreenshots",
         ":app:lintDebug",
     )
 
@@ -65,10 +72,8 @@ tasks.register("verifyLocal") {
 
 tasks.register("recordScreenshots") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    description = "Placeholder task for future screenshot baseline recording."
-    doLast {
-        logger.lifecycle("No screenshot baselines are wired yet. Add screenshot recording as the first stable visual slice lands.")
-    }
+    description = "Records committed screenshot baselines for the current UI."
+    dependsOn(":app:recordRoborazziDebug")
 }
 
 tasks.register<Exec>("integrationProbeGiantBomb") {

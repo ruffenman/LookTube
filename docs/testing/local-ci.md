@@ -17,6 +17,7 @@ Current coverage:
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
+- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands
 - managed-device smoke coverage now also checks the player fallback surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
@@ -29,6 +30,7 @@ Run before a stable checkpoint commit:
 
 This adds:
 - Android lint for the app shell
+- screenshot baseline verification through Roborazzi
 - optional managed-device smoke tests when `-PskipManagedDevice` is not supplied
 
 ## Managed-device smoke lane
@@ -36,6 +38,19 @@ The app is configured with a `pixel6Api36` managed virtual device. The smoke lan
 
 ```powershell path=null start=null
 .\gradlew.bat verifyLocal
+```
+
+## Visual regression lane
+Record or refresh committed screenshot baselines when the UI intentionally changes:
+
+```powershell path=null start=null
+.\gradlew.bat recordScreenshots
+```
+
+Verify the current UI against committed baselines:
+
+```powershell path=null start=null
+.\gradlew.bat verifyScreenshots
 ```
 
 ## Live integration probe
