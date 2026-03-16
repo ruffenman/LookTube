@@ -15,8 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -34,6 +36,7 @@ import androidx.media3.ui.PlayerView
 import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.looktube.designsystem.LookTubeCard
+import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import com.looktube.model.displaySeriesTitle
@@ -70,25 +73,35 @@ fun PlayerRoute(
     when {
         selectedVideo == null -> PlayerStatusContent(
             paddingValues = paddingValues,
-            cards = listOf(
-                "Nothing queued yet" to "Pick a video from Library to start playback here.",
-            ),
+            headerSubtitle = "Choose a video from Library to start playback here.",
+            statusTitle = "Nothing queued yet",
+            statusBody = "Pick a video from Library to start playback here.",
+            frameTitle = "Player ready",
+            frameBody = "When you pick a video, playback controls, fullscreen, and cast options will appear here.",
         )
 
         selectedVideo.playbackUrl.isNullOrBlank() -> PlayerStatusContent(
             paddingValues = paddingValues,
-            cards = listOf(
-                selectedVideo.title to selectedVideo.description,
-                "Playback unavailable" to "This item does not expose a playable stream right now. Try another video or refresh your library from Auth.",
-            ),
+            selectedVideo = selectedVideo,
+            playbackProgress = playbackProgress,
+            headerSubtitle = "The selected video is loaded, but it does not currently expose a playable stream.",
+            statusTitle = "Playback unavailable",
+            statusBody = "This item does not expose a playable stream right now. Try another video or refresh your library from Auth.",
+            frameTitle = "No playable stream",
+            frameBody = "LookTube found this video in the feed, but the current item does not include a playable URL.",
         )
 
         player == null -> PlayerStatusContent(
             paddingValues = paddingValues,
-            cards = listOf(
-                selectedVideo.title to selectedVideo.description,
-                "Preparing player" to "Opening the shared playback session for this video.",
-            ),
+            selectedVideo = selectedVideo,
+            playbackProgress = playbackProgress,
+            headerSubtitle = "Opening the shared playback session for this video.",
+            statusTitle = "Preparing player",
+            statusBody = "LookTube is opening playback controls for this video now.",
+            frameTitle = "Player is getting ready",
+            frameBody = playbackProgress?.takeIf { it.durationSeconds > 0 }?.let {
+                "Resume will pick up near ${formatPlaybackTime(it.positionSeconds)}."
+            } ?: "Playback controls will appear here in a moment.",
         )
 
         isFullscreen -> FullscreenPlayerSurface(
@@ -136,9 +149,52 @@ fun PlayerRoute(
 }
 
 @Composable
+private fun PlayerFramePlaceholder(
+    title: String,
+    body: String,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(16f / 9f),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
+        tonalElevation = 2.dp,
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun PlayerStatusContent(
     paddingValues: PaddingValues,
-    cards: List<Pair<String, String>>,
+    headerSubtitle: String,
+    statusTitle: String,
+    statusBody: String,
+    frameTitle: String,
+    frameBody: String,
+    selectedVideo: VideoSummary? = null,
+    playbackProgress: PlaybackProgress? = null,
 ) {
     Column(
         modifier = Modifier
@@ -147,12 +203,35 @@ private fun PlayerStatusContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        cards.forEach { (title, body) ->
+        LookTubePageHeader(
+            title = "Player",
+            subtitle = headerSubtitle,
+        )
+        selectedVideo?.let { video ->
             LookTubeCard(
-                title = title,
-                body = body,
+                title = video.title,
+                body = video.description.ifBlank {
+                    "From ${video.displaySeriesTitle}."
+                },
             )
         }
+        PlayerFramePlaceholder(
+            title = frameTitle,
+            body = frameBody,
+        )
+        LookTubeCard(
+            title = statusTitle,
+            body = buildString {
+                append(statusBody)
+                selectedVideo?.let { video ->
+                    append("\n\nShow: ${video.displaySeriesTitle}")
+                    append("\nFeed category: ${video.feedCategory}")
+                }
+                playbackProgress?.takeIf { it.durationSeconds > 0 }?.let { progress ->
+                    append("\nResume point: ${formatPlaybackTime(progress.positionSeconds)} of ${formatPlaybackTime(progress.durationSeconds)}.")
+                }
+            },
+        )
     }
 }
 
@@ -285,4 +364,15 @@ private fun rememberActivity(context: Context): Activity? = when (context) {
     is Activity -> context
     is ContextWrapper -> rememberActivity(context.baseContext)
     else -> null
+}
+
+private fun formatPlaybackTime(seconds: Long): String {
+    val hours = seconds / 3_600
+    val minutes = (seconds % 3_600) / 60
+    val remainingSeconds = seconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, remainingSeconds)
+    } else {
+        "%d:%02d".format(minutes, remainingSeconds)
+    }
 }

@@ -220,7 +220,7 @@ class ConfigurableLookTubeRepository(
             )
             else -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Sign in to sync it.",
+                message = "Saved feed URL detected. Sync your library when you're ready.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
         }

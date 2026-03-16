@@ -66,6 +66,11 @@ fun AuthRoute(
         accountSession.isSignedIn -> "Your synced library is already saved on this device. Sync again any time to refresh it."
         else -> "Your feed URL is ready. Tap Sync Premium feed to load the library."
     }
+    val feedUrlSupportingText = when {
+        feedConfiguration.feedUrl.isBlank() -> "Paste the copied Premium RSS feed URL from Giant Bomb."
+        isSigningIn -> "Keep this feed URL saved while the current sync finishes."
+        else -> "This copied feed URL stays saved on this device for the next sync."
+    }
     val statusBody = buildString {
         append(syncState.message)
         syncState.lastSuccessfulSyncSummary?.let { summary ->
@@ -114,12 +119,14 @@ fun AuthRoute(
             onValueChange = onFeedUrlChanged,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Premium feed URL") },
+            supportingText = { Text(feedUrlSupportingText) },
             singleLine = true,
         )
 
         Button(
             onClick = onSignInRequested,
             enabled = canSignIn,
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -141,6 +148,7 @@ fun AuthRoute(
         if (canClearData) {
             OutlinedButton(
                 onClick = onClearSyncedDataRequested,
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
             ) {
                 Text("Clear synced data")

@@ -126,6 +126,20 @@ fun LibraryRoute(
     val sortedVideos = remember(filteredVideos, sortOption) {
         filteredVideos.sortedFor(sortOption)
     }
+    val libraryStatusBody = remember(syncState) {
+        buildString {
+            append(syncState.message)
+            syncState.lastSuccessfulSyncSummary?.let { summary ->
+                append("\n\n")
+                append(summary)
+            }
+        }
+    }
+    val showRailLabels by remember(listState, railEmphasized) {
+        derivedStateOf {
+            railEmphasized || listState.firstVisibleItemIndex >= GROUP_LIST_START_INDEX
+        }
+    }
     val sections = remember(sortedVideos, sortOption, groupingMode) {
         sortedVideos
             .groupBy { video ->
@@ -210,7 +224,7 @@ fun LibraryRoute(
             item {
                 LookTubeCard(
                     title = "Library status",
-                    body = syncState.message,
+                    body = libraryStatusBody,
                 )
             }
 
@@ -227,6 +241,7 @@ fun LibraryRoute(
                     onSeriesFilterChanged = { selectedSeriesFilter = it },
                     totalVideoCount = videos.size,
                     filteredVideoCount = filteredVideos.size,
+                    chipRowEndPadding = if (sections.isEmpty()) 0.dp else JUMP_RAIL_CONTROL_CLEARANCE,
                 )
             }
 
@@ -272,6 +287,7 @@ fun LibraryRoute(
                 listState = showRailState,
                 currentGroupIndex = currentGroupIndex,
                 isEmphasized = railEmphasized,
+                showLabels = showRailLabels,
                 railScope = scope,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -289,6 +305,26 @@ fun LibraryRoute(
 }
 
 @Composable
+private fun BrowseControlChipRow(
+    contentEndPadding: Dp,
+    content: @Composable RowScope.() -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = contentEndPadding),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
 private fun BrowseControlsPanel(
     groupingMode: HeuristicGroupingMode,
     onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
@@ -301,6 +337,7 @@ private fun BrowseControlsPanel(
     onSeriesFilterChanged: (String) -> Unit,
     totalVideoCount: Int,
     filteredVideoCount: Int,
+    chipRowEndPadding: Dp,
 ) {
     val isSeriesFilterActive = selectedSeriesFilter != ALL_SERIES_FILTER
     Surface(
@@ -331,8 +368,8 @@ private fun BrowseControlsPanel(
                             text = "Showing $filteredVideoCount of $totalVideoCount videos for $selectedSeriesFilter.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        BrowseControlChipRow(
+                            contentEndPadding = chipRowEndPadding,
                         ) {
                             FilterChip(
                                 selected = true,
@@ -350,6 +387,7 @@ private fun BrowseControlsPanel(
             }
             BrowseControlSection(
                 label = "Browse by",
+                contentEndPadding = chipRowEndPadding,
                 content = {
                     HeuristicGroupingMode.entries.forEach { mode ->
                         FilterChip(
@@ -392,6 +430,7 @@ private fun BrowseControlsPanel(
             }
             BrowseControlSection(
                 label = if (isSeriesFilterActive) "Filter show (active)" else "Filter show",
+                contentEndPadding = chipRowEndPadding,
                 content = {
                     seriesFilters.forEach { filter ->
                         FilterChip(
@@ -409,6 +448,7 @@ private fun BrowseControlsPanel(
 @Composable
 private fun BrowseControlSection(
     label: String,
+    contentEndPadding: Dp = 0.dp,
     content: @Composable RowScope.() -> Unit,
 ) {
     Column(
@@ -419,9 +459,8 @@ private fun BrowseControlSection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        BrowseControlChipRow(
+            contentEndPadding = contentEndPadding,
             content = content,
         )
     }
@@ -452,6 +491,7 @@ private val JUMP_RAIL_WIDTH = 176.dp
 private val JUMP_RAIL_LABEL_WIDTH = 156.dp
 private val JUMP_RAIL_LABEL_END_PADDING = 6.dp
 private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING
+private val JUMP_RAIL_CONTROL_CLEARANCE = 92.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 
 private fun List<VideoSummary>.sortedFor(sortOption: LibrarySortOption): List<VideoSummary> =
@@ -665,12 +705,17 @@ private fun ShowJumpRail(
     listState: LazyListState,
     currentGroupIndex: Int,
     isEmphasized: Boolean,
+    showLabels: Boolean,
     railScope: CoroutineScope,
     modifier: Modifier = Modifier,
     onGroupSelected: (Int) -> Unit,
 ) {
     val labelAlpha by animateFloatAsState(
-        targetValue = if (isEmphasized) 0.96f else 0.26f,
+        targetValue = when {
+            !showLabels -> 0f
+            isEmphasized -> 0.96f
+            else -> 0.26f
+        },
         animationSpec = tween(durationMillis = 280),
         label = "jumpRailLabelAlpha",
     )
