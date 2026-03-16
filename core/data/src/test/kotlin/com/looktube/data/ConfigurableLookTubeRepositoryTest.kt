@@ -62,6 +62,7 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals(1, repository.videos.value.size)
         assertEquals("live-1", repository.videos.value.single().id)
         assertTrue(repository.accountSession.value.isSignedIn)
+        assertEquals("Copied Premium feed", repository.accountSession.value.accountLabel)
     }
 
     @Test
@@ -112,7 +113,7 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals("remembered-secret", repository.feedConfiguration.value.password)
         assertTrue(repository.feedConfiguration.value.rememberPassword)
         assertEquals("premium-quick-look-1", repository.videos.value.first().id)
-        assertTrue(repository.librarySyncState.value.message.contains("Saved feed settings"))
+        assertTrue(repository.librarySyncState.value.message.contains("optional fallback details"))
     }
 
     @Test

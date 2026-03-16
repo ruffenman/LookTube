@@ -71,7 +71,7 @@ class AuthVisualTest {
                     paddingValues = PaddingValues(),
                     accountSession = AccountSession(
                         isSignedIn = true,
-                        accountLabel = "Premium library synced",
+                        accountLabel = "Copied Premium feed",
                         notes = "Using copied Giant Bomb Premium feed URL.",
                     ),
                     feedConfiguration = FeedConfiguration(
@@ -107,7 +107,7 @@ class AuthVisualTest {
                     paddingValues = PaddingValues(),
                     accountSession = AccountSession(
                         isSignedIn = false,
-                        accountLabel = "premium-user",
+                        accountLabel = "Copied Premium feed",
                         notes = "Saved feed settings are ready for the next sync.",
                     ),
                     feedConfiguration = FeedConfiguration(
@@ -118,7 +118,7 @@ class AuthVisualTest {
                     ),
                     syncState = LibrarySyncState(
                         phase = SyncPhase.Idle,
-                        message = "Saved feed URL, username, and remembered password loaded. Sign in to sync the Premium feed.",
+                        message = "Saved feed URL and remembered fallback details loaded. Sign in to sync the Premium feed.",
                     ),
                     onFeedUrlChanged = {},
                     onUsernameChanged = {},

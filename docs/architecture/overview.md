@@ -21,7 +21,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `core:testing`
   - shared fixtures and coroutine-test rules
 - `feature:auth`
-  - feed configuration and fallback-credentials surface
+  - feed configuration and rare fallback-fields surface
 - `feature:library`
   - consolidated Premium library browse surface with grouped exploration, rich cards, and flyout jump navigation
 - `feature:player`
@@ -40,8 +40,8 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
 3. the repository loads feed identity settings from an app-owned encrypted-at-rest store, restores any opted-in remembered password, keeps non-remembered password edits session-only, restores the last synced library snapshot, and exposes persisted playback progress for the feed-first path
-4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen, a consolidated grouped library surface, and a shared Media3 player route
-5. an explicit sync action attempts a direct RSS fetch first and replaces the cached library on success, while still passing optional basic-auth credentials when present and allowing cached-library clearing independently from credential forgetting; the architecture intentionally stops short of website-login automation
+4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen that foregrounds the copied feed URL and keeps fallback fields secondary, a consolidated grouped library surface, and a shared Media3 player route
+5. an explicit sync action attempts a direct RSS fetch first and replaces the cached library on success, while still passing optional basic-auth fallback details when present and allowing cached-library clearing independently from fallback-detail forgetting; the architecture intentionally stops short of website-login automation
 
 ## Why the current spike still keeps a seeded fallback
 The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy and exact production feed targets. The configurable repository now supports a real Premium feed sync path, but it keeps seeded fallback content so the app remains usable and testable before live credentials are available.

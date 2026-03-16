@@ -32,7 +32,7 @@ class ConfigurableLookTubeRepository(
         AccountSession(
             isSignedIn = false,
             accountLabel = null,
-            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library. Username and password are advanced fallback fields only if the feed itself still requires basic auth.",
+            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library. Username and password are rare fallback fields only if the feed itself still requires basic auth.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
@@ -142,7 +142,7 @@ class ConfigurableLookTubeRepository(
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Cleared synced library data. Saved feed settings are still available for the next sync.",
+                message = "Cleared synced library data. Saved feed settings and any optional fallback details are still available for the next sync.",
                 lastSuccessfulSyncSummary = null,
             ),
         )
@@ -163,7 +163,7 @@ class ConfigurableLookTubeRepository(
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Forgot saved credentials. Feed URL was preserved so you can enter fresh credentials later.",
+                message = "Forgot saved fallback details. Feed URL was preserved so you can enter fresh fallback details later if a feed still needs them.",
                 lastSuccessfulSyncSummary = null,
             ),
         )
@@ -253,15 +253,15 @@ class ConfigurableLookTubeRepository(
         val configuration = feedConfigurationState.value
         accountSessionState.value = AccountSession(
             isSignedIn = hasSuccessfulFeedSync,
-            accountLabel = configuration.username.takeIf(String::isNotBlank) ?: configuration.feedUrl.takeIf(String::isNotBlank)?.let { "Copied Premium feed" },
+            accountLabel = configuration.feedUrl.takeIf(String::isNotBlank)?.let { "Copied Premium feed" },
             notes = buildString {
                 append(status.message)
                 if (configuration.password.isNotBlank()) {
                     append(
                         if (configuration.rememberPassword) {
-                            " Password is saved securely on this device."
+                            " Optional fallback password is saved securely on this device."
                         } else {
-                            " Password is stored for the current app session only."
+                            " Optional fallback password is stored for the current app session only."
                         },
                     )
                 }
@@ -278,17 +278,17 @@ class ConfigurableLookTubeRepository(
             )
             configuration.username.isBlank() && configuration.password.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Sign in to sync it. Leave advanced fallback credentials empty unless this feed still requires basic auth.",
+                message = "Saved feed URL detected. Sign in to sync it. Leave rare fallback fields empty unless this feed still requires basic auth.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             configuration.rememberPassword && configuration.password.isNotBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL and remembered fallback credentials loaded. Sign in to sync the Premium feed.",
+                message = "Saved feed URL and remembered fallback details loaded. Sign in to sync the Premium feed.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             configuration.password.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL and fallback username loaded. If this feed still requires basic auth, enter the password for this app session or remember it securely on this device; otherwise sign in now.",
+                message = "Saved feed URL and fallback username loaded. If this feed still requires basic auth, enter the fallback password for this app session or remember it securely on this device; otherwise sign in now.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             else -> LibrarySyncState(

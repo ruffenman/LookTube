@@ -26,7 +26,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 - a manual probe script in `scripts/Invoke-GiantBombFeedProbe.ps1`
 - a manual playback probe script in `scripts/Invoke-GiantBombPlaybackProbe.ps1`
 - a configurable repository that persists feed URL, username, and optional remembered password locally, with feed identity protected at rest inside the app
-- a user-facing split between clearing synced library data and forgetting saved credentials while preserving the copied feed URL
+- a user-facing split between clearing synced library data and forgetting saved fallback details while preserving the copied feed URL
 - a live Premium RSS fetch path that can replace seeded library content when configured successfully
 - seeded fallback library data that keeps the app usable and testable before live credentials are available
 - a Media3-backed player screen that can attempt playback when a synced item exposes a stream URL

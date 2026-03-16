@@ -98,9 +98,9 @@ fun AuthRoute(
             append("\n\n")
             append(
                 if (feedConfiguration.rememberPassword) {
-                    "The optional password is saved securely on this device."
+                    "The optional fallback password is saved securely on this device."
                 } else {
-                    "The optional password is stored only for this app session."
+                    "The optional fallback password is stored only for this app session."
                 },
             )
         }
@@ -112,7 +112,7 @@ fun AuthRoute(
             feedConfiguration.rememberPassword ||
             feedConfiguration.password.isNotBlank()
         ) {
-            append("\n\nForget saved credentials removes the saved username and any remembered password but keeps the feed URL.")
+            append("\n\nForget saved fallback details removes the saved username and any remembered password but keeps the feed URL.")
         }
     }
     val canClearData = !isSigningIn && (
@@ -135,7 +135,7 @@ fun AuthRoute(
     ) {
         LookTubePageHeader(
             title = "Connect your Giant Bomb Premium feed",
-            subtitle = "Paste the feed URL you copied from Giant Bomb. Advanced credentials are only for direct-feed fallback if that URL still fails.",
+            subtitle = "Paste the feed URL you copied from Giant Bomb. Rare fallback fields are only for direct-feed Basic auth if that URL still fails.",
         )
 
         LookTubeCard(
@@ -167,9 +167,9 @@ fun AuthRoute(
             label = {
                 Text(
                     if (optionalCredentialsExpanded) {
-                        "Hide advanced feed fallback"
+                        "Hide rare fallback fields"
                     } else {
-                        "Advanced feed fallback"
+                        "Rare fallback fields"
                     },
                 )
             },
@@ -177,15 +177,15 @@ fun AuthRoute(
 
         if (optionalCredentialsExpanded) {
             LookTubeCard(
-                title = "Advanced direct-feed fallback",
-                body = "Most copied Giant Bomb feed URLs should work on their own. Only fill these fields if the feed itself still requires HTTP Basic auth. LookTube does not sign into the Giant Bomb website or automate a browser session.",
+                title = "Rare direct-feed fallback",
+                body = "Validated Giant Bomb feed and playback probes succeeded without these fields. Only fill them if a copied feed URL still fails and the feed itself requires HTTP Basic auth. LookTube does not sign into the Giant Bomb website or automate a browser session.",
             )
 
             OutlinedTextField(
                 value = feedConfiguration.username,
                 onValueChange = onUsernameChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Premium username (optional)") },
+                label = { Text("Fallback username (optional)") },
                 singleLine = true,
             )
 
@@ -196,9 +196,9 @@ fun AuthRoute(
                 label = {
                     Text(
                         if (feedConfiguration.rememberPassword) {
-                            "Password (optional, remembered)"
+                            "Fallback password (optional, remembered)"
                         } else {
-                            "Password (optional)"
+                            "Fallback password (optional)"
                         },
                     )
                 },
@@ -223,9 +223,9 @@ fun AuthRoute(
                     onCheckedChange = null,
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Remember password on this device")
+                    Text("Remember fallback password on this device")
                     Text(
-                        text = "Uses encrypted-at-rest app storage and stays limited to the direct-feed fallback path.",
+                        text = "Uses encrypted-at-rest app storage and stays limited to the rare direct-feed fallback path.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -270,7 +270,7 @@ fun AuthRoute(
                 onClick = onForgetSavedCredentialsRequested,
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Forget saved credentials")
+                Text("Forget saved fallback details")
             }
         }
     }

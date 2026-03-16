@@ -15,7 +15,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         AccountSession(
             isSignedIn = false,
             accountLabel = null,
-            notes = "Auth spike pending validation against Giant Bomb Premium flows.",
+            notes = "Feed-first playback spike pending validation against additional Giant Bomb Premium variants.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
@@ -71,7 +71,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     }
     override suspend fun signInToPremiumFeed() {
         accountSessionState.value = accountSessionState.value.copy(
-            notes = "Spike feed-first Premium access first and use credentials only as direct-feed fallback.",
+            notes = "Spike feed-first Premium access first and use fallback details only when a copied feed URL still fails.",
         )
         refreshLibrary()
     }
@@ -99,11 +99,11 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         accountSessionState.value = accountSessionState.value.copy(
             isSignedIn = false,
             accountLabel = null,
-            notes = "Forgot saved credentials in the in-memory spike repository.",
+            notes = "Forgot saved fallback details in the in-memory spike repository.",
         )
         syncState.value = LibrarySyncState(
             phase = SyncPhase.Idle,
-            message = "Forgot saved credentials. Seeded content is active.",
+            message = "Forgot saved fallback details. Seeded content is active.",
         )
         videosState.value = ConfigurableLookTubeRepository.seededVideos
         selectedVideoIdState.value = null
