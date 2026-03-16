@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -51,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -185,7 +188,7 @@ fun LibraryRoute(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 16.dp, top = 0.dp, end = if (sections.isEmpty()) 16.dp else 24.dp),
+                .padding(start = 16.dp, top = 0.dp, end = if (sections.isEmpty()) 16.dp else 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = 16.dp),
         ) {
@@ -546,16 +549,16 @@ private fun ShowJumpRail(
     )
 
     Row(
-        modifier = modifier.width(120.dp),
+        modifier = modifier.width(176.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .width(104.dp)
+                .width(156.dp)
                 .graphicsLayer(alpha = labelAlpha)
-                .padding(end = 8.dp),
+                .padding(end = 6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.End,
             contentPadding = PaddingValues(vertical = 8.dp),
@@ -564,13 +567,14 @@ private fun ShowJumpRail(
                 val selected = index == currentGroupIndex
                 Surface(
                     modifier = Modifier
-                        .padding(start = flyoutOffset)
+                        .offset(x = flyoutOffset)
+                        .widthIn(max = 148.dp)
                         .clickable { onGroupSelected(index) },
                     shape = RoundedCornerShape(999.dp),
                     color = if (selected) {
                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
                     } else {
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.54f)
                     },
                     contentColor = if (selected) {
                         MaterialTheme.colorScheme.onPrimaryContainer
@@ -581,13 +585,14 @@ private fun ShowJumpRail(
                 ) {
                     Text(
                         text = group.title,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                         ),
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.End,
                     )
                 }
             }

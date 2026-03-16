@@ -12,10 +12,13 @@ import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -112,16 +115,22 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
             modifier = Modifier.fillMaxSize(),
             topBar = {
                 if (!isPlayerFullscreen) {
-                TopAppBar(
-                    title = {
-                        Text("LookTube")
-                    },
-                )
+                    TopAppBar(
+                        title = {
+                            Text("LookTube")
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
                 }
             },
             bottomBar = {
                 if (!isPlayerFullscreen) {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ) {
                         topLevelDestinations.forEachIndexed { index, destination ->
                             NavigationBarItem(
                                 selected = pagerState.currentPage == index,
@@ -130,6 +139,13 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                                         pagerState.animateScrollToPage(index)
                                     }
                                 },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                ),
                                 icon = {
                                     Icon(
                                         imageVector = destination.icon,
