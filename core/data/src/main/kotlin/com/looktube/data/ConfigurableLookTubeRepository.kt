@@ -1,4 +1,5 @@
 package com.looktube.data
+
 import com.looktube.database.PlaybackBookmarkStore
 
 import com.looktube.model.AccountSession
@@ -42,6 +43,7 @@ class ConfigurableLookTubeRepository(
             feedUrl = "",
             username = "",
             password = "",
+            rememberPassword = false,
         ),
     )
     private val syncState = MutableStateFlow(
@@ -67,7 +69,7 @@ class ConfigurableLookTubeRepository(
         }
 
         val persistedConfiguration = feedConfigurationStore.persistedConfiguration.value
-        feedConfigurationState.value = persistedConfiguration.toRuntime(password = "")
+        feedConfigurationState.value = persistedConfiguration.toRuntime()
         val persistedSnapshot = syncedLibraryStore.persistedSnapshot.value
         if (
             persistedSnapshot != null &&
@@ -121,9 +123,19 @@ class ConfigurableLookTubeRepository(
         feedConfigurationState.value = feedConfigurationState.value.copy(username = username)
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
     }
-
-    override fun updatePassword(password: String) {
+    override suspend fun updatePassword(password: String) {
+        if (feedConfigurationState.value.rememberPassword) {
+            feedConfigurationStore.setRememberedPassword(password)
+        }
         feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
+        publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
+    }
+    override suspend fun setRememberPassword(rememberPassword: Boolean) {
+        feedConfigurationStore.setRememberPassword(rememberPassword)
+        if (rememberPassword) {
+            feedConfigurationStore.setRememberedPassword(feedConfigurationState.value.password)
+        }
+        feedConfigurationState.value = feedConfigurationState.value.copy(rememberPassword = rememberPassword)
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
     }
     override suspend fun signInToPremiumFeed() {
@@ -134,24 +146,39 @@ class ConfigurableLookTubeRepository(
         }
         refreshLibrary()
     }
-
-    override suspend fun signOut() {
+    override suspend fun clearSyncedData() {
+        hasSuccessfulFeedSync = false
+        syncedLibraryStore.clear()
+        playbackBookmarkStore.clear()
+        videosState.value = seededVideos
+        selectedVideoIdState.value = null
+        publishStatus(
+            LibrarySyncState(
+                phase = SyncPhase.Idle,
+                message = "Cleared synced library data. Saved feed settings are still available for the next sync.",
+                lastSuccessfulSyncSummary = null,
+            ),
+        )
+    }
+    override suspend fun forgetSavedCredentials() {
         hasSuccessfulFeedSync = false
         feedConfigurationStore.setAuthMode(null)
         feedConfigurationStore.setUsername("")
+        feedConfigurationStore.setRememberPassword(false)
         syncedLibraryStore.clear()
         playbackBookmarkStore.clear()
         feedConfigurationState.value = feedConfigurationState.value.copy(
             authMode = null,
             username = "",
             password = "",
+            rememberPassword = false,
         )
         videosState.value = seededVideos
         selectedVideoIdState.value = null
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Cleared synced library data. Feed URL was preserved for the next sign-in.",
+                message = "Forgot saved credentials. Feed URL was preserved so you can enter fresh credentials later.",
                 lastSuccessfulSyncSummary = null,
             ),
         )
@@ -266,7 +293,13 @@ class ConfigurableLookTubeRepository(
             notes = buildString {
                 append(status.message)
                 if (configuration.password.isNotBlank()) {
-                    append(" Password is stored for the current app session only.")
+                    append(
+                        if (configuration.rememberPassword) {
+                            " Password is saved securely on this device."
+                        } else {
+                            " Password is stored for the current app session only."
+                        },
+                    )
                 }
             },
         )
@@ -289,9 +322,14 @@ class ConfigurableLookTubeRepository(
                 message = "Saved feed URL detected. Sign in to sync it. Username and password are optional for copied feed URLs that already include access keys.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
+            configuration.rememberPassword && configuration.password.isNotBlank() -> LibrarySyncState(
+                phase = SyncPhase.Idle,
+                message = "Saved feed URL, username, and remembered password loaded. Sign in to sync the Premium feed.",
+                lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
+            )
             configuration.password.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL and username loaded. If this feed still requires basic auth, enter the password for this app session; otherwise sign in now.",
+                message = "Saved feed URL and username loaded. If this feed still requires basic auth, enter the password for this app session or remember it securely on this device; otherwise sign in now.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             else -> LibrarySyncState(
@@ -333,4 +371,8 @@ interface FeedConfigurationStore {
     suspend fun setFeedUrl(feedUrl: String)
 
     suspend fun setUsername(username: String)
+
+    suspend fun setRememberPassword(rememberPassword: Boolean)
+
+    suspend fun setRememberedPassword(password: String)
 }

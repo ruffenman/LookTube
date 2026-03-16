@@ -40,6 +40,33 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         persistedConfigurationState.value = readFromDisk()
     }
 
+    override suspend fun setRememberPassword(rememberPassword: Boolean) {
+        writeToDisk(
+            persistedConfigurationState.value.copy(
+                rememberedPassword = if (rememberPassword) {
+                    persistedConfigurationState.value.rememberedPassword
+                } else {
+                    ""
+                },
+                rememberPassword = rememberPassword,
+            ),
+        )
+        persistedConfigurationState.value = readFromDisk()
+    }
+
+    override suspend fun setRememberedPassword(password: String) {
+        writeToDisk(
+            persistedConfigurationState.value.copy(
+                rememberedPassword = if (persistedConfigurationState.value.rememberPassword) {
+                    password
+                } else {
+                    ""
+                },
+            ),
+        )
+        persistedConfigurationState.value = readFromDisk()
+    }
+
     private fun readFromDisk(): PersistedFeedConfiguration {
         val encryptedPayload = preferences.getString(KEY_ENCRYPTED_PAYLOAD, null)
         if (!encryptedPayload.isNullOrBlank()) {
@@ -52,6 +79,8 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             authMode = null,
             feedUrl = "",
             username = "",
+            rememberedPassword = "",
+            rememberPassword = false,
         )
         if (persistSecure(legacyConfiguration)) {
             clearLegacyEntries()
@@ -72,6 +101,8 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                 ?.let { value -> runCatching { AuthMode.valueOf(value) }.getOrNull() },
             feedUrl = preferences.getString(KEY_FEED_URL, "").orEmpty(),
             username = preferences.getString(KEY_USERNAME, "").orEmpty(),
+            rememberedPassword = "",
+            rememberPassword = false,
         )
     }
 
@@ -119,6 +150,8 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                 configuration.authMode?.name.orEmpty(),
                 configuration.feedUrl,
                 configuration.username,
+                configuration.rememberedPassword.takeIf { configuration.rememberPassword }.orEmpty(),
+                configuration.rememberPassword.toString(),
             ).joinToString(SERIALIZED_SEPARATOR) { field ->
                 Base64.getEncoder().encodeToString(field.toByteArray(UTF_8))
             }
@@ -127,7 +160,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             serializedConfiguration: String,
         ): PersistedFeedConfiguration? {
             val parts = serializedConfiguration.split(SERIALIZED_SEPARATOR)
-            if (parts.size != 3) {
+            if (parts.size != 3 && parts.size != 5) {
                 return null
             }
             val decodedParts = parts.map { encodedField ->
@@ -144,6 +177,12 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                     ?.let { value -> runCatching { AuthMode.valueOf(value) }.getOrNull() },
                 feedUrl = decodedParts[1].orEmpty(),
                 username = decodedParts[2].orEmpty(),
+                rememberedPassword = if (decodedParts.size >= 5 && decodedParts[4].toBoolean()) {
+                    decodedParts[3].orEmpty()
+                } else {
+                    ""
+                },
+                rememberPassword = decodedParts.getOrNull(4)?.toBoolean() == true,
             )
         }
     }

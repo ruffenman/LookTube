@@ -17,7 +17,7 @@ Current coverage:
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
-- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player fallback surfaces
+- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player fallback surfaces plus remembered-credentials readiness
 - managed-device smoke coverage now also checks the player fallback surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
@@ -56,7 +56,8 @@ Verify the current UI against committed baselines:
 Current committed baselines cover:
 - Library browse surface
 - Auth setup-required state
-- Auth synced state with fallback credentials expanded
+- Auth synced state with remembered credentials expanded
+- Auth remembered-credentials ready state
 - Player empty-queue state
 - Player preparing state
 
@@ -74,4 +75,4 @@ $env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
 - prefer sanitized local fixtures in automated tests
 - do not commit authenticated responses or cookies
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
-- current app behavior persists feed URL, username, and auth mode locally, but keeps password input session-only
+- current app behavior persists feed URL, username, auth mode, and any opted-in remembered password locally, while non-remembered password edits stay session-only

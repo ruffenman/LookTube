@@ -5,11 +5,11 @@ LookTube is an Android-first Giant Bomb companion app focused on one primary out
 The repository is now past the initial foundation spike and includes a usable Android browse/playback slice:
 - native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
 - copied Giant Bomb Premium RSS URLs supported as the primary sync path, with optional fallback basic-auth fields
-- copied Giant Bomb Premium RSS URLs and saved usernames now persist encrypted at rest, while passwords remain session-only
+- copied Giant Bomb Premium RSS URLs, saved usernames, and optional remembered passwords now persist encrypted at rest
 - persisted synced-library state and playback resume state across app restarts
 - app-level Media3 playback service/session with background playback and fullscreen support
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
-- committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player fallback states
+- committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player fallback states, including remembered-credentials readiness
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
 - live Giant Bomb auth/session strategy and exact long-term playback integration still need additional hardening beyond the current feed-first path
@@ -42,6 +42,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks
 - `docs/testing/local-ci.md` - Ralph loop workflow and validation strategy
 - `docs/decisions/ADR-0001-foundation.md` - foundation architecture decision record
+- `docs/decisions/ADR-0002-auth-persistence.md` - feed credential persistence and clear-action split decision
 - `docs/learned-notes/2026-03.md` - rolling learnings log for future reference
 
 ## Repository layout
@@ -55,7 +56,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. replace session-only password handling with a stronger persisted credential or session strategy if copied feed URLs prove insufficient
+1. validate whether the remembered-password feed path is sufficient for real Giant Bomb playback, or whether a browser-backed reusable session is still required
 2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
-3. keep expanding screenshot-oriented visual regression coverage around the app shell and richer playback states
+3. keep expanding screenshot-oriented visual regression coverage around richer playback states and any new auth edge cases
 4. tighten any remaining Giant Bomb-specific playback or session edge cases found during device validation

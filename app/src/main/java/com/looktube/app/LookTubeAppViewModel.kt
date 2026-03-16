@@ -71,17 +71,30 @@ class LookTubeAppViewModel(
     }
 
     fun updatePassword(password: String) {
-        repository.updatePassword(password)
+        viewModelScope.launch {
+            repository.updatePassword(password)
+        }
+    }
+
+    fun setRememberPassword(rememberPassword: Boolean) {
+        viewModelScope.launch {
+            repository.setRememberPassword(rememberPassword)
+        }
     }
     fun signInToPremiumFeed() {
         viewModelScope.launch {
             repository.signInToPremiumFeed()
         }
     }
-
-    fun signOut() {
+    fun clearSyncedData() {
         viewModelScope.launch {
-            repository.signOut()
+            repository.clearSyncedData()
+        }
+    }
+
+    fun forgetSavedCredentials() {
+        viewModelScope.launch {
+            repository.forgetSavedCredentials()
         }
     }
 

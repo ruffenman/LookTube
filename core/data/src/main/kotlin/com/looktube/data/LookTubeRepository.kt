@@ -22,11 +22,11 @@ interface LookTubeRepository {
     suspend fun updateFeedUrl(feedUrl: String)
 
     suspend fun updateUsername(username: String)
-
-    fun updatePassword(password: String)
+    suspend fun updatePassword(password: String)
+    suspend fun setRememberPassword(rememberPassword: Boolean)
     suspend fun signInToPremiumFeed()
-
-    suspend fun signOut()
+    suspend fun clearSyncedData()
+    suspend fun forgetSavedCredentials()
 
     suspend fun refreshLibrary()
 

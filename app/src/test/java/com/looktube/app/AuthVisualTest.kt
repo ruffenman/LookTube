@@ -45,6 +45,7 @@ class AuthVisualTest {
                         feedUrl = "",
                         username = "",
                         password = "",
+                        rememberPassword = false,
                     ),
                     syncState = LibrarySyncState(
                         phase = SyncPhase.Idle,
@@ -53,8 +54,10 @@ class AuthVisualTest {
                     onFeedUrlChanged = {},
                     onUsernameChanged = {},
                     onPasswordChanged = {},
+                    onRememberPasswordChanged = {},
                     onSignInRequested = {},
-                    onSignOutRequested = {},
+                    onClearSyncedDataRequested = {},
+                    onForgetSavedCredentialsRequested = {},
                 )
             }
         }
@@ -78,7 +81,8 @@ class AuthVisualTest {
                         authMode = null,
                         feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=feed-token",
                         username = "premium-user",
-                        password = "session-only-secret",
+                        password = "remembered-secret",
+                        rememberPassword = true,
                     ),
                     syncState = LibrarySyncState(
                         phase = SyncPhase.Success,
@@ -88,8 +92,47 @@ class AuthVisualTest {
                     onFeedUrlChanged = {},
                     onUsernameChanged = {},
                     onPasswordChanged = {},
+                    onRememberPasswordChanged = {},
                     onSignInRequested = {},
-                    onSignOutRequested = {},
+                    onClearSyncedDataRequested = {},
+                    onForgetSavedCredentialsRequested = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    @Test
+    fun authRememberedCredentialsReadySurface() {
+        composeRule.setContent {
+            LookTubeTheme {
+                AuthRoute(
+                    paddingValues = PaddingValues(),
+                    accountSession = AccountSession(
+                        isSignedIn = false,
+                        accountLabel = "premium-user",
+                        authMode = null,
+                        notes = "Saved feed settings are ready for the next sync.",
+                    ),
+                    feedConfiguration = FeedConfiguration(
+                        authMode = null,
+                        feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=feed-token",
+                        username = "premium-user",
+                        password = "remembered-secret",
+                        rememberPassword = true,
+                    ),
+                    syncState = LibrarySyncState(
+                        phase = SyncPhase.Idle,
+                        message = "Saved feed URL, username, and remembered password loaded. Sign in to sync the Premium feed.",
+                    ),
+                    onFeedUrlChanged = {},
+                    onUsernameChanged = {},
+                    onPasswordChanged = {},
+                    onRememberPasswordChanged = {},
+                    onSignInRequested = {},
+                    onClearSyncedDataRequested = {},
+                    onForgetSavedCredentialsRequested = {},
                 )
             }
         }

@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -44,7 +45,7 @@ class LookTubeAppViewModelTest {
 
         assertTrue(viewModel.videos.value.isNotEmpty())
         assertEquals(null, viewModel.accountSession.value.authMode)
-        assertEquals(false, viewModel.accountSession.value.isSignedIn)
+        assertFalse(viewModel.accountSession.value.isSignedIn)
     }
 
     @Test
@@ -69,7 +70,7 @@ class LookTubeAppViewModelTest {
     }
 
     @Test
-    fun signOutReturnsToSeededState() = runTest {
+    fun clearSyncedDataKeepsSavedCredentialsReadyForResync() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
@@ -82,15 +83,47 @@ class LookTubeAppViewModelTest {
         advanceUntilIdle()
 
         viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.updateUsername("jorge")
+        viewModel.setRememberPassword(true)
+        viewModel.updatePassword("remembered-secret")
         viewModel.signInToPremiumFeed()
         advanceUntilIdle()
 
-        viewModel.signOut()
+        viewModel.clearSyncedData()
         advanceUntilIdle()
 
-        assertEquals(false, viewModel.accountSession.value.isSignedIn)
-        assertEquals("", viewModel.feedConfiguration.value.username)
+        assertFalse(viewModel.accountSession.value.isSignedIn)
+        assertEquals("jorge", viewModel.feedConfiguration.value.username)
+        assertEquals("remembered-secret", viewModel.feedConfiguration.value.password)
+        assertTrue(viewModel.feedConfiguration.value.rememberPassword)
         assertEquals("premium-quick-look-1", viewModel.videos.value.first().id)
+    }
+
+    @Test
+    fun forgetSavedCredentialsClearsSavedAuthInputs() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.updateUsername("jorge")
+        viewModel.setRememberPassword(true)
+        viewModel.updatePassword("remembered-secret")
+        advanceUntilIdle()
+
+        viewModel.forgetSavedCredentials()
+        advanceUntilIdle()
+
+        assertEquals("", viewModel.feedConfiguration.value.username)
+        assertEquals("", viewModel.feedConfiguration.value.password)
+        assertFalse(viewModel.feedConfiguration.value.rememberPassword)
     }
 }
 
@@ -100,6 +133,8 @@ private class FakeFeedConfigurationStore : FeedConfigurationStore {
             authMode = null,
             feedUrl = "",
             username = "",
+            rememberedPassword = "",
+            rememberPassword = false,
         ),
     )
 
@@ -115,6 +150,19 @@ private class FakeFeedConfigurationStore : FeedConfigurationStore {
 
     override suspend fun setUsername(username: String) {
         state.value = state.value.copy(username = username)
+    }
+
+    override suspend fun setRememberPassword(rememberPassword: Boolean) {
+        state.value = state.value.copy(
+            rememberedPassword = if (rememberPassword) state.value.rememberedPassword else "",
+            rememberPassword = rememberPassword,
+        )
+    }
+
+    override suspend fun setRememberedPassword(password: String) {
+        state.value = state.value.copy(
+            rememberedPassword = if (state.value.rememberPassword) password else "",
+        )
     }
 }
 

@@ -174,8 +174,10 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                         onFeedUrlChanged = viewModel::updateFeedUrl,
                         onUsernameChanged = viewModel::updateUsername,
                         onPasswordChanged = viewModel::updatePassword,
+                        onRememberPasswordChanged = viewModel::setRememberPassword,
                         onSignInRequested = viewModel::signInToPremiumFeed,
-                        onSignOutRequested = viewModel::signOut,
+                        onClearSyncedDataRequested = viewModel::clearSyncedData,
+                        onForgetSavedCredentialsRequested = viewModel::forgetSavedCredentials,
                     )
 
                     "library" -> LibraryRoute(

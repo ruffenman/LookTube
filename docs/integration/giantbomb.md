@@ -13,8 +13,8 @@ The first implementation path should be feed-first, not legacy-API-first. The au
 ## What is implemented in the repo today
 - fixture-driven RSS parsing in `core:network`
 - a manual probe script in `scripts/Invoke-GiantBombFeedProbe.ps1`
-- a configurable repository that persists feed URL, username, and auth mode locally, with feed identity now encrypted at rest inside the app
-- a session-only optional password field in the app shell
+- a configurable repository that persists feed URL, username, auth mode, and optional remembered password locally, with feed identity protected at rest inside the app
+- a user-facing split between clearing synced library data and forgetting saved credentials while preserving the copied feed URL
 - a live Premium RSS fetch path that can replace seeded library content when configured successfully
 - seeded fallback library data that keeps the app usable and testable before live credentials are available
 - a Media3-backed player screen that can attempt playback when a synced item exposes a stream URL
@@ -25,7 +25,7 @@ The first implementation path should be feed-first, not legacy-API-first. The au
 - confirm whether credentialed feed access is sufficient for real video playback, not just feed access
 - confirm the minimum set of headers, cookies, and redirects required for authenticated playback handoff
 - confirm how often the site behavior changes enough to require fixture refreshes
-- replace session-only password handling with a more complete persisted credential or session strategy
+- validate whether the new remembered-password path is enough for repeat Giant Bomb playback use, or whether a reusable browser-backed session is still required
 
 ## Probe policy
 - live probes are opt-in only

@@ -4,12 +4,15 @@ data class PersistedFeedConfiguration(
     val authMode: AuthMode?,
     val feedUrl: String,
     val username: String,
+    val rememberedPassword: String,
+    val rememberPassword: Boolean,
 )
 
-fun PersistedFeedConfiguration.toRuntime(password: String): FeedConfiguration =
+fun PersistedFeedConfiguration.toRuntime(): FeedConfiguration =
     FeedConfiguration(
         authMode = authMode,
         feedUrl = feedUrl,
         username = username,
-        password = password,
+        password = rememberedPassword,
+        rememberPassword = rememberPassword,
     )

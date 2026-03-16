@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +25,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
@@ -42,13 +46,19 @@ fun AuthRoute(
     onFeedUrlChanged: (String) -> Unit,
     onUsernameChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
+    onRememberPasswordChanged: (Boolean) -> Unit,
     onSignInRequested: () -> Unit,
-    onSignOutRequested: () -> Unit,
+    onClearSyncedDataRequested: () -> Unit,
+    onForgetSavedCredentialsRequested: () -> Unit,
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
     var optionalCredentialsExpanded by rememberSaveable {
-        mutableStateOf(feedConfiguration.username.isNotBlank() || feedConfiguration.password.isNotBlank())
+        mutableStateOf(
+            feedConfiguration.username.isNotBlank() ||
+                feedConfiguration.password.isNotBlank() ||
+                feedConfiguration.rememberPassword,
+        )
     }
     val colorScheme = MaterialTheme.colorScheme
     val statusLabel = when {
@@ -85,16 +95,33 @@ fun AuthRoute(
             append(summary)
         }
         if (feedConfiguration.password.isNotBlank()) {
-            append("\n\nThe optional password is stored only for this app session.")
+            append("\n\n")
+            append(
+                if (feedConfiguration.rememberPassword) {
+                    "The optional password is saved securely on this device."
+                } else {
+                    "The optional password is stored only for this app session."
+                },
+            )
         }
         if (accountSession.isSignedIn || syncState.phase == SyncPhase.Success) {
-            append("\n\nClear synced data removes the cached library and saved progress but keeps the feed URL.")
+            append("\n\nClear synced data removes the cached library and saved progress but keeps your feed settings ready for the next sync.")
+        }
+        if (
+            feedConfiguration.username.isNotBlank() ||
+            feedConfiguration.rememberPassword ||
+            feedConfiguration.password.isNotBlank()
+        ) {
+            append("\n\nForget saved credentials removes the saved username and any remembered password but keeps the feed URL.")
         }
     }
     val canClearData = !isSigningIn && (
         accountSession.isSignedIn ||
-            syncState.lastSuccessfulSyncSummary != null ||
-            feedConfiguration.username.isNotBlank() ||
+            syncState.lastSuccessfulSyncSummary != null
+        )
+    val canForgetSavedCredentials = !isSigningIn && (
+        feedConfiguration.username.isNotBlank() ||
+            feedConfiguration.rememberPassword ||
             feedConfiguration.password.isNotBlank()
         )
 
@@ -166,15 +193,47 @@ fun AuthRoute(
                 value = feedConfiguration.password,
                 onValueChange = onPasswordChanged,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Password (optional, session only)") },
+                label = {
+                    Text(
+                        if (feedConfiguration.rememberPassword) {
+                            "Password (optional, remembered)"
+                        } else {
+                            "Password (optional)"
+                        },
+                    )
+                },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
             )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(
+                        value = feedConfiguration.rememberPassword,
+                        role = Role.Checkbox,
+                        onValueChange = onRememberPasswordChanged,
+                    )
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Checkbox(
+                    checked = feedConfiguration.rememberPassword,
+                    onCheckedChange = null,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Remember password on this device")
+                    Text(
+                        text = "Uses encrypted-at-rest app storage and stays optional for feed URLs with embedded access keys.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = onSignInRequested,
                 enabled = canSignIn,
@@ -198,11 +257,20 @@ fun AuthRoute(
 
             if (canClearData) {
                 OutlinedButton(
-                    onClick = onSignOutRequested,
+                    onClick = onClearSyncedDataRequested,
                     shape = RoundedCornerShape(14.dp),
                 ) {
                     Text("Clear synced data")
                 }
+            }
+        }
+
+        if (canForgetSavedCredentials) {
+            OutlinedButton(
+                onClick = onForgetSavedCredentialsRequested,
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Text("Forget saved credentials")
             }
         }
     }

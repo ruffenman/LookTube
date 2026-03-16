@@ -26,6 +26,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
             feedUrl = "",
             username = "",
             password = "",
+            rememberPassword = false,
         ),
     )
     private val syncState = MutableStateFlow(
@@ -77,8 +78,11 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         feedConfigurationState.value = feedConfigurationState.value.copy(username = username)
     }
 
-    override fun updatePassword(password: String) {
+    override suspend fun updatePassword(password: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
+    }
+    override suspend fun setRememberPassword(rememberPassword: Boolean) {
+        feedConfigurationState.value = feedConfigurationState.value.copy(rememberPassword = rememberPassword)
     }
     override suspend fun signInToPremiumFeed() {
         if (feedConfigurationState.value.authMode != AuthMode.CredentialedFeed) {
@@ -91,21 +95,37 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         refreshLibrary()
     }
 
-    override suspend fun signOut() {
+    override suspend fun clearSyncedData() {
         accountSessionState.value = accountSessionState.value.copy(
             isSignedIn = false,
             accountLabel = null,
-            authMode = null,
-            notes = "Signed out of the in-memory spike repository.",
+            authMode = feedConfigurationState.value.authMode,
+            notes = "Cleared synced data in the in-memory spike repository.",
         )
+        syncState.value = LibrarySyncState(
+            phase = SyncPhase.Idle,
+            message = "Cleared synced data. Seeded content is active until the next refresh.",
+        )
+        videosState.value = ConfigurableLookTubeRepository.seededVideos
+        selectedVideoIdState.value = null
+        playbackProgressState.value = emptyMap()
+    }
+    override suspend fun forgetSavedCredentials() {
         feedConfigurationState.value = feedConfigurationState.value.copy(
             authMode = null,
             username = "",
             password = "",
+            rememberPassword = false,
+        )
+        accountSessionState.value = accountSessionState.value.copy(
+            isSignedIn = false,
+            accountLabel = null,
+            authMode = null,
+            notes = "Forgot saved credentials in the in-memory spike repository.",
         )
         syncState.value = LibrarySyncState(
             phase = SyncPhase.Idle,
-            message = "Signed out. Seeded content is active.",
+            message = "Forgot saved credentials. Seeded content is active.",
         )
         videosState.value = ConfigurableLookTubeRepository.seededVideos
         selectedVideoIdState.value = null

@@ -3,8 +3,8 @@
 - Run `.\gradlew.bat verifyFast` after each thin Ralph loop slice.
 - Run `.\gradlew.bat verifyLocal -PskipManagedDevice=true` before committing unless you also validated the managed-device lane.
 - Never commit live Giant Bomb credentials, cookies, or raw authenticated feed responses.
-- Copied feed URLs and saved usernames now persist through an encrypted-at-rest app store; password input is still session-only and optional for copied feed URLs.
-- Signing out currently clears the saved username and active session password but preserves the feed URL for convenience.
+- Copied feed URLs, saved usernames, and optional remembered passwords now persist through an encrypted-at-rest app store; copied feed URLs can still be used without a password when they already carry access keys.
+- `Clear synced data` now removes cached library data and playback progress while preserving feed settings; `Forget saved credentials` clears the saved username and remembered password while keeping the feed URL.
 - Record integration findings in `docs/integration/giantbomb.md` before changing implementation assumptions.
 - Record architecture tradeoffs as ADRs under `docs/decisions/`.
 - Keep this file short; deeper context belongs under `docs/`.

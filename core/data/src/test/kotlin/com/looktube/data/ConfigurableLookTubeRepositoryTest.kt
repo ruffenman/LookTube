@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,6 +25,8 @@ class ConfigurableLookTubeRepositoryTest {
                 authMode = AuthMode.CredentialedFeed,
                 feedUrl = "https://example.com/feed.xml",
                 username = "jorge",
+                rememberedPassword = "remembered-secret",
+                rememberPassword = true,
             ),
         )
         val repository = ConfigurableLookTubeRepository(
@@ -37,6 +40,8 @@ class ConfigurableLookTubeRepositoryTest {
 
         assertEquals("https://example.com/feed.xml", repository.feedConfiguration.value.feedUrl)
         assertEquals("jorge", repository.feedConfiguration.value.username)
+        assertEquals("remembered-secret", repository.feedConfiguration.value.password)
+        assertTrue(repository.feedConfiguration.value.rememberPassword)
         assertTrue(repository.videos.value.isNotEmpty())
         assertEquals(SyncPhase.Idle, repository.librarySyncState.value.phase)
     }
@@ -77,12 +82,15 @@ class ConfigurableLookTubeRepositoryTest {
         repository.selectAuthMode(AuthMode.CredentialedFeed)
         repository.updateFeedUrl("https://example.com/premium.xml")
         repository.updateUsername("jorge")
+        repository.setRememberPassword(true)
         repository.updatePassword("session-secret")
         repository.refreshLibrary()
 
         assertEquals("https://example.com/premium.xml", recordingService.lastRequest?.feedUrl)
         assertEquals("jorge", recordingService.lastRequest?.username)
         assertEquals("session-secret", recordingService.lastRequest?.password)
+        assertEquals("session-secret", store.persistedConfiguration.value.rememberedPassword)
+        assertTrue(store.persistedConfiguration.value.rememberPassword)
     }
 
     @Test
@@ -101,6 +109,61 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals(SyncPhase.Error, repository.librarySyncState.value.phase)
         assertTrue(repository.librarySyncState.value.message.contains("not implemented"))
     }
+
+    @Test
+    fun clearSyncedDataKeepsSavedCredentialsReadyForResync() = runTest {
+        val store = FakeFeedConfigurationStore()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = store,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = FakeVideoFeedService(),
+        )
+
+        repository.bootstrap()
+        repository.selectAuthMode(AuthMode.CredentialedFeed)
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.updateUsername("jorge")
+        repository.setRememberPassword(true)
+        repository.updatePassword("remembered-secret")
+        repository.refreshLibrary()
+        repository.clearSyncedData()
+
+        assertFalse(repository.accountSession.value.isSignedIn)
+        assertEquals("jorge", repository.feedConfiguration.value.username)
+        assertEquals("remembered-secret", repository.feedConfiguration.value.password)
+        assertTrue(repository.feedConfiguration.value.rememberPassword)
+        assertEquals("premium-quick-look-1", repository.videos.value.first().id)
+        assertTrue(repository.librarySyncState.value.message.contains("Saved feed settings"))
+    }
+
+    @Test
+    fun forgetSavedCredentialsClearsPersistedAuthInputs() = runTest {
+        val store = FakeFeedConfigurationStore()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = store,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = FakeVideoFeedService(),
+        )
+
+        repository.bootstrap()
+        repository.selectAuthMode(AuthMode.CredentialedFeed)
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.updateUsername("jorge")
+        repository.setRememberPassword(true)
+        repository.updatePassword("remembered-secret")
+        repository.forgetSavedCredentials()
+
+        assertEquals("", repository.feedConfiguration.value.username)
+        assertEquals("", repository.feedConfiguration.value.password)
+        assertFalse(repository.feedConfiguration.value.rememberPassword)
+        assertEquals(null, repository.feedConfiguration.value.authMode)
+        assertEquals("", store.persistedConfiguration.value.username)
+        assertEquals("", store.persistedConfiguration.value.rememberedPassword)
+        assertFalse(store.persistedConfiguration.value.rememberPassword)
+        assertEquals("premium-quick-look-1", repository.videos.value.first().id)
+    }
 }
 
 private class FakeFeedConfigurationStore(
@@ -108,6 +171,8 @@ private class FakeFeedConfigurationStore(
         authMode = null,
         feedUrl = "",
         username = "",
+        rememberedPassword = "",
+        rememberPassword = false,
     ),
 ) : FeedConfigurationStore {
     private val state = MutableStateFlow(initialConfiguration)
@@ -124,6 +189,19 @@ private class FakeFeedConfigurationStore(
 
     override suspend fun setUsername(username: String) {
         state.value = state.value.copy(username = username)
+    }
+
+    override suspend fun setRememberPassword(rememberPassword: Boolean) {
+        state.value = state.value.copy(
+            rememberedPassword = if (rememberPassword) state.value.rememberedPassword else "",
+            rememberPassword = rememberPassword,
+        )
+    }
+
+    override suspend fun setRememberedPassword(password: String) {
+        state.value = state.value.copy(
+            rememberedPassword = if (state.value.rememberPassword) password else "",
+        )
     }
 }
 

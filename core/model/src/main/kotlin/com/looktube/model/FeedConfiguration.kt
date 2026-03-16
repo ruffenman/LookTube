@@ -5,6 +5,7 @@ data class FeedConfiguration(
     val feedUrl: String,
     val username: String,
     val password: String,
+    val rememberPassword: Boolean,
 ) {
     val canAttemptCredentialedFeedSync: Boolean
         get() = authMode == AuthMode.CredentialedFeed &&
