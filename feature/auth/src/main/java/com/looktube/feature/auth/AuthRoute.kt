@@ -135,7 +135,7 @@ fun AuthRoute(
     ) {
         LookTubePageHeader(
             title = "Connect your Giant Bomb Premium feed",
-            subtitle = "Paste the feed URL you copied from Giant Bomb, then refresh your saved library.",
+            subtitle = "Paste the feed URL you copied from Giant Bomb. Advanced credentials are only for direct-feed fallback if that URL still fails.",
         )
 
         LookTubeCard(
@@ -167,9 +167,9 @@ fun AuthRoute(
             label = {
                 Text(
                     if (optionalCredentialsExpanded) {
-                        "Hide optional basic-auth credentials"
+                        "Hide advanced feed fallback"
                     } else {
-                        "Optional basic-auth credentials"
+                        "Advanced feed fallback"
                     },
                 )
             },
@@ -177,8 +177,8 @@ fun AuthRoute(
 
         if (optionalCredentialsExpanded) {
             LookTubeCard(
-                title = "Optional fallback",
-                body = "Most copied Giant Bomb feed URLs already contain access keys. Only fill these fields if a specific feed variant still requires basic auth.",
+                title = "Advanced direct-feed fallback",
+                body = "Most copied Giant Bomb feed URLs should work on their own. Only fill these fields if the feed itself still requires HTTP Basic auth. LookTube does not sign into the Giant Bomb website or automate a browser session.",
             )
 
             OutlinedTextField(
@@ -225,7 +225,7 @@ fun AuthRoute(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Remember password on this device")
                     Text(
-                        text = "Uses encrypted-at-rest app storage and stays optional for feed URLs with embedded access keys.",
+                        text = "Uses encrypted-at-rest app storage and stays limited to the direct-feed fallback path.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

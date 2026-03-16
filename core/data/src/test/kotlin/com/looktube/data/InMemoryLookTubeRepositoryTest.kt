@@ -1,6 +1,5 @@
 package com.looktube.data
 
-import com.looktube.model.AuthMode
 import com.looktube.model.SyncPhase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,12 +18,12 @@ class InMemoryLookTubeRepositoryTest {
     }
 
     @Test
-    fun selectingAuthModePersistsChoice() = runTest {
+    fun signInMarksRepositoryAsCredentialedFeed() = runTest {
         val repository = InMemoryLookTubeRepository()
 
-        repository.selectAuthMode(AuthMode.SessionCookie)
+        repository.signInToPremiumFeed()
 
-        assertEquals(AuthMode.SessionCookie, repository.accountSession.value.authMode)
+        assertEquals(com.looktube.model.AuthMode.CredentialedFeed, repository.accountSession.value.authMode)
     }
 
     @Test

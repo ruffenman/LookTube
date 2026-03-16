@@ -4,7 +4,7 @@ LookTube is an Android-first Giant Bomb companion app focused on one primary out
 ## Current status
 The repository is now past the initial foundation spike and includes a usable Android browse/playback slice:
 - native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
-- copied Giant Bomb Premium RSS URLs supported as the primary sync path, with optional fallback basic-auth fields
+- copied Giant Bomb Premium RSS URLs supported as the primary sync path, with advanced direct-feed basic-auth fallback only when a feed variant still requires it
 - copied Giant Bomb Premium RSS URLs, saved usernames, and optional remembered passwords now persist encrypted at rest
 - persisted synced-library state and playback resume state across app restarts
 - app-level Media3 playback service/session with background playback and fullscreen support
@@ -12,7 +12,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player fallback states, including remembered-credentials readiness
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
-- live Giant Bomb auth/session strategy and exact long-term playback integration still need additional hardening beyond the current feed-first path
+- live Giant Bomb playback integration still needs additional hardening, but the intended product shape remains feed-first rather than website-login automation
 
 ## Ralph loop commands
 Use these commands as the default development loop on Windows:
@@ -56,7 +56,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. validate whether the remembered-password feed path is sufficient for real Giant Bomb playback, or whether a browser-backed reusable session is still required
+1. validate whether the copied feed URL alone is sufficient for real Giant Bomb playback, and keep credentials only if direct-feed fallback proves necessary
 2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
 3. keep expanding screenshot-oriented visual regression coverage around richer playback states and any new auth edge cases
-4. tighten any remaining Giant Bomb-specific playback or session edge cases found during device validation
+4. tighten any remaining Giant Bomb-specific playback edge cases found during device validation without drifting into unsupported site automation

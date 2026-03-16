@@ -58,18 +58,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         playbackProgressState.value = emptyMap()
     }
 
-
-    override suspend fun selectAuthMode(mode: AuthMode) {
-        feedConfigurationState.value = feedConfigurationState.value.copy(authMode = mode)
-        accountSessionState.value = accountSessionState.value.copy(
-            authMode = mode,
-            notes = when (mode) {
-                AuthMode.SessionCookie -> "Spike session-cookie sign-in via a browser-backed flow and persist only the minimum session state."
-                AuthMode.CredentialedFeed -> "Spike credentialed feed access first to confirm Premium video RSS reliability."
-            },
-        )
-    }
-
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
     }
@@ -89,7 +77,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
             feedConfigurationState.value = feedConfigurationState.value.copy(authMode = AuthMode.CredentialedFeed)
             accountSessionState.value = accountSessionState.value.copy(
                 authMode = AuthMode.CredentialedFeed,
-                notes = "Spike credentialed feed access first to confirm Premium video RSS reliability.",
+                notes = "Spike feed-first Premium access first and use credentials only as direct-feed fallback.",
             )
         }
         refreshLibrary()

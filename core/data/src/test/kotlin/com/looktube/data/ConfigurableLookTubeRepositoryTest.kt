@@ -57,9 +57,8 @@ class ConfigurableLookTubeRepositoryTest {
         )
 
         repository.bootstrap()
-        repository.selectAuthMode(AuthMode.CredentialedFeed)
         repository.updateFeedUrl("https://example.com/premium.xml")
-        repository.refreshLibrary()
+        repository.signInToPremiumFeed()
 
         assertEquals(SyncPhase.Success, repository.librarySyncState.value.phase)
         assertEquals(1, repository.videos.value.size)
@@ -79,35 +78,17 @@ class ConfigurableLookTubeRepositoryTest {
         )
 
         repository.bootstrap()
-        repository.selectAuthMode(AuthMode.CredentialedFeed)
         repository.updateFeedUrl("https://example.com/premium.xml")
         repository.updateUsername("jorge")
         repository.setRememberPassword(true)
         repository.updatePassword("session-secret")
-        repository.refreshLibrary()
+        repository.signInToPremiumFeed()
 
         assertEquals("https://example.com/premium.xml", recordingService.lastRequest?.feedUrl)
         assertEquals("jorge", recordingService.lastRequest?.username)
         assertEquals("session-secret", recordingService.lastRequest?.password)
         assertEquals("session-secret", store.persistedConfiguration.value.rememberedPassword)
         assertTrue(store.persistedConfiguration.value.rememberPassword)
-    }
-
-    @Test
-    fun refreshSurfacesUnsupportedSessionCookieMode() = runTest {
-        val repository = ConfigurableLookTubeRepository(
-            feedConfigurationStore = FakeFeedConfigurationStore(),
-            syncedLibraryStore = FakeSyncedLibraryStore(),
-            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
-            videoFeedService = FakeVideoFeedService(),
-        )
-
-        repository.bootstrap()
-        repository.selectAuthMode(AuthMode.SessionCookie)
-        repository.refreshLibrary()
-
-        assertEquals(SyncPhase.Error, repository.librarySyncState.value.phase)
-        assertTrue(repository.librarySyncState.value.message.contains("not implemented"))
     }
 
     @Test
@@ -121,12 +102,11 @@ class ConfigurableLookTubeRepositoryTest {
         )
 
         repository.bootstrap()
-        repository.selectAuthMode(AuthMode.CredentialedFeed)
         repository.updateFeedUrl("https://example.com/premium.xml")
         repository.updateUsername("jorge")
         repository.setRememberPassword(true)
         repository.updatePassword("remembered-secret")
-        repository.refreshLibrary()
+        repository.signInToPremiumFeed()
         repository.clearSyncedData()
 
         assertFalse(repository.accountSession.value.isSignedIn)
@@ -148,7 +128,6 @@ class ConfigurableLookTubeRepositoryTest {
         )
 
         repository.bootstrap()
-        repository.selectAuthMode(AuthMode.CredentialedFeed)
         repository.updateFeedUrl("https://example.com/premium.xml")
         repository.updateUsername("jorge")
         repository.setRememberPassword(true)

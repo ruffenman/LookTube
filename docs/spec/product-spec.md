@@ -22,6 +22,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - Library combines grouped browsing, sort/filter controls, rich video cards, and jump navigation
 - Player uses a shared Media3 session/service model with fullscreen and resume support
 - the Auth surface now separates clearing synced cache from forgetting saved credentials while preserving the copied feed URL
+- the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
 
 ## Next slice
@@ -29,6 +30,7 @@ Harden the path from copied feed sync to daily repeat use.
 
 ### Acceptance criteria
 - copied-feed sync remains the primary user-facing path unless a more robust Premium session flow proves necessary
+- credentials stay clearly demoted as advanced direct-feed fallback, not the main sign-in path
 - playback and background/session behavior remain stable across more real Giant Bomb feed variants
 - browse ergonomics continue improving from device feedback without regressing the grouped-library model
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
@@ -46,6 +48,6 @@ Harden the path from copied feed sync to daily repeat use.
 7. run `verifyLocal` before merging the slice
 
 ## Open questions
-- Is a direct credentialed-feed path enough for the first usable release, or does Giant Bomb Premium video require a browser-backed session flow?
+- Is the copied Premium feed URL alone enough for the first usable release, or do some feeds still require direct-feed credential fallback?
 - Which additional Giant Bomb feed or page metadata should be folded into show-grouping heuristics?
 - What is the lightest-weight visual regression strategy that fits the current Android/Compose workflow?

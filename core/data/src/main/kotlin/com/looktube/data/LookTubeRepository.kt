@@ -17,7 +17,6 @@ interface LookTubeRepository {
     val playbackProgress: StateFlow<Map<String, PlaybackProgress>>
 
     suspend fun bootstrap()
-    suspend fun selectAuthMode(mode: AuthMode)
 
     suspend fun updateFeedUrl(feedUrl: String)
 

@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.looktube.data.LookTubeRepository
-import com.looktube.model.AuthMode
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.PlaybackProgress
@@ -49,12 +48,6 @@ class LookTubeAppViewModel(
     init {
         viewModelScope.launch {
             repository.bootstrap()
-        }
-    }
-
-    fun selectAuthMode(mode: AuthMode) {
-        viewModelScope.launch {
-            repository.selectAuthMode(mode)
         }
     }
 

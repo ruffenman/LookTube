@@ -34,7 +34,7 @@ class ConfigurableLookTubeRepository(
             isSignedIn = false,
             accountLabel = null,
             authMode = null,
-            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library. Username and password are optional fallback fields.",
+            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library. Username and password are advanced fallback fields only if the feed itself still requires basic auth.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
@@ -105,12 +105,6 @@ class ConfigurableLookTubeRepository(
         } else {
             initialStatusFor(configuration)
         }
-
-    override suspend fun selectAuthMode(mode: AuthMode) {
-        feedConfigurationStore.setAuthMode(mode)
-        feedConfigurationState.value = feedConfigurationState.value.copy(authMode = mode)
-        publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
-    }
 
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationStore.setFeedUrl(feedUrl)
@@ -192,16 +186,6 @@ class ConfigurableLookTubeRepository(
                     LibrarySyncState(
                         phase = SyncPhase.Error,
                         message = "Sign in to Giant Bomb Premium before syncing the library.",
-                        lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
-                    ),
-                )
-                return
-            }
-            configuration.authMode == AuthMode.SessionCookie -> {
-                publishStatus(
-                    LibrarySyncState(
-                        phase = SyncPhase.Error,
-                        message = "Session-cookie mode is planned but not implemented yet. Use credentialed feed mode for this spike.",
                         lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
                     ),
                 )
@@ -307,11 +291,6 @@ class ConfigurableLookTubeRepository(
 
     private fun initialStatusFor(configuration: FeedConfiguration): LibrarySyncState =
         when {
-            configuration.authMode == AuthMode.SessionCookie -> LibrarySyncState(
-                phase = SyncPhase.Idle,
-                message = "Session-cookie mode is planned but not implemented yet. Credentialed feed mode is the active sync path.",
-                lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
-            )
             configuration.feedUrl.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
                 message = "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library.",
@@ -319,17 +298,17 @@ class ConfigurableLookTubeRepository(
             )
             configuration.username.isBlank() && configuration.password.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Sign in to sync it. Username and password are optional for copied feed URLs that already include access keys.",
+                message = "Saved feed URL detected. Sign in to sync it. Leave advanced fallback credentials empty unless this feed still requires basic auth.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             configuration.rememberPassword && configuration.password.isNotBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL, username, and remembered password loaded. Sign in to sync the Premium feed.",
+                message = "Saved feed URL and remembered fallback credentials loaded. Sign in to sync the Premium feed.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             configuration.password.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL and username loaded. If this feed still requires basic auth, enter the password for this app session or remember it securely on this device; otherwise sign in now.",
+                message = "Saved feed URL and fallback username loaded. If this feed still requires basic auth, enter the password for this app session or remember it securely on this device; otherwise sign in now.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             else -> LibrarySyncState(

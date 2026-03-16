@@ -5,10 +5,9 @@
 - Giant Bomb also states that legacy structured APIs for games, people, companies, and related content are not currently available.
 
 ## Design consequence
-The first implementation path should be feed-first, not legacy-API-first. The auth spike must determine whether the most reliable Android companion experience is:
+The first implementation path should stay feed-first, not legacy-API-first. Until Giant Bomb exposes an official supported media/mobile integration path, LookTube should avoid browser-backed sign-in flows, cookie harvesting, or other website automation. The main integration question is narrower:
 - direct copied-feed access
 - direct feed access with optional fallback basic-auth credentials
-- a browser-backed sign-in flow that yields a reusable session
 
 ## What is implemented in the repo today
 - fixture-driven RSS parsing in `core:network`
@@ -25,7 +24,8 @@ The first implementation path should be feed-first, not legacy-API-first. The au
 - confirm whether credentialed feed access is sufficient for real video playback, not just feed access
 - confirm the minimum set of headers, cookies, and redirects required for authenticated playback handoff
 - confirm how often the site behavior changes enough to require fixture refreshes
-- validate whether the new remembered-password path is enough for repeat Giant Bomb playback use, or whether a reusable browser-backed session is still required
+- validate whether copied feed URLs already cover repeat use, or whether some real Premium feeds still need direct-feed basic-auth fallback
+- do not introduce website-login/session automation unless Giant Bomb publishes an official supported path
 
 ## Probe policy
 - live probes are opt-in only

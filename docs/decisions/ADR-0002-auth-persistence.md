@@ -8,6 +8,7 @@ Keep copied Premium feed URLs as the primary auth path and add an explicit opt-i
 Separate two user actions:
 - `Clear synced data` removes the cached library snapshot and playback progress but keeps feed settings ready for the next sync.
 - `Forget saved credentials` clears the saved username and any remembered password while preserving the copied feed URL.
+Do not introduce browser-backed sign-in, cookie persistence, or website automation unless Giant Bomb publishes an official supported path for that integration.
 When encrypted persistence is unavailable, continue falling back only for non-password fields and degrade password handling back to session-only behavior instead of storing a password in plaintext.
 ## Consequences
 ### Positive

@@ -5,6 +5,7 @@
 - Never commit live Giant Bomb credentials, cookies, or raw authenticated feed responses.
 - Copied feed URLs, saved usernames, and optional remembered passwords now persist through an encrypted-at-rest app store; copied feed URLs can still be used without a password when they already carry access keys.
 - `Clear synced data` now removes cached library data and playback progress while preserving feed settings; `Forget saved credentials` clears the saved username and remembered password while keeping the feed URL.
+- Keep LookTube feed-first. Do not add browser-login, cookie-harvesting, or website automation flows unless Giant Bomb exposes an official supported path.
 - Record integration findings in `docs/integration/giantbomb.md` before changing implementation assumptions.
 - Record architecture tradeoffs as ADRs under `docs/decisions/`.
 - Keep this file short; deeper context belongs under `docs/`.
