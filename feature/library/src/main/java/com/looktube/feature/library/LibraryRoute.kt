@@ -1,14 +1,19 @@
 package com.looktube.feature.library
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +70,7 @@ import com.looktube.model.topicGroupingTitle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -77,6 +85,7 @@ fun LibraryRoute(
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    var railEmphasized by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -152,6 +161,21 @@ fun LibraryRoute(
         }
     }
 
+    LaunchedEffect(listState.isScrollInProgress, sections.size) {
+        if (sections.isEmpty()) {
+            railEmphasized = false
+            return@LaunchedEffect
+        }
+        if (listState.isScrollInProgress) {
+            railEmphasized = true
+        } else {
+            delay(RAIL_IDLE_FADE_DELAY_MS)
+            if (!listState.isScrollInProgress) {
+                railEmphasized = false
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -161,8 +185,8 @@ fun LibraryRoute(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 16.dp, top = 0.dp, end = if (sections.isEmpty()) 16.dp else 112.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(start = 16.dp, top = 0.dp, end = if (sections.isEmpty()) 16.dp else 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = 16.dp),
         ) {
             item {
@@ -171,7 +195,7 @@ fun LibraryRoute(
 
             item {
                 LookTubeCard(
-                    title = "Library sync",
+                    title = "Library status",
                     body = syncState.message,
                 )
             }
@@ -238,9 +262,9 @@ fun LibraryRoute(
                     ) {
                         Text(
                             text = when {
-                                videos.isEmpty() -> "Sync a feed first to load your library."
+                                videos.isEmpty() -> "Sync your Premium feed on Auth to load your library."
                                 selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
-                                else -> "No videos are available in the synced library yet."
+                                else -> "No videos are available in your synced library yet."
                             },
                             modifier = Modifier.padding(16.dp),
                         )
@@ -270,11 +294,13 @@ fun LibraryRoute(
                 groups = sections,
                 listState = showRailState,
                 currentGroupIndex = currentGroupIndex,
+                isEmphasized = railEmphasized,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .fillMaxHeight()
-                    .padding(end = 12.dp, top = 16.dp, bottom = 16.dp),
+                    .padding(end = 4.dp, top = 16.dp, bottom = 16.dp),
                 onGroupSelected = { groupIndex ->
+                    railEmphasized = true
                     scope.launch {
                         listState.animateScrollToItem(sectionStartIndices[groupIndex])
                     }
@@ -304,6 +330,7 @@ private enum class LibrarySortOption(val label: String) {
 
 private const val ALL_SERIES_FILTER = "All shows"
 private const val GROUP_LIST_START_INDEX = 4
+private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
 
 private fun List<VideoSummary>.sortedFor(sortOption: LibrarySortOption): List<VideoSummary> =
     when (sortOption) {
@@ -351,21 +378,29 @@ private fun formatDuration(seconds: Long): String {
 
 @Composable
 private fun SeriesSectionHeader(section: SeriesSection) {
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f),
+        tonalElevation = 2.dp,
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = section.title,
                 style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
             )
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = "${section.videos.size} videos",
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
         }
     }
@@ -377,54 +412,70 @@ private fun VideoListCard(
     progress: PlaybackProgress?,
     modifier: Modifier = Modifier,
 ) {
+    val progressFraction = progress?.takeIf { it.durationSeconds > 0 }
+        ?.let { (it.positionSeconds.toFloat() / it.durationSeconds.toFloat()).coerceIn(0f, 1f) }
+
     Card(
         modifier = modifier.fillMaxWidth(),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            VideoThumbnail(video)
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f),
+            ) {
+                VideoThumbnail(video)
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(),
+                    color = Color.Black.copy(alpha = 0.52f),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = video.displaySeriesTitle,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White,
+                        )
+                        buildMetadataLine(video, progress).takeIf(String::isNotBlank)?.let { metadataLine ->
+                            Text(
+                                text = metadataLine,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.92f),
+                            )
+                        }
+                    }
+                }
+            }
+            if (progressFraction != null) {
+                LinearProgressIndicator(
+                    progress = { progressFraction },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
-                    text = video.displaySeriesTitle,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
                     text = video.title,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleLarge,
                 )
                 if (video.description.isNotBlank()) {
                     Text(
                         text = video.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 3,
+                        maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                val metadataLine = buildMetadataLine(video, progress)
-                if (metadataLine.isNotBlank()) {
-                    Text(
-                        text = metadataLine,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 if (progress != null && progress.durationSeconds > 0) {
-                    val normalizedProgress = progress.positionSeconds.toFloat() / progress.durationSeconds.toFloat()
-                    LinearProgressIndicator(
-                        progress = { normalizedProgress.coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                     Text(
                         text = "Resume at ${formatDuration(progress.positionSeconds)} of ${formatDuration(progress.durationSeconds)}",
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -435,10 +486,10 @@ private fun VideoListCard(
 
 @Composable
 private fun VideoThumbnail(video: VideoSummary) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     Box(
         modifier = Modifier
-            .size(width = 120.dp, height = 68.dp)
+            .fillMaxSize()
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
@@ -453,18 +504,18 @@ private fun VideoThumbnail(video: VideoSummary) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(12.dp),
+                    .padding(20.dp),
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     text = video.displaySeriesTitle.take(1).ifBlank { "V" },
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.displaySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = video.displaySeriesTitle,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -479,43 +530,58 @@ private fun ShowJumpRail(
     groups: List<SeriesSection>,
     listState: LazyListState,
     currentGroupIndex: Int,
+    isEmphasized: Boolean,
     modifier: Modifier = Modifier,
     onGroupSelected: (Int) -> Unit,
 ) {
-    Surface(
-        modifier = modifier.width(96.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (isEmphasized) 0.96f else 0.26f,
+        animationSpec = tween(durationMillis = 280),
+        label = "jumpRailLabelAlpha",
+    )
+    val flyoutOffset by animateDpAsState(
+        targetValue = if (isEmphasized) 0.dp else 12.dp,
+        animationSpec = tween(durationMillis = 280),
+        label = "jumpRailFlyoutOffset",
+    )
+
+    Row(
+        modifier = modifier.width(120.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .fillMaxHeight()
-                .padding(vertical = 8.dp, horizontal = 6.dp),
+                .width(104.dp)
+                .graphicsLayer(alpha = labelAlpha)
+                .padding(end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.End,
+            contentPadding = PaddingValues(vertical = 8.dp),
         ) {
             itemsIndexed(groups) { index, group ->
                 val selected = index == currentGroupIndex
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .padding(start = flyoutOffset)
+                        .clickable { onGroupSelected(index) },
+                    shape = RoundedCornerShape(999.dp),
                     color = if (selected) {
-                        MaterialTheme.colorScheme.primaryContainer
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
                     } else {
-                        MaterialTheme.colorScheme.surfaceVariant
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.62f)
                     },
                     contentColor = if (selected) {
                         MaterialTheme.colorScheme.onPrimaryContainer
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        MaterialTheme.colorScheme.onSurface
                     },
-                    onClick = { onGroupSelected(index) },
+                    tonalElevation = if (selected) 3.dp else 0.dp,
                 ) {
                     Text(
                         text = group.title,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 10.sp,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
@@ -526,6 +592,49 @@ private fun ShowJumpRail(
                 }
             }
         }
+
+        JumpRailTrack(
+            groups = groups,
+            currentGroupIndex = currentGroupIndex,
+        )
+    }
+}
+
+@Composable
+private fun JumpRailTrack(
+    groups: List<SeriesSection>,
+    currentGroupIndex: Int,
+) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .width(8.dp)
+            .fillMaxHeight(),
+    ) {
+        val thumbHeight = 40.dp
+        val fraction = if (groups.size <= 1) {
+            0f
+        } else {
+            currentGroupIndex.toFloat() / groups.lastIndex.toFloat()
+        }
+        val trackHeight = maxHeight
+        val thumbOffset = (trackHeight - thumbHeight) * fraction
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(3.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(999.dp))
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.68f)),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = thumbOffset)
+                .size(width = 8.dp, height = thumbHeight)
+                .clip(RoundedCornerShape(999.dp))
+                .background(MaterialTheme.colorScheme.primary),
+        )
     }
 }
 

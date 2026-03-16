@@ -20,8 +20,8 @@ class LookTubeSmokeTest {
         composeRule.onNodeWithText("Library").performClick()
         composeRule.onNodeWithText("By show").assertIsDisplayed()
         composeRule.onNodeWithText("Sort: Latest").assertIsDisplayed()
-        composeRule.onNodeWithText("Sync a feed first to load your library.").assertIsDisplayed()
+        composeRule.onNodeWithText("Sync your Premium feed on Auth to load your library.").assertIsDisplayed()
         composeRule.onNodeWithText("Player").performClick()
-        composeRule.onNodeWithText("Choose something to watch").assertIsDisplayed()
+        composeRule.onNodeWithText("Nothing queued yet").assertIsDisplayed()
     }
 }

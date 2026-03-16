@@ -38,6 +38,7 @@ import androidx.media3.ui.PlayerView
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
+import com.looktube.model.displaySeriesTitle
 
 @Composable
 fun PlayerRoute(
@@ -75,7 +76,7 @@ fun PlayerRoute(
         selectedVideo == null -> PlayerStatusContent(
             paddingValues = paddingValues,
             cards = listOf(
-                "Choose something to watch" to "Open a video from Library or Shows to start playback.",
+                "Nothing queued yet" to "Pick a video from Library to start playback here.",
             ),
         )
 
@@ -83,7 +84,7 @@ fun PlayerRoute(
             paddingValues = paddingValues,
             cards = listOf(
                 selectedVideo.title to selectedVideo.description,
-                "Playback unavailable" to "No playback URL is available yet for this item. Sync a configured feed result or choose a video that exposes a playable stream URL.",
+                "Playback unavailable" to "This item does not expose a playable stream right now. Try another video or refresh your library from Auth.",
             ),
         )
 
@@ -91,7 +92,7 @@ fun PlayerRoute(
             paddingValues = paddingValues,
             cards = listOf(
                 selectedVideo.title to selectedVideo.description,
-                "Connecting player" to "Preparing the shared playback session for this video.",
+                "Preparing player" to "Opening the shared playback session for this video.",
             ),
         )
 
@@ -109,8 +110,14 @@ fun PlayerRoute(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             LookTubeCard(
-                title = selectedVideo.title,
-                body = selectedVideo.description,
+                title = "Now playing",
+                body = buildString {
+                    appendLine(selectedVideo.title)
+                    if (selectedVideo.description.isNotBlank()) {
+                        appendLine()
+                        append(selectedVideo.description)
+                    }
+                },
             )
             EmbeddedPlayerSurface(
                 player = player,
@@ -118,16 +125,17 @@ fun PlayerRoute(
                 onFullscreenToggle = { onFullscreenChanged(true) },
             )
             LookTubeCard(
-                title = "Playback spike status",
+                title = "Playback details",
                 body = buildString {
+                    appendLine("Show: ${selectedVideo.displaySeriesTitle}")
                     appendLine("Feed category: ${selectedVideo.feedCategory}")
-                    appendLine("Premium: ${selectedVideo.isPremium}")
-                    appendLine("Playback URL: ${selectedVideo.playbackUrl ?: "Unavailable"}")
+                    appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
                     if (playbackProgress != null) {
-                        append("Resume at ${playbackProgress.positionSeconds}s of ${playbackProgress.durationSeconds}s.")
+                        appendLine("Resume at ${playbackProgress.positionSeconds}s of ${playbackProgress.durationSeconds}s.")
                     } else {
-                        append("No stored resume point yet.")
+                        appendLine("No stored resume point yet.")
                     }
+                    append("Double-tap the video or use the corner button to toggle fullscreen.")
                 },
             )
         }
