@@ -82,3 +82,9 @@ tasks.register<Exec>("integrationProbeGiantBomb") {
     description = "Opt-in manual comparison probe for Giant Bomb Premium feeds using feed-url-only access and optional direct-feed basic-auth fallback."
     commandLine("pwsh", "-NoLogo", "-File", "scripts/Invoke-GiantBombFeedProbe.ps1")
 }
+
+tasks.register<Exec>("integrationProbeGiantBombPlayback") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Opt-in manual playback probe that samples extracted Giant Bomb Premium playback targets using the same direct URL handoff shape as the app."
+    commandLine("pwsh", "-NoLogo", "-File", "scripts/Invoke-GiantBombPlaybackProbe.ps1")
+}

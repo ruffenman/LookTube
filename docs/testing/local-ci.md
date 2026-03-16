@@ -70,9 +70,11 @@ $env:LOOKTUBE_GIANTBOMB_FEED_URL = "{{LOOKTUBE_GIANTBOMB_FEED_URL}}"
 # $env:LOOKTUBE_GIANTBOMB_USERNAME = "{{LOOKTUBE_GIANTBOMB_USERNAME}}"
 # $env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
 .\gradlew.bat integrationProbeGiantBomb
+.\gradlew.bat integrationProbeGiantBombPlayback
 ```
 
 The probe always attempts `feed-url-only` first and, when both fallback credential variables are present, also attempts `direct-feed-basic-auth-fallback` so you can compare outcomes without changing the script.
+The playback probe samples extracted playback targets from the configured feed and checks whether they respond directly to a ranged request without cookie-backed session state, which matches the app's current Media3 handoff.
 
 ## Fixture policy
 - prefer sanitized local fixtures in automated tests

@@ -10,6 +10,12 @@
 - For this validated Premium feed shape, the copied feed URL alone appears sufficient for feed access; optional fallback Basic auth did not change the structural result.
 - Playback handoff is still a separate question. This probe validated feed access shape only, not whether stream URLs remain directly playable without broader session behavior.
 
+## 2026-03-16 live playback probe result
+- The app's current playback handoff is intentionally simple: `RssVideoFeedParser` maps `media:content`, then `enclosure`, then `link` into `VideoSummary.playbackUrl`, and `LookTubeApp` passes that URL directly to Media3 with `setUri(...)` and no extra cookies or playback headers.
+- A live manual sample of the first three items from the same real `premium-videos` 1080p feed succeeded under those same constraints: each extracted playback target responded to a direct ranged request with HTTP 206 and `video/mp4`.
+- All three sampled playback targets were plain `.mp4` URLs on `cdn.jwplayer.com` with no query string required, which is stronger evidence that this feed shape already exposes directly playable media URLs instead of page-only indirection.
+- This still does not prove every Premium feed variant behaves the same way, but it meaningfully lowers the risk that browser-login or cookie-backed playback will be required for the validated `premium-videos` path.
+
 ## Design consequence
 The first implementation path should stay feed-first, not legacy-API-first. Until Giant Bomb exposes an official supported media/mobile integration path, LookTube should avoid browser-backed sign-in flows, cookie harvesting, or other website automation. The main integration question is narrower:
 - direct copied-feed access
@@ -18,6 +24,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 ## What is implemented in the repo today
 - fixture-driven RSS parsing in `core:network`
 - a manual probe script in `scripts/Invoke-GiantBombFeedProbe.ps1`
+- a manual playback probe script in `scripts/Invoke-GiantBombPlaybackProbe.ps1`
 - a configurable repository that persists feed URL, username, and optional remembered password locally, with feed identity protected at rest inside the app
 - a user-facing split between clearing synced library data and forgetting saved credentials while preserving the copied feed URL
 - a live Premium RSS fetch path that can replace seeded library content when configured successfully
@@ -27,7 +34,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 
 ## What is still pending
 - confirm exact production feed URLs that best represent the first supported Premium library surface
-- confirm whether copied Premium feed URLs are also sufficient for real video playback, not just feed access
+- validate whether additional real Premium feed variants also expose directly playable media URLs through the current feed fields, not just feed access
 - confirm the minimum set of headers, cookies, and redirects required for authenticated playback handoff
 - confirm how often the site behavior changes enough to require fixture refreshes
 - validate whether other real Premium feed variants also behave like the validated `premium-videos` probe, or whether any still need direct-feed basic-auth fallback
@@ -39,6 +46,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 - no secrets or raw authenticated payloads should be committed
 - probe output should stay structural only: status, content type, item count, and other non-sensitive shape notes instead of raw XML previews
 - the probe should compare feed-url-only access first and only add a direct-feed basic-auth pass when fallback credentials are available
+- playback probes should mirror the app's real handoff shape by testing the extracted playback target directly, without cookies or extra session headers, and should report only non-sensitive host/type/status metadata
 - when a live integration assumption changes, update this document before changing code behavior
 
 ## Next probe checklist
@@ -47,4 +55,5 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 3. capture the outcome of feed-url-only access first
 4. if fallback credentials are present, compare that result against the direct-feed basic-auth pass
 5. record status code, content type, item count, and other non-sensitive structural notes only
-6. update this document and the learnings log with the validation date and outcome
+6. run `.\gradlew.bat integrationProbeGiantBombPlayback` to sample extracted playback targets
+7. update this document and the learnings log with the validation date and outcome

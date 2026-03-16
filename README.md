@@ -21,9 +21,11 @@ Use these commands as the default development loop on Windows:
 .\gradlew.bat verifyFast
 .\gradlew.bat verifyLocal -PskipManagedDevice=true
 .\gradlew.bat integrationProbeGiantBomb
+.\gradlew.bat integrationProbeGiantBombPlayback
 ```
 
 `integrationProbeGiantBomb` now compares feed-url-only access against direct-feed Basic auth fallback when fallback credentials are present, while emitting structural-only results.
+`integrationProbeGiantBombPlayback` samples extracted playback targets from a real Premium feed and checks whether they respond directly the way the app's current Media3 handoff expects.
 
 If `local.properties` is missing, bootstrap it first:
 
@@ -58,7 +60,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `feature:*` - user-facing screens split by concern
 
 ## Near-term implementation focus
-1. validate whether the copied feed URL alone is sufficient for real Giant Bomb playback, and keep credentials only if direct-feed fallback proves necessary
+1. validate whether copied feed URLs plus extracted playback targets are sufficient for real Giant Bomb playback, and keep credentials only if direct-feed fallback proves necessary
 2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
 3. keep expanding screenshot-oriented visual regression coverage around richer playback states and any new auth edge cases
 4. tighten any remaining Giant Bomb-specific playback edge cases found during device validation without drifting into unsupported site automation
