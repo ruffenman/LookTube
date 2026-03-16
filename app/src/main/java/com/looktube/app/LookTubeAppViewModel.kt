@@ -56,24 +56,6 @@ class LookTubeAppViewModel(
             repository.updateFeedUrl(feedUrl)
         }
     }
-
-    fun updateUsername(username: String) {
-        viewModelScope.launch {
-            repository.updateUsername(username)
-        }
-    }
-
-    fun updatePassword(password: String) {
-        viewModelScope.launch {
-            repository.updatePassword(password)
-        }
-    }
-
-    fun setRememberPassword(rememberPassword: Boolean) {
-        viewModelScope.launch {
-            repository.setRememberPassword(rememberPassword)
-        }
-    }
     fun signInToPremiumFeed() {
         viewModelScope.launch {
             repository.signInToPremiumFeed()
@@ -82,12 +64,6 @@ class LookTubeAppViewModel(
     fun clearSyncedData() {
         viewModelScope.launch {
             repository.clearSyncedData()
-        }
-    }
-
-    fun forgetSavedCredentials() {
-        viewModelScope.launch {
-            repository.forgetSavedCredentials()
         }
     }
 

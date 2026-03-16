@@ -1,9 +1,9 @@
 # LookTube product spec
 ## Problem
-Premium Giant Bomb subscribers should be able to open an Android app, authenticate, browse Premium video surfaces, and start playback without navigating the Giant Bomb website in a browser.
+Premium Giant Bomb subscribers should be able to open an Android app, paste a copied Premium feed URL, browse Premium video surfaces, and start playback without navigating the Giant Bomb website in a browser.
 
 ## Goals
-- Authenticate a Premium user with the smallest secure flow that reliably unlocks Premium video access.
+- Support the smallest secure feed-first flow that reliably unlocks Premium video access.
 - Show a compact, useful library view centered on Premium videos and fast resume behavior.
 - Launch stable playback with progress persistence and clear recovery when the session expires.
 - Keep development spec-driven, fixture-driven, and easy to validate locally.
@@ -17,11 +17,11 @@ Premium Giant Bomb subscribers should be able to open an Android app, authentica
 ## Current validated state
 The current app already covers a substantial first-use slice for a Premium subscriber:
 - copied Premium RSS feed URLs can be configured and synced from the Auth surface
-- copied feed identity and optional remembered basic-auth passwords are protected at rest
+- copied feed URLs are protected at rest
 - the app persists the last successful synced library and saved playback progress
 - Library combines grouped browsing, sort/filter controls, rich video cards, and jump navigation
 - Player uses a shared Media3 session/service model with fullscreen and resume support
-- the Auth surface now separates clearing synced cache from forgetting saved fallback details while preserving the copied feed URL
+- the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
 
@@ -29,13 +29,12 @@ The current app already covers a substantial first-use slice for a Premium subsc
 Harden the path from copied feed sync to daily repeat use.
 
 ### Acceptance criteria
-- copied-feed sync remains the primary user-facing path unless a more robust Premium session flow proves necessary
-- fallback username/password fields stay clearly demoted as rare direct-feed fallback, not the main sign-in path or session identity
+- copied-feed sync remains the only supported user-facing path unless Giant Bomb publishes an official broader integration path
 - playback and background/session behavior remain stable across more real Giant Bomb feed variants
 - browse ergonomics continue improving from device feedback without regressing the grouped-library model
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
-- saved feed identity and any opted-in remembered password remain protected at rest
-- users can clear synced cache separately from forgetting saved fallback details
+- saved feed URLs remain protected at rest
+- users can clear synced cache without re-entering the copied feed URL
 - docs reflect the validated product shape instead of the earlier scaffold-only phases
 
 ## Ralph loop definition
@@ -48,6 +47,6 @@ Harden the path from copied feed sync to daily repeat use.
 7. run `verifyLocal` before merging the slice
 
 ## Open questions
-- Do any additional real Premium feed variants still require direct-feed fallback fields, or is the validated copied-feed path sufficient for the first usable release?
+- Does the validated copied-feed path hold across additional real Premium feed variants?
 - Which additional Giant Bomb feed or page metadata should be folded into show-grouping heuristics?
 - What is the lightest-weight visual regression strategy that fits the current Android/Compose workflow?

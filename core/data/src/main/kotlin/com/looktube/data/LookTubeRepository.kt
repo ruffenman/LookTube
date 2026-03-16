@@ -18,13 +18,8 @@ interface LookTubeRepository {
     suspend fun bootstrap()
 
     suspend fun updateFeedUrl(feedUrl: String)
-
-    suspend fun updateUsername(username: String)
-    suspend fun updatePassword(password: String)
-    suspend fun setRememberPassword(rememberPassword: Boolean)
     suspend fun signInToPremiumFeed()
     suspend fun clearSyncedData()
-    suspend fun forgetSavedCredentials()
 
     suspend fun refreshLibrary()
 

@@ -9,12 +9,6 @@ if ($missingRequired.Count -gt 0) {
     throw "Missing required environment variables: $($missingRequired -join ', ')"
 }
 
-$hasUsername = -not [string]::IsNullOrWhiteSpace($env:LOOKTUBE_GIANTBOMB_USERNAME)
-$hasPassword = -not [string]::IsNullOrWhiteSpace($env:LOOKTUBE_GIANTBOMB_PASSWORD)
-if ($hasUsername -xor $hasPassword) {
-    throw 'Provide both LOOKTUBE_GIANTBOMB_USERNAME and LOOKTUBE_GIANTBOMB_PASSWORD together, or omit both to probe a copied feed URL directly.'
-}
-
 $sampleCount = 3
 if (-not [string]::IsNullOrWhiteSpace($env:LOOKTUBE_GIANTBOMB_PLAYBACK_SAMPLE_COUNT)) {
     $parsedSampleCount = $env:LOOKTUBE_GIANTBOMB_PLAYBACK_SAMPLE_COUNT -as [int]
@@ -28,12 +22,6 @@ function New-FeedHeaders {
     $headers = @{
         'User-Agent' = 'LookTube/0.2 playback probe'
         Accept = 'application/rss+xml, application/xml, text/xml'
-    }
-
-    if ($hasUsername -and $hasPassword) {
-        $pair = '{0}:{1}' -f $env:LOOKTUBE_GIANTBOMB_USERNAME, $env:LOOKTUBE_GIANTBOMB_PASSWORD
-        $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($pair))
-        $headers.Authorization = "Basic $encoded"
     }
 
     return $headers

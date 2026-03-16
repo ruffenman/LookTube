@@ -32,15 +32,12 @@ class ConfigurableLookTubeRepository(
         AccountSession(
             isSignedIn = false,
             accountLabel = null,
-            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library. Username and password are rare fallback fields only if the feed itself still requires basic auth.",
+            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
         FeedConfiguration(
             feedUrl = "",
-            username = "",
-            password = "",
-            rememberPassword = false,
         ),
     )
     private val syncState = MutableStateFlow(
@@ -108,27 +105,6 @@ class ConfigurableLookTubeRepository(
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
     }
-
-    override suspend fun updateUsername(username: String) {
-        feedConfigurationStore.setUsername(username)
-        feedConfigurationState.value = feedConfigurationState.value.copy(username = username)
-        publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
-    }
-    override suspend fun updatePassword(password: String) {
-        if (feedConfigurationState.value.rememberPassword) {
-            feedConfigurationStore.setRememberedPassword(password)
-        }
-        feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
-        publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
-    }
-    override suspend fun setRememberPassword(rememberPassword: Boolean) {
-        feedConfigurationStore.setRememberPassword(rememberPassword)
-        if (rememberPassword) {
-            feedConfigurationStore.setRememberedPassword(feedConfigurationState.value.password)
-        }
-        feedConfigurationState.value = feedConfigurationState.value.copy(rememberPassword = rememberPassword)
-        publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
-    }
     override suspend fun signInToPremiumFeed() {
         hasSuccessfulFeedSync = false
         refreshLibrary()
@@ -142,28 +118,7 @@ class ConfigurableLookTubeRepository(
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Cleared synced library data. Saved feed settings and any optional fallback details are still available for the next sync.",
-                lastSuccessfulSyncSummary = null,
-            ),
-        )
-    }
-    override suspend fun forgetSavedCredentials() {
-        hasSuccessfulFeedSync = false
-        feedConfigurationStore.setUsername("")
-        feedConfigurationStore.setRememberPassword(false)
-        syncedLibraryStore.clear()
-        playbackBookmarkStore.clear()
-        feedConfigurationState.value = feedConfigurationState.value.copy(
-            username = "",
-            password = "",
-            rememberPassword = false,
-        )
-        videosState.value = seededVideos
-        selectedVideoIdState.value = null
-        publishStatus(
-            LibrarySyncState(
-                phase = SyncPhase.Idle,
-                message = "Forgot saved fallback details. Feed URL was preserved so you can enter fresh fallback details later if a feed still needs them.",
+                message = "Cleared synced library data. Saved feed URL is still available for the next sync.",
                 lastSuccessfulSyncSummary = null,
             ),
         )
@@ -197,8 +152,6 @@ class ConfigurableLookTubeRepository(
                 videoFeedService.loadVideos(
                     VideoFeedRequest(
                         feedUrl = configuration.feedUrl,
-                        username = configuration.username,
-                        password = configuration.password,
                     ),
                 )
             }
@@ -254,18 +207,7 @@ class ConfigurableLookTubeRepository(
         accountSessionState.value = AccountSession(
             isSignedIn = hasSuccessfulFeedSync,
             accountLabel = configuration.feedUrl.takeIf(String::isNotBlank)?.let { "Copied Premium feed" },
-            notes = buildString {
-                append(status.message)
-                if (configuration.password.isNotBlank()) {
-                    append(
-                        if (configuration.rememberPassword) {
-                            " Optional fallback password is saved securely on this device."
-                        } else {
-                            " Optional fallback password is stored for the current app session only."
-                        },
-                    )
-                }
-            },
+            notes = status.message,
         )
     }
 
@@ -276,24 +218,9 @@ class ConfigurableLookTubeRepository(
                 message = "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
-            configuration.username.isBlank() && configuration.password.isBlank() -> LibrarySyncState(
-                phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Sign in to sync it. Leave rare fallback fields empty unless this feed still requires basic auth.",
-                lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
-            )
-            configuration.rememberPassword && configuration.password.isNotBlank() -> LibrarySyncState(
-                phase = SyncPhase.Idle,
-                message = "Saved feed URL and remembered fallback details loaded. Sign in to sync the Premium feed.",
-                lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
-            )
-            configuration.password.isBlank() -> LibrarySyncState(
-                phase = SyncPhase.Idle,
-                message = "Saved feed URL and fallback username loaded. If this feed still requires basic auth, enter the fallback password for this app session or remember it securely on this device; otherwise sign in now.",
-                lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
-            )
             else -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Feed settings are ready. Sign in to sync the Premium feed.",
+                message = "Saved feed URL detected. Sign in to sync it.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
         }
@@ -326,10 +253,4 @@ interface FeedConfigurationStore {
     val persistedConfiguration: StateFlow<PersistedFeedConfiguration>
 
     suspend fun setFeedUrl(feedUrl: String)
-
-    suspend fun setUsername(username: String)
-
-    suspend fun setRememberPassword(rememberPassword: Boolean)
-
-    suspend fun setRememberedPassword(password: String)
 }

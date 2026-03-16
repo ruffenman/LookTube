@@ -30,38 +30,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         persistedConfigurationState.value = readFromDisk()
     }
 
-    override suspend fun setUsername(username: String) {
-        writeToDisk(persistedConfigurationState.value.copy(username = username))
-        persistedConfigurationState.value = readFromDisk()
-    }
-
-    override suspend fun setRememberPassword(rememberPassword: Boolean) {
-        writeToDisk(
-            persistedConfigurationState.value.copy(
-                rememberedPassword = if (rememberPassword) {
-                    persistedConfigurationState.value.rememberedPassword
-                } else {
-                    ""
-                },
-                rememberPassword = rememberPassword,
-            ),
-        )
-        persistedConfigurationState.value = readFromDisk()
-    }
-
-    override suspend fun setRememberedPassword(password: String) {
-        writeToDisk(
-            persistedConfigurationState.value.copy(
-                rememberedPassword = if (persistedConfigurationState.value.rememberPassword) {
-                    password
-                } else {
-                    ""
-                },
-            ),
-        )
-        persistedConfigurationState.value = readFromDisk()
-    }
-
     private fun readFromDisk(): PersistedFeedConfiguration {
         val encryptedPayload = preferences.getString(KEY_ENCRYPTED_PAYLOAD, null)
         if (!encryptedPayload.isNullOrBlank()) {
@@ -72,9 +40,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
 
         val legacyConfiguration = readLegacyFromDisk() ?: return PersistedFeedConfiguration(
             feedUrl = "",
-            username = "",
-            rememberedPassword = "",
-            rememberPassword = false,
         )
         if (persistSecure(legacyConfiguration)) {
             clearLegacyEntries()
@@ -83,17 +48,14 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
     }
 
     private fun readLegacyFromDisk(): PersistedFeedConfiguration? {
-        val hasLegacyValues = preferences.contains(KEY_AUTH_MODE) ||
-            preferences.contains(KEY_FEED_URL) ||
-            preferences.contains(KEY_USERNAME)
+        val hasLegacyValues = preferences.all.keys.any { key ->
+            key != KEY_ENCRYPTED_PAYLOAD
+        }
         if (!hasLegacyValues) {
             return null
         }
         return PersistedFeedConfiguration(
             feedUrl = preferences.getString(KEY_FEED_URL, "").orEmpty(),
-            username = preferences.getString(KEY_USERNAME, "").orEmpty(),
-            rememberedPassword = "",
-            rememberPassword = false,
         )
     }
 
@@ -105,7 +67,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         preferences.edit()
             .remove(KEY_ENCRYPTED_PAYLOAD)
             .putString(KEY_FEED_URL, configuration.feedUrl)
-            .putString(KEY_USERNAME, configuration.username)
             .apply()
     }
 
@@ -119,11 +80,13 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
     }
 
     private fun clearLegacyEntries() {
-        preferences.edit()
-            .remove(KEY_AUTH_MODE)
-            .remove(KEY_FEED_URL)
-            .remove(KEY_USERNAME)
-            .apply()
+        val legacyKeys = preferences.all.keys.filter { key ->
+            key != KEY_ENCRYPTED_PAYLOAD
+        }
+        preferences.edit().apply {
+            legacyKeys.forEach(::remove)
+            apply()
+        }
     }
 
     companion object {
@@ -131,16 +94,12 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         private const val KEYSTORE_ALIAS = "looktube.feed.config.aes"
         private const val KEY_AUTH_MODE = "auth_mode"
         private const val KEY_FEED_URL = "feed_url"
-        private const val KEY_USERNAME = "username"
         private const val KEY_ENCRYPTED_PAYLOAD = "encrypted_payload_v1"
         private const val SERIALIZED_SEPARATOR = "|"
 
         private fun serializePersistedFeedConfiguration(configuration: PersistedFeedConfiguration): String =
             listOf(
                 configuration.feedUrl,
-                configuration.username,
-                configuration.rememberedPassword.takeIf { configuration.rememberPassword }.orEmpty(),
-                configuration.rememberPassword.toString(),
             ).joinToString(SERIALIZED_SEPARATOR) { field ->
                 Base64.getEncoder().encodeToString(field.toByteArray(UTF_8))
             }
@@ -149,7 +108,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             serializedConfiguration: String,
         ): PersistedFeedConfiguration? {
             val parts = serializedConfiguration.split(SERIALIZED_SEPARATOR)
-            if (parts.size != 2 && parts.size != 4 && parts.size != 3 && parts.size != 5) {
+            if (parts.size !in setOf(1, 2, 3, 4, 5)) {
                 return null
             }
             val decodedParts = parts.map { encodedField ->
@@ -160,18 +119,10 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             if (decodedParts.any { it == null }) {
                 return null
             }
-            val isLegacyPayload = decodedParts.size == 3 || decodedParts.size == 5
+            val isLegacyPayload = decodedParts.size >= 3
             val fieldOffset = if (isLegacyPayload) 1 else 0
-            val rememberPassword = decodedParts.getOrNull(fieldOffset + 3)?.toBoolean() == true
             return PersistedFeedConfiguration(
                 feedUrl = decodedParts[fieldOffset].orEmpty(),
-                username = decodedParts[fieldOffset + 1].orEmpty(),
-                rememberedPassword = if (rememberPassword) {
-                    decodedParts[fieldOffset + 2].orEmpty()
-                } else {
-                    ""
-                },
-                rememberPassword = rememberPassword,
             )
         }
     }

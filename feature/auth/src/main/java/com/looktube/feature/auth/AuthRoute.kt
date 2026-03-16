@@ -3,32 +3,21 @@ package com.looktube.feature.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
@@ -44,22 +33,11 @@ fun AuthRoute(
     feedConfiguration: FeedConfiguration,
     syncState: LibrarySyncState,
     onFeedUrlChanged: (String) -> Unit,
-    onUsernameChanged: (String) -> Unit,
-    onPasswordChanged: (String) -> Unit,
-    onRememberPasswordChanged: (Boolean) -> Unit,
     onSignInRequested: () -> Unit,
     onClearSyncedDataRequested: () -> Unit,
-    onForgetSavedCredentialsRequested: () -> Unit,
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
-    var optionalCredentialsExpanded by rememberSaveable {
-        mutableStateOf(
-            feedConfiguration.username.isNotBlank() ||
-                feedConfiguration.password.isNotBlank() ||
-                feedConfiguration.rememberPassword,
-        )
-    }
     val colorScheme = MaterialTheme.colorScheme
     val statusLabel = when {
         isSigningIn -> "Syncing"
@@ -94,35 +72,13 @@ fun AuthRoute(
             append("\n\n")
             append(summary)
         }
-        if (feedConfiguration.password.isNotBlank()) {
-            append("\n\n")
-            append(
-                if (feedConfiguration.rememberPassword) {
-                    "The optional fallback password is saved securely on this device."
-                } else {
-                    "The optional fallback password is stored only for this app session."
-                },
-            )
-        }
         if (accountSession.isSignedIn || syncState.phase == SyncPhase.Success) {
             append("\n\nClear synced data removes the cached library and saved progress but keeps your feed settings ready for the next sync.")
-        }
-        if (
-            feedConfiguration.username.isNotBlank() ||
-            feedConfiguration.rememberPassword ||
-            feedConfiguration.password.isNotBlank()
-        ) {
-            append("\n\nForget saved fallback details removes the saved username and any remembered password but keeps the feed URL.")
         }
     }
     val canClearData = !isSigningIn && (
         accountSession.isSignedIn ||
             syncState.lastSuccessfulSyncSummary != null
-        )
-    val canForgetSavedCredentials = !isSigningIn && (
-        feedConfiguration.username.isNotBlank() ||
-            feedConfiguration.rememberPassword ||
-            feedConfiguration.password.isNotBlank()
         )
 
     Column(
@@ -135,7 +91,7 @@ fun AuthRoute(
     ) {
         LookTubePageHeader(
             title = "Connect your Giant Bomb Premium feed",
-            subtitle = "Paste the feed URL you copied from Giant Bomb. Rare fallback fields are only for direct-feed Basic auth if that URL still fails.",
+            subtitle = "Paste the feed URL you copied from Giant Bomb, then sync your library. LookTube uses the copied feed directly and does not automate website sign-in.",
         )
 
         LookTubeCard(
@@ -161,116 +117,33 @@ fun AuthRoute(
             singleLine = true,
         )
 
-        FilterChip(
-            selected = optionalCredentialsExpanded,
-            onClick = { optionalCredentialsExpanded = !optionalCredentialsExpanded },
-            label = {
-                Text(
-                    if (optionalCredentialsExpanded) {
-                        "Hide rare fallback fields"
-                    } else {
-                        "Rare fallback fields"
-                    },
+        Button(
+            onClick = onSignInRequested,
+            enabled = canSignIn,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ),
+        ) {
+            if (isSigningIn) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 12.dp),
                 )
-            },
-        )
-
-        if (optionalCredentialsExpanded) {
-            LookTubeCard(
-                title = "Rare direct-feed fallback",
-                body = "Validated Giant Bomb feed and playback probes succeeded without these fields. Only fill them if a copied feed URL still fails and the feed itself requires HTTP Basic auth. LookTube does not sign into the Giant Bomb website or automate a browser session.",
-            )
-
-            OutlinedTextField(
-                value = feedConfiguration.username,
-                onValueChange = onUsernameChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Fallback username (optional)") },
-                singleLine = true,
-            )
-
-            OutlinedTextField(
-                value = feedConfiguration.password,
-                onValueChange = onPasswordChanged,
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(
-                        if (feedConfiguration.rememberPassword) {
-                            "Fallback password (optional, remembered)"
-                        } else {
-                            "Fallback password (optional)"
-                        },
-                    )
-                },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .toggleable(
-                        value = feedConfiguration.rememberPassword,
-                        role = Role.Checkbox,
-                        onValueChange = onRememberPasswordChanged,
-                    )
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Checkbox(
-                    checked = feedConfiguration.rememberPassword,
-                    onCheckedChange = null,
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Remember fallback password on this device")
-                    Text(
-                        text = "Uses encrypted-at-rest app storage and stays limited to the rare direct-feed fallback path.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text("Syncing…")
+            } else if (accountSession.isSignedIn) {
+                Text("Re-sync Premium library")
+            } else {
+                Text("Sync Premium feed")
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(
-                onClick = onSignInRequested,
-                enabled = canSignIn,
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-            ) {
-                if (isSigningIn) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(end = 12.dp),
-                    )
-                    Text("Syncing…")
-                } else if (accountSession.isSignedIn) {
-                    Text("Re-sync Premium library")
-                } else {
-                    Text("Sync Premium feed")
-                }
-            }
-
-            if (canClearData) {
-                OutlinedButton(
-                    onClick = onClearSyncedDataRequested,
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Text("Clear synced data")
-                }
-            }
-        }
-
-        if (canForgetSavedCredentials) {
+        if (canClearData) {
             OutlinedButton(
-                onClick = onForgetSavedCredentialsRequested,
+                onClick = onClearSyncedDataRequested,
                 shape = RoundedCornerShape(14.dp),
             ) {
-                Text("Forget saved fallback details")
+                Text("Clear synced data")
             }
         }
     }

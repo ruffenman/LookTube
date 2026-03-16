@@ -14,7 +14,7 @@ class HttpRssVideoFeedServiceTest {
     private val parser = RssVideoFeedParser()
 
     @Test
-    fun loadVideosAddsExpectedHeadersForCredentialedRequests() {
+    fun loadVideosAddsExpectedHeadersForFeedRequests() {
         val connection = FakeHttpURLConnection(
             responseCodeValue = 200,
             inputBody = validFeedBody,
@@ -27,8 +27,6 @@ class HttpRssVideoFeedServiceTest {
         val videos = service.loadVideos(
             VideoFeedRequest(
                 feedUrl = "https://example.com/premium.xml",
-                username = "jorge",
-                password = "secret",
             ),
         )
 
@@ -39,29 +37,6 @@ class HttpRssVideoFeedServiceTest {
         assertTrue(connection.instanceFollowRedirects)
         assertEquals("application/rss+xml, application/xml, text/xml", connection.recordedRequestProperties["Accept"])
         assertEquals("LookTube/0.2 feed sync", connection.recordedRequestProperties["User-Agent"])
-        assertEquals("Basic am9yZ2U6c2VjcmV0", connection.recordedRequestProperties["Authorization"])
-        assertTrue(connection.disconnectCalled)
-    }
-
-    @Test
-    fun loadVideosSkipsAuthorizationHeaderWhenCredentialsAreBlank() {
-        val connection = FakeHttpURLConnection(
-            responseCodeValue = 200,
-            inputBody = validFeedBody,
-        )
-        val service = HttpRssVideoFeedService(
-            parser = parser,
-            connectionFactory = UrlConnectionFactory { connection },
-        )
-
-        service.loadVideos(
-            VideoFeedRequest(
-                feedUrl = "https://example.com/premium.xml",
-                username = "",
-                password = "",
-            ),
-        )
-
         assertFalse(connection.recordedRequestProperties.containsKey("Authorization"))
         assertTrue(connection.disconnectCalled)
     }
@@ -81,8 +56,6 @@ class HttpRssVideoFeedServiceTest {
             service.loadVideos(
                 VideoFeedRequest(
                     feedUrl = "https://example.com/premium.xml",
-                    username = "",
-                    password = "",
                 ),
             )
         }.exceptionOrNull()
@@ -109,8 +82,6 @@ class HttpRssVideoFeedServiceTest {
             service.loadVideos(
                 VideoFeedRequest(
                     feedUrl = "https://example.com/premium.xml",
-                    username = "",
-                    password = "",
                 ),
             )
         }.exceptionOrNull()

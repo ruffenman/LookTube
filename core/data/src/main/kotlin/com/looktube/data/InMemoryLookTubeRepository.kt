@@ -21,9 +21,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     private val feedConfigurationState = MutableStateFlow(
         FeedConfiguration(
             feedUrl = "",
-            username = "",
-            password = "",
-            rememberPassword = false,
         ),
     )
     private val syncState = MutableStateFlow(
@@ -58,20 +55,9 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
     }
-
-    override suspend fun updateUsername(username: String) {
-        feedConfigurationState.value = feedConfigurationState.value.copy(username = username)
-    }
-
-    override suspend fun updatePassword(password: String) {
-        feedConfigurationState.value = feedConfigurationState.value.copy(password = password)
-    }
-    override suspend fun setRememberPassword(rememberPassword: Boolean) {
-        feedConfigurationState.value = feedConfigurationState.value.copy(rememberPassword = rememberPassword)
-    }
     override suspend fun signInToPremiumFeed() {
         accountSessionState.value = accountSessionState.value.copy(
-            notes = "Spike feed-first Premium access first and use fallback details only when a copied feed URL still fails.",
+            notes = "Spike feed-first Premium access first with copied feed URLs only.",
         )
         refreshLibrary()
     }
@@ -85,25 +71,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         syncState.value = LibrarySyncState(
             phase = SyncPhase.Idle,
             message = "Cleared synced data. Seeded content is active until the next refresh.",
-        )
-        videosState.value = ConfigurableLookTubeRepository.seededVideos
-        selectedVideoIdState.value = null
-        playbackProgressState.value = emptyMap()
-    }
-    override suspend fun forgetSavedCredentials() {
-        feedConfigurationState.value = feedConfigurationState.value.copy(
-            username = "",
-            password = "",
-            rememberPassword = false,
-        )
-        accountSessionState.value = accountSessionState.value.copy(
-            isSignedIn = false,
-            accountLabel = null,
-            notes = "Forgot saved fallback details in the in-memory spike repository.",
-        )
-        syncState.value = LibrarySyncState(
-            phase = SyncPhase.Idle,
-            message = "Forgot saved fallback details. Seeded content is active.",
         )
         videosState.value = ConfigurableLookTubeRepository.seededVideos
         selectedVideoIdState.value = null

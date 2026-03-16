@@ -15,10 +15,10 @@ Current coverage:
 - `core:data` JVM tests
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
-- configurable repository tests for persisted settings, seeded fallback behavior, and feed sync transitions
+- configurable repository tests for persisted feed URLs, seeded fallback behavior, and feed sync transitions
 - `app` unit tests
-- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player fallback surfaces plus remembered-credentials readiness
-- managed-device smoke coverage now also checks the player fallback surface
+- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player surfaces
+- managed-device smoke coverage now also checks the player empty-state surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
 ## Full local gate
@@ -56,8 +56,8 @@ Verify the current UI against committed baselines:
 Current committed baselines cover:
 - Library browse surface
 - Auth setup-required state
-- Auth synced state with remembered credentials expanded
-- Auth remembered-credentials ready state
+- Auth synced state
+- Auth ready state with a saved feed URL
 - Player empty-queue state
 - Player preparing state
 
@@ -66,18 +66,15 @@ Use only when you have a local Giant Bomb Premium feed URL available as an envir
 
 ```powershell path=null start=null
 $env:LOOKTUBE_GIANTBOMB_FEED_URL = "{{LOOKTUBE_GIANTBOMB_FEED_URL}}"
-# Optional only if the copied feed URL still requires basic auth:
-# $env:LOOKTUBE_GIANTBOMB_USERNAME = "{{LOOKTUBE_GIANTBOMB_USERNAME}}"
-# $env:LOOKTUBE_GIANTBOMB_PASSWORD = "{{LOOKTUBE_GIANTBOMB_PASSWORD}}"
 .\gradlew.bat integrationProbeGiantBomb
 .\gradlew.bat integrationProbeGiantBombPlayback
 ```
 
-The probe always attempts `feed-url-only` first and, when both fallback credential variables are present, also attempts `direct-feed-basic-auth-fallback` so you can compare outcomes without changing the script.
+The feed probe validates the copied feed URL directly and reports only structural metadata.
 The playback probe samples extracted playback targets from the configured feed and checks whether they respond directly to a ranged request without cookie-backed session state, which matches the app's current Media3 handoff.
 
 ## Fixture policy
 - prefer sanitized local fixtures in automated tests
 - do not commit authenticated responses or cookies
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
-- current app behavior persists feed URL, username, and any opted-in remembered password locally, while non-remembered password edits stay session-only and credentials remain advanced direct-feed fallback only
+- current app behavior persists only the copied feed URL locally and keeps the product strictly feed-first

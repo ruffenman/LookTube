@@ -23,7 +23,7 @@ class InMemoryLookTubeRepositoryTest {
 
         repository.signInToPremiumFeed()
         assertEquals(
-            "Spike feed-first Premium access first and use fallback details only when a copied feed URL still fails.",
+            "Spike feed-first Premium access first with copied feed URLs only.",
             repository.accountSession.value.notes,
         )
     }

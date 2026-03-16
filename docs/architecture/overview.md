@@ -15,13 +15,13 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `core:database`
   - persistence seam for playback bookmarks
 - `core:network`
-  - feed parsing and future authenticated fetch logic
+  - feed parsing and HTTP fetch logic for copied feed URLs
 - `core:designsystem`
   - shared theme and reusable UI primitives
 - `core:testing`
   - shared fixtures and coroutine-test rules
 - `feature:auth`
-  - feed configuration and rare fallback-fields surface
+  - feed configuration surface
 - `feature:library`
   - consolidated Premium library browse surface with grouped exploration, rich cards, and flyout jump navigation
 - `feature:player`
@@ -39,15 +39,15 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 ## Current data flow
 1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
-3. the repository loads feed identity settings from an app-owned encrypted-at-rest store, restores any opted-in remembered password, keeps non-remembered password edits session-only, restores the last synced library snapshot, and exposes persisted playback progress for the feed-first path
-4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen that foregrounds the copied feed URL and keeps fallback fields secondary, a consolidated grouped library surface, and a shared Media3 player route
-5. an explicit sync action attempts a direct RSS fetch first and replaces the cached library on success, while still passing optional basic-auth fallback details when present and allowing cached-library clearing independently from fallback-detail forgetting; the architecture intentionally stops short of website-login automation
+3. the repository loads the copied feed URL from an app-owned encrypted-at-rest store, restores the last synced library snapshot, and exposes persisted playback progress for the feed-first path
+4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen centered on the copied feed URL, a consolidated grouped library surface, and a shared Media3 player route
+5. an explicit sync action fetches the RSS feed directly from the copied URL and replaces the cached library on success; the architecture intentionally stops short of website-login automation
 
 ## Why the current spike still keeps a seeded fallback
 The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy and exact production feed targets. The configurable repository now supports a real Premium feed sync path, but it keeps seeded fallback content so the app remains usable and testable before live credentials are available.
 
 ## Near-term evolution path
-- validate whether copied feed URLs plus narrow direct-feed fallback are sufficient, or whether Giant Bomb eventually exposes an official broader auth/session path
+- validate whether copied feed URLs stay sufficient across more Giant Bomb feed variants, or whether Giant Bomb eventually exposes an official broader auth/session path
 - continue hardening Media3 playback and real-device resume behavior
 - improve visual regression coverage for the now-richer library/player surfaces
 - keep refining grouping heuristics and browse affordances as more live feed edge cases appear

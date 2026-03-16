@@ -68,7 +68,7 @@ class LookTubeAppViewModelTest {
     }
 
     @Test
-    fun clearSyncedDataKeepsSavedCredentialsReadyForResync() = runTest {
+    fun clearSyncedDataKeepsSavedFeedUrlReadyForResync() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
@@ -81,9 +81,6 @@ class LookTubeAppViewModelTest {
         advanceUntilIdle()
 
         viewModel.updateFeedUrl("https://example.com/feed.xml")
-        viewModel.updateUsername("jorge")
-        viewModel.setRememberPassword(true)
-        viewModel.updatePassword("remembered-secret")
         viewModel.signInToPremiumFeed()
         advanceUntilIdle()
 
@@ -91,37 +88,9 @@ class LookTubeAppViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.accountSession.value.isSignedIn)
-        assertEquals("jorge", viewModel.feedConfiguration.value.username)
-        assertEquals("remembered-secret", viewModel.feedConfiguration.value.password)
-        assertTrue(viewModel.feedConfiguration.value.rememberPassword)
+        assertEquals("https://example.com/feed.xml", viewModel.feedConfiguration.value.feedUrl)
         assertEquals("premium-quick-look-1", viewModel.videos.value.first().id)
-    }
-
-    @Test
-    fun forgetSavedCredentialsClearsSavedAuthInputs() = runTest {
-        val repository = ConfigurableLookTubeRepository(
-            feedConfigurationStore = FakeFeedConfigurationStore(),
-            syncedLibraryStore = FakeSyncedLibraryStore(),
-            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
-            videoFeedService = FakeVideoFeedService(),
-            ioDispatcher = StandardTestDispatcher(testScheduler),
-        )
-
-        val viewModel = LookTubeAppViewModel(repository)
-        advanceUntilIdle()
-
-        viewModel.updateFeedUrl("https://example.com/feed.xml")
-        viewModel.updateUsername("jorge")
-        viewModel.setRememberPassword(true)
-        viewModel.updatePassword("remembered-secret")
-        advanceUntilIdle()
-
-        viewModel.forgetSavedCredentials()
-        advanceUntilIdle()
-
-        assertEquals("", viewModel.feedConfiguration.value.username)
-        assertEquals("", viewModel.feedConfiguration.value.password)
-        assertFalse(viewModel.feedConfiguration.value.rememberPassword)
+        assertTrue(viewModel.librarySyncState.value.message.contains("Saved feed URL"))
     }
 }
 
@@ -129,34 +98,13 @@ private class FakeFeedConfigurationStore : FeedConfigurationStore {
     private val state = MutableStateFlow(
         PersistedFeedConfiguration(
             feedUrl = "",
-            username = "",
-            rememberedPassword = "",
-            rememberPassword = false,
         ),
     )
 
     override val persistedConfiguration: StateFlow<PersistedFeedConfiguration> = state.asStateFlow()
 
-
     override suspend fun setFeedUrl(feedUrl: String) {
         state.value = state.value.copy(feedUrl = feedUrl)
-    }
-
-    override suspend fun setUsername(username: String) {
-        state.value = state.value.copy(username = username)
-    }
-
-    override suspend fun setRememberPassword(rememberPassword: Boolean) {
-        state.value = state.value.copy(
-            rememberedPassword = if (rememberPassword) state.value.rememberedPassword else "",
-            rememberPassword = rememberPassword,
-        )
-    }
-
-    override suspend fun setRememberedPassword(password: String) {
-        state.value = state.value.copy(
-            rememberedPassword = if (state.value.rememberPassword) password else "",
-        )
     }
 }
 

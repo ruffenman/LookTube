@@ -24,27 +24,18 @@ class SharedPreferencesFeedConfigurationStoreTest {
         )
 
         store.setFeedUrl("https://www.giantbomb.com/feeds/premium-videos/?token=super-secret")
-        store.setUsername("jorge")
-        store.setRememberPassword(true)
-        store.setRememberedPassword("remembered-secret")
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=super-secret", store.persistedConfiguration.value.feedUrl)
-        assertEquals("jorge", store.persistedConfiguration.value.username)
-        assertEquals("remembered-secret", store.persistedConfiguration.value.rememberedPassword)
-        assertTrue(store.persistedConfiguration.value.rememberPassword)
         assertEquals(1, preferences.all.size)
         assertFalse(preferences.all.values.single().toString().contains("super-secret"))
-        assertFalse(preferences.all.values.single().toString().contains("remembered-secret"))
         assertFalse(preferences.contains("feed_url"))
-        assertFalse(preferences.contains("username"))
     }
 
     @Test
-    fun migratesLegacyPlaintextValuesIntoEncryptedPayloadOnInit() {
+    fun migratesLegacyPlaintextFeedUrlIntoEncryptedPayloadOnInit() {
         val preferences = createPreferences("migrate-legacy")
         preferences.edit()
             .putString("feed_url", "https://www.giantbomb.com/feeds/premium-videos/?token=legacy-secret")
-            .putString("username", "jorge")
             .apply()
 
         val store = SharedPreferencesFeedConfigurationStore(
@@ -53,12 +44,8 @@ class SharedPreferencesFeedConfigurationStoreTest {
         )
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=legacy-secret", store.persistedConfiguration.value.feedUrl)
-        assertEquals("jorge", store.persistedConfiguration.value.username)
-        assertEquals("", store.persistedConfiguration.value.rememberedPassword)
-        assertFalse(store.persistedConfiguration.value.rememberPassword)
         assertEquals(1, preferences.all.size)
         assertFalse(preferences.contains("feed_url"))
-        assertFalse(preferences.contains("username"))
     }
 
     @Test
@@ -70,17 +57,9 @@ class SharedPreferencesFeedConfigurationStoreTest {
         )
 
         store.setFeedUrl("https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret")
-        store.setUsername("jorge")
-        store.setRememberPassword(true)
-        store.setRememberedPassword("do-not-persist")
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret", store.persistedConfiguration.value.feedUrl)
-        assertEquals("jorge", store.persistedConfiguration.value.username)
-        assertEquals("", store.persistedConfiguration.value.rememberedPassword)
-        assertFalse(store.persistedConfiguration.value.rememberPassword)
         assertTrue(preferences.contains("feed_url"))
-        assertTrue(preferences.contains("username"))
-        assertFalse(preferences.all.values.any { it.toString().contains("do-not-persist") })
         assertFalse(preferences.all.keys.any { it.contains("encrypted") })
     }
 

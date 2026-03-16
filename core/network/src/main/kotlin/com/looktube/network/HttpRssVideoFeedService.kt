@@ -2,7 +2,6 @@ package com.looktube.network
 
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.Base64
 
 class HttpRssVideoFeedService(
     private val parser: RssVideoFeedParser,
@@ -17,12 +16,6 @@ class HttpRssVideoFeedService(
             connection.instanceFollowRedirects = true
             connection.setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml")
             connection.setRequestProperty("User-Agent", "LookTube/0.2 feed sync")
-            if (request.username.isNotBlank() && request.password.isNotBlank()) {
-                val encodedCredentials = Base64.getEncoder().encodeToString(
-                    "${request.username}:${request.password}".toByteArray(),
-                )
-                connection.setRequestProperty("Authorization", "Basic $encodedCredentials")
-            }
 
             val statusCode = connection.responseCode
             val stream = if (statusCode in 200..299) {
