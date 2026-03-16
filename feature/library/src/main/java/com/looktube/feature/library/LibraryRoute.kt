@@ -5,6 +5,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +79,7 @@ import com.looktube.model.topicGroupingTitle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -221,6 +225,8 @@ fun LibraryRoute(
                     seriesFilters = seriesFilters,
                     selectedSeriesFilter = selectedSeriesFilter,
                     onSeriesFilterChanged = { selectedSeriesFilter = it },
+                    totalVideoCount = videos.size,
+                    filteredVideoCount = filteredVideos.size,
                 )
             }
 
@@ -262,9 +268,11 @@ fun LibraryRoute(
         if (sections.isNotEmpty()) {
             ShowJumpRail(
                 groups = sections,
+                contentListState = listState,
                 listState = showRailState,
                 currentGroupIndex = currentGroupIndex,
                 isEmphasized = railEmphasized,
+                railScope = scope,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .fillMaxHeight()
@@ -291,7 +299,10 @@ private fun BrowseControlsPanel(
     seriesFilters: List<String>,
     selectedSeriesFilter: String,
     onSeriesFilterChanged: (String) -> Unit,
+    totalVideoCount: Int,
+    filteredVideoCount: Int,
 ) {
+    val isSeriesFilterActive = selectedSeriesFilter != ALL_SERIES_FILTER
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -302,6 +313,41 @@ private fun BrowseControlsPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            if (isSeriesFilterActive) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = "Show filter active",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Text(
+                            text = "Showing $filteredVideoCount of $totalVideoCount videos for $selectedSeriesFilter.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(
+                                selected = true,
+                                onClick = { onSeriesFilterChanged(selectedSeriesFilter) },
+                                label = { Text(selectedSeriesFilter) },
+                            )
+                            FilterChip(
+                                selected = false,
+                                onClick = { onSeriesFilterChanged(ALL_SERIES_FILTER) },
+                                label = { Text("Clear filter") },
+                            )
+                        }
+                    }
+                }
+            }
             BrowseControlSection(
                 label = "Browse by",
                 content = {
@@ -345,7 +391,7 @@ private fun BrowseControlsPanel(
                 }
             }
             BrowseControlSection(
-                label = "Filter show",
+                label = if (isSeriesFilterActive) "Filter show (active)" else "Filter show",
                 content = {
                     seriesFilters.forEach { filter ->
                         FilterChip(
@@ -615,9 +661,11 @@ private fun VideoThumbnail(video: VideoSummary) {
 @Composable
 private fun ShowJumpRail(
     groups: List<SeriesSection>,
+    contentListState: LazyListState,
     listState: LazyListState,
     currentGroupIndex: Int,
     isEmphasized: Boolean,
+    railScope: CoroutineScope,
     modifier: Modifier = Modifier,
     onGroupSelected: (Int) -> Unit,
 ) {
@@ -633,7 +681,18 @@ private fun ShowJumpRail(
     )
 
     Row(
-        modifier = modifier.width(JUMP_RAIL_WIDTH),
+        modifier = modifier
+            .width(JUMP_RAIL_WIDTH)
+            .pointerInput(contentListState) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        railScope.launch {
+                            contentListState.scrollBy(-dragAmount)
+                        }
+                    },
+                )
+            },
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {

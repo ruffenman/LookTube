@@ -3,7 +3,6 @@ package com.looktube.feature.player
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.pm.ActivityInfo
 import android.view.GestureDetector
 import android.view.MotionEvent
 import androidx.compose.foundation.layout.Arrangement
@@ -14,12 +13,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Fullscreen
-import androidx.compose.material.icons.outlined.FullscreenExit
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -27,6 +22,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -35,6 +31,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
+import androidx.mediarouter.app.MediaRouteButton
+import com.google.android.gms.cast.framework.CastButtonFactory
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
@@ -57,17 +55,14 @@ fun PlayerRoute(
             onDispose { }
         } else {
             val window = hostActivity.window
-            val previousOrientation = hostActivity.requestedOrientation
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             WindowCompat.setDecorFitsSystemWindows(window, false)
             insetsController.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
-            hostActivity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             onDispose {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
                 WindowCompat.setDecorFitsSystemWindows(window, true)
-                hostActivity.requestedOrientation = previousOrientation
             }
         }
     }
@@ -98,7 +93,6 @@ fun PlayerRoute(
 
         isFullscreen -> FullscreenPlayerSurface(
             player = player,
-            isFullscreen = true,
             onFullscreenToggle = { onFullscreenChanged(false) },
         )
 
@@ -121,7 +115,6 @@ fun PlayerRoute(
             )
             EmbeddedPlayerSurface(
                 player = player,
-                isFullscreen = false,
                 onFullscreenToggle = { onFullscreenChanged(true) },
             )
             LookTubeCard(
@@ -166,7 +159,6 @@ private fun PlayerStatusContent(
 @Composable
 private fun EmbeddedPlayerSurface(
     player: Player,
-    isFullscreen: Boolean,
     onFullscreenToggle: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -188,30 +180,27 @@ private fun EmbeddedPlayerSurface(
             .aspectRatio(16f / 9f),
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                },
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
                     this.player = player
-                    setOnTouchListener { _, motionEvent ->
-                        doubleTapGestureDetector.onTouchEvent(motionEvent)
-                        false
-                    }
+                    setFullscreenButtonClickListener { onFullscreenToggle() }
                 }
             },
             update = { playerView ->
                 playerView.player = player
-                playerView.setOnTouchListener { _, motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                }
+                playerView.setFullscreenButtonClickListener { onFullscreenToggle() }
             },
         )
-        FullscreenToggleButton(
-            isFullscreen = isFullscreen,
-            onToggle = onFullscreenToggle,
+        CastRouteButton(
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .align(Alignment.TopStart)
                 .padding(12.dp),
         )
     }
@@ -220,7 +209,6 @@ private fun EmbeddedPlayerSurface(
 @Composable
 private fun FullscreenPlayerSurface(
     player: Player,
-    isFullscreen: Boolean,
     onFullscreenToggle: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -240,39 +228,34 @@ private fun FullscreenPlayerSurface(
         modifier = Modifier.fillMaxSize(),
     ) {
         AndroidView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                },
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
                     this.player = player
-                    setOnTouchListener { _, motionEvent ->
-                        doubleTapGestureDetector.onTouchEvent(motionEvent)
-                        false
-                    }
+                    setFullscreenButtonClickListener { onFullscreenToggle() }
                 }
             },
             update = { playerView ->
                 playerView.player = player
-                playerView.setOnTouchListener { _, motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                }
+                playerView.setFullscreenButtonClickListener { onFullscreenToggle() }
             },
         )
-        FullscreenToggleButton(
-            isFullscreen = isFullscreen,
-            onToggle = onFullscreenToggle,
+        CastRouteButton(
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .align(Alignment.TopStart)
                 .padding(16.dp),
         )
     }
 }
 
 @Composable
-private fun FullscreenToggleButton(
-    isFullscreen: Boolean,
-    onToggle: () -> Unit,
+private fun CastRouteButton(
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -282,12 +265,18 @@ private fun FullscreenToggleButton(
         tonalElevation = 4.dp,
         shadowElevation = 4.dp,
     ) {
-        IconButton(onClick = onToggle) {
-            Icon(
-                imageVector = if (isFullscreen) Icons.Outlined.FullscreenExit else Icons.Outlined.Fullscreen,
-                contentDescription = if (isFullscreen) "Exit fullscreen" else "Enter fullscreen",
-            )
-        }
+        AndroidView(
+            modifier = Modifier.size(48.dp),
+            factory = { viewContext ->
+                MediaRouteButton(viewContext).apply {
+                    contentDescription = "Cast video"
+                    CastButtonFactory.setUpMediaRouteButton(viewContext, this)
+                }
+            },
+            update = { mediaRouteButton ->
+                CastButtonFactory.setUpMediaRouteButton(mediaRouteButton.context, mediaRouteButton)
+            },
+        )
     }
 }
 

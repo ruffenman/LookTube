@@ -33,5 +33,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.cast)
     implementation(libs.media3.ui)
 }

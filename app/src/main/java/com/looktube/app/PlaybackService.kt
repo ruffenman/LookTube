@@ -1,16 +1,23 @@
 package com.looktube.app
+import android.app.PendingIntent
+import android.content.Intent
 
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.cast.CastPlayer
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.looktube.model.PlaybackProgress
+@UnstableApi
 
 class PlaybackService : MediaSessionService() {
-    private lateinit var player: ExoPlayer
+    private lateinit var player: Player
+    private lateinit var localPlayer: ExoPlayer
     private lateinit var mediaSession: MediaSession
+    private var castPlayer: CastPlayer? = null
     private val progressHandler = Handler(Looper.getMainLooper())
     private val progressRunnable = object : Runnable {
         override fun run() {
@@ -43,10 +50,18 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        player = ExoPlayer.Builder(this).build().apply {
+        localPlayer = ExoPlayer.Builder(this).build()
+        player = runCatching {
+            CastPlayer.Builder(this)
+                .setLocalPlayer(localPlayer)
+                .build()
+                .also { castPlayer = it }
+        }.getOrElse { localPlayer }.apply {
             addListener(playerListener)
         }
-        mediaSession = MediaSession.Builder(this, player).build()
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(createSessionActivity())
+            .build()
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = mediaSession
@@ -56,9 +71,20 @@ class PlaybackService : MediaSessionService() {
         persistProgress()
         player.removeListener(playerListener)
         mediaSession.release()
-        player.release()
+        castPlayer?.release()
+        localPlayer.release()
         super.onDestroy()
     }
+
+    private fun createSessionActivity(): PendingIntent =
+        PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun persistProgress() {
         val currentMediaItem = player.currentMediaItem ?: return

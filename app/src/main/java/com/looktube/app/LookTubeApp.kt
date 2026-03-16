@@ -2,6 +2,7 @@ package com.looktube.app
 
 import android.content.ComponentName
 import android.content.res.Configuration
+import android.net.Uri
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -34,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.looktube.designsystem.LookTubeTheme
@@ -45,6 +47,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@UnstableApi
 fun LookTubeApp(viewModel: LookTubeAppViewModel) {
     val accountSession by viewModel.accountSession.collectAsStateWithLifecycle()
     val feedConfiguration by viewModel.feedConfiguration.collectAsStateWithLifecycle()
@@ -79,7 +82,9 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                     .setMediaMetadata(
                         MediaMetadata.Builder()
                             .setTitle(video.title)
+                                    .setDisplayTitle(video.title)
                             .setArtist(video.displaySeriesTitle)
+                                    .setArtworkUri(video.thumbnailUrl?.let(Uri::parse))
                             .build(),
                     )
                     .build(),
@@ -209,6 +214,7 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
 }
 
 @Composable
+@UnstableApi
 private fun rememberPlaybackController(): MediaController? {
     val context = LocalContext.current
     var controller by remember { mutableStateOf<MediaController?>(null) }
