@@ -12,7 +12,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 ## What is implemented in the repo today
 - fixture-driven RSS parsing in `core:network`
 - a manual probe script in `scripts/Invoke-GiantBombFeedProbe.ps1`
-- a configurable repository that persists feed URL, username, auth mode, and optional remembered password locally, with feed identity protected at rest inside the app
+- a configurable repository that persists feed URL, username, and optional remembered password locally, with feed identity protected at rest inside the app
 - a user-facing split between clearing synced library data and forgetting saved credentials while preserving the copied feed URL
 - a live Premium RSS fetch path that can replace seeded library content when configured successfully
 - seeded fallback library data that keeps the app usable and testable before live credentials are available

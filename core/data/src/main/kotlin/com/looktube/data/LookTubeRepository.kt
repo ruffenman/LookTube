@@ -1,7 +1,6 @@
 package com.looktube.data
 
 import com.looktube.model.AccountSession
-import com.looktube.model.AuthMode
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.PlaybackProgress

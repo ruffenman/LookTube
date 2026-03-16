@@ -18,12 +18,14 @@ class InMemoryLookTubeRepositoryTest {
     }
 
     @Test
-    fun signInMarksRepositoryAsCredentialedFeed() = runTest {
+    fun signInUpdatesRepositoryNotesForFeedFirstSync() = runTest {
         val repository = InMemoryLookTubeRepository()
 
         repository.signInToPremiumFeed()
-
-        assertEquals(com.looktube.model.AuthMode.CredentialedFeed, repository.accountSession.value.authMode)
+        assertEquals(
+            "Spike feed-first Premium access first and use credentials only as direct-feed fallback.",
+            repository.accountSession.value.notes,
+        )
     }
 
     @Test

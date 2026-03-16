@@ -3,7 +3,6 @@ package com.looktube.data
 import com.looktube.database.PlaybackBookmarkStore
 
 import com.looktube.model.AccountSession
-import com.looktube.model.AuthMode
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.PersistedFeedConfiguration
@@ -33,13 +32,11 @@ class ConfigurableLookTubeRepository(
         AccountSession(
             isSignedIn = false,
             accountLabel = null,
-            authMode = null,
             notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library. Username and password are advanced fallback fields only if the feed itself still requires basic auth.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
         FeedConfiguration(
-            authMode = null,
             feedUrl = "",
             username = "",
             password = "",
@@ -133,11 +130,7 @@ class ConfigurableLookTubeRepository(
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
     }
     override suspend fun signInToPremiumFeed() {
-        if (feedConfigurationState.value.authMode != AuthMode.CredentialedFeed) {
-            feedConfigurationStore.setAuthMode(AuthMode.CredentialedFeed)
-            hasSuccessfulFeedSync = false
-            feedConfigurationState.value = feedConfigurationState.value.copy(authMode = AuthMode.CredentialedFeed)
-        }
+        hasSuccessfulFeedSync = false
         refreshLibrary()
     }
     override suspend fun clearSyncedData() {
@@ -156,13 +149,11 @@ class ConfigurableLookTubeRepository(
     }
     override suspend fun forgetSavedCredentials() {
         hasSuccessfulFeedSync = false
-        feedConfigurationStore.setAuthMode(null)
         feedConfigurationStore.setUsername("")
         feedConfigurationStore.setRememberPassword(false)
         syncedLibraryStore.clear()
         playbackBookmarkStore.clear()
         feedConfigurationState.value = feedConfigurationState.value.copy(
-            authMode = null,
             username = "",
             password = "",
             rememberPassword = false,
@@ -181,16 +172,6 @@ class ConfigurableLookTubeRepository(
     override suspend fun refreshLibrary() {
         val configuration = feedConfigurationState.value
         when {
-            configuration.authMode == null -> {
-                publishStatus(
-                    LibrarySyncState(
-                        phase = SyncPhase.Error,
-                        message = "Sign in to Giant Bomb Premium before syncing the library.",
-                        lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
-                    ),
-                )
-                return
-            }
             configuration.feedUrl.isBlank() -> {
                 publishStatus(
                     LibrarySyncState(
@@ -273,7 +254,6 @@ class ConfigurableLookTubeRepository(
         accountSessionState.value = AccountSession(
             isSignedIn = hasSuccessfulFeedSync,
             accountLabel = configuration.username.takeIf(String::isNotBlank) ?: configuration.feedUrl.takeIf(String::isNotBlank)?.let { "Copied Premium feed" },
-            authMode = configuration.authMode,
             notes = buildString {
                 append(status.message)
                 if (configuration.password.isNotBlank()) {
@@ -344,8 +324,6 @@ class ConfigurableLookTubeRepository(
 
 interface FeedConfigurationStore {
     val persistedConfiguration: StateFlow<PersistedFeedConfiguration>
-
-    suspend fun setAuthMode(mode: AuthMode?)
 
     suspend fun setFeedUrl(feedUrl: String)
 

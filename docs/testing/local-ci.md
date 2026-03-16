@@ -78,4 +78,4 @@ The probe always attempts `feed-url-only` first and, when both fallback credenti
 - prefer sanitized local fixtures in automated tests
 - do not commit authenticated responses or cookies
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
-- current app behavior persists feed URL, username, auth mode, and any opted-in remembered password locally, while non-remembered password edits stay session-only and credentials remain advanced direct-feed fallback only
+- current app behavior persists feed URL, username, and any opted-in remembered password locally, while non-remembered password edits stay session-only and credentials remain advanced direct-feed fallback only

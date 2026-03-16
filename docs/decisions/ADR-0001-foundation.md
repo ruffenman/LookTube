@@ -24,6 +24,6 @@ Start with:
 - some modules, especially `core:database`, exist as seams before their production implementations arrive
 
 ## Follow-up ADRs
-- chosen auth mode for Premium access
+- chosen Premium feed access shape
 - playback engine and Media3 configuration
 - persistence strategy for watch progress and cached feed data

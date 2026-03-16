@@ -1,7 +1,6 @@
 package com.looktube.data
 
 import com.looktube.database.InMemoryPlaybackBookmarkStore
-import com.looktube.model.AuthMode
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
@@ -22,7 +21,6 @@ class ConfigurableLookTubeRepositoryTest {
     fun bootstrapLoadsPersistedSettingsAndKeepsSeededFallback() = runTest {
         val store = FakeFeedConfigurationStore(
             PersistedFeedConfiguration(
-                authMode = AuthMode.CredentialedFeed,
                 feedUrl = "https://example.com/feed.xml",
                 username = "jorge",
                 rememberedPassword = "remembered-secret",
@@ -137,7 +135,6 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals("", repository.feedConfiguration.value.username)
         assertEquals("", repository.feedConfiguration.value.password)
         assertFalse(repository.feedConfiguration.value.rememberPassword)
-        assertEquals(null, repository.feedConfiguration.value.authMode)
         assertEquals("", store.persistedConfiguration.value.username)
         assertEquals("", store.persistedConfiguration.value.rememberedPassword)
         assertFalse(store.persistedConfiguration.value.rememberPassword)
@@ -147,7 +144,6 @@ class ConfigurableLookTubeRepositoryTest {
 
 private class FakeFeedConfigurationStore(
     initialConfiguration: PersistedFeedConfiguration = PersistedFeedConfiguration(
-        authMode = null,
         feedUrl = "",
         username = "",
         rememberedPassword = "",
@@ -157,10 +153,6 @@ private class FakeFeedConfigurationStore(
     private val state = MutableStateFlow(initialConfiguration)
 
     override val persistedConfiguration: StateFlow<PersistedFeedConfiguration> = state.asStateFlow()
-
-    override suspend fun setAuthMode(mode: AuthMode?) {
-        state.value = state.value.copy(authMode = mode)
-    }
 
     override suspend fun setFeedUrl(feedUrl: String) {
         state.value = state.value.copy(feedUrl = feedUrl)

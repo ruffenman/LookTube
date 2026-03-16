@@ -2,7 +2,6 @@ package com.looktube.app
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.looktube.model.AuthMode
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,7 +23,6 @@ class SharedPreferencesFeedConfigurationStoreTest {
             securePayloadCipher = PrefixingSecurePayloadCipher(),
         )
 
-        store.setAuthMode(AuthMode.CredentialedFeed)
         store.setFeedUrl("https://www.giantbomb.com/feeds/premium-videos/?token=super-secret")
         store.setUsername("jorge")
         store.setRememberPassword(true)
@@ -32,7 +30,6 @@ class SharedPreferencesFeedConfigurationStoreTest {
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=super-secret", store.persistedConfiguration.value.feedUrl)
         assertEquals("jorge", store.persistedConfiguration.value.username)
-        assertEquals(AuthMode.CredentialedFeed, store.persistedConfiguration.value.authMode)
         assertEquals("remembered-secret", store.persistedConfiguration.value.rememberedPassword)
         assertTrue(store.persistedConfiguration.value.rememberPassword)
         assertEquals(1, preferences.all.size)
@@ -46,7 +43,6 @@ class SharedPreferencesFeedConfigurationStoreTest {
     fun migratesLegacyPlaintextValuesIntoEncryptedPayloadOnInit() {
         val preferences = createPreferences("migrate-legacy")
         preferences.edit()
-            .putString("auth_mode", AuthMode.CredentialedFeed.name)
             .putString("feed_url", "https://www.giantbomb.com/feeds/premium-videos/?token=legacy-secret")
             .putString("username", "jorge")
             .apply()
@@ -58,11 +54,9 @@ class SharedPreferencesFeedConfigurationStoreTest {
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=legacy-secret", store.persistedConfiguration.value.feedUrl)
         assertEquals("jorge", store.persistedConfiguration.value.username)
-        assertEquals(AuthMode.CredentialedFeed, store.persistedConfiguration.value.authMode)
         assertEquals("", store.persistedConfiguration.value.rememberedPassword)
         assertFalse(store.persistedConfiguration.value.rememberPassword)
         assertEquals(1, preferences.all.size)
-        assertFalse(preferences.contains("auth_mode"))
         assertFalse(preferences.contains("feed_url"))
         assertFalse(preferences.contains("username"))
     }
@@ -75,7 +69,6 @@ class SharedPreferencesFeedConfigurationStoreTest {
             securePayloadCipher = FailingSecurePayloadCipher(),
         )
 
-        store.setAuthMode(AuthMode.CredentialedFeed)
         store.setFeedUrl("https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret")
         store.setUsername("jorge")
         store.setRememberPassword(true)
@@ -83,7 +76,6 @@ class SharedPreferencesFeedConfigurationStoreTest {
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret", store.persistedConfiguration.value.feedUrl)
         assertEquals("jorge", store.persistedConfiguration.value.username)
-        assertEquals(AuthMode.CredentialedFeed, store.persistedConfiguration.value.authMode)
         assertEquals("", store.persistedConfiguration.value.rememberedPassword)
         assertFalse(store.persistedConfiguration.value.rememberPassword)
         assertTrue(preferences.contains("feed_url"))

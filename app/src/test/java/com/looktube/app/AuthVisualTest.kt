@@ -37,11 +37,9 @@ class AuthVisualTest {
                     accountSession = AccountSession(
                         isSignedIn = false,
                         accountLabel = null,
-                        authMode = null,
                         notes = "Paste a copied Premium feed URL to begin.",
                     ),
                     feedConfiguration = FeedConfiguration(
-                        authMode = null,
                         feedUrl = "",
                         username = "",
                         password = "",
@@ -74,11 +72,9 @@ class AuthVisualTest {
                     accountSession = AccountSession(
                         isSignedIn = true,
                         accountLabel = "Premium library synced",
-                        authMode = null,
                         notes = "Using copied Giant Bomb Premium feed URL.",
                     ),
                     feedConfiguration = FeedConfiguration(
-                        authMode = null,
                         feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=feed-token",
                         username = "premium-user",
                         password = "remembered-secret",
@@ -112,11 +108,9 @@ class AuthVisualTest {
                     accountSession = AccountSession(
                         isSignedIn = false,
                         accountLabel = "premium-user",
-                        authMode = null,
                         notes = "Saved feed settings are ready for the next sync.",
                     ),
                     feedConfiguration = FeedConfiguration(
-                        authMode = null,
                         feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=feed-token",
                         username = "premium-user",
                         password = "remembered-secret",

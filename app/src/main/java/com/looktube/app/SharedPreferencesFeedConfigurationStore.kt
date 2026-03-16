@@ -3,7 +3,6 @@ package com.looktube.app
 import android.content.Context
 import android.content.SharedPreferences
 import com.looktube.data.FeedConfigurationStore
-import com.looktube.model.AuthMode
 import com.looktube.model.PersistedFeedConfiguration
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Base64
@@ -25,10 +24,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
     override val persistedConfiguration: StateFlow<PersistedFeedConfiguration> =
         persistedConfigurationState.asStateFlow()
 
-    override suspend fun setAuthMode(mode: AuthMode?) {
-        writeToDisk(persistedConfigurationState.value.copy(authMode = mode))
-        persistedConfigurationState.value = readFromDisk()
-    }
 
     override suspend fun setFeedUrl(feedUrl: String) {
         writeToDisk(persistedConfigurationState.value.copy(feedUrl = feedUrl))
@@ -76,7 +71,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         }
 
         val legacyConfiguration = readLegacyFromDisk() ?: return PersistedFeedConfiguration(
-            authMode = null,
             feedUrl = "",
             username = "",
             rememberedPassword = "",
@@ -96,9 +90,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             return null
         }
         return PersistedFeedConfiguration(
-            authMode = preferences.getString(KEY_AUTH_MODE, null)
-                ?.takeIf(String::isNotBlank)
-                ?.let { value -> runCatching { AuthMode.valueOf(value) }.getOrNull() },
             feedUrl = preferences.getString(KEY_FEED_URL, "").orEmpty(),
             username = preferences.getString(KEY_USERNAME, "").orEmpty(),
             rememberedPassword = "",
@@ -113,7 +104,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         }
         preferences.edit()
             .remove(KEY_ENCRYPTED_PAYLOAD)
-            .putString(KEY_AUTH_MODE, configuration.authMode?.name)
             .putString(KEY_FEED_URL, configuration.feedUrl)
             .putString(KEY_USERNAME, configuration.username)
             .apply()
@@ -147,7 +137,6 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
 
         private fun serializePersistedFeedConfiguration(configuration: PersistedFeedConfiguration): String =
             listOf(
-                configuration.authMode?.name.orEmpty(),
                 configuration.feedUrl,
                 configuration.username,
                 configuration.rememberedPassword.takeIf { configuration.rememberPassword }.orEmpty(),
@@ -160,7 +149,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             serializedConfiguration: String,
         ): PersistedFeedConfiguration? {
             val parts = serializedConfiguration.split(SERIALIZED_SEPARATOR)
-            if (parts.size != 3 && parts.size != 5) {
+            if (parts.size != 2 && parts.size != 4 && parts.size != 3 && parts.size != 5) {
                 return null
             }
             val decodedParts = parts.map { encodedField ->
@@ -171,18 +160,18 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             if (decodedParts.any { it == null }) {
                 return null
             }
+            val isLegacyPayload = decodedParts.size == 3 || decodedParts.size == 5
+            val fieldOffset = if (isLegacyPayload) 1 else 0
+            val rememberPassword = decodedParts.getOrNull(fieldOffset + 3)?.toBoolean() == true
             return PersistedFeedConfiguration(
-                authMode = decodedParts[0]
-                    ?.takeIf(String::isNotBlank)
-                    ?.let { value -> runCatching { AuthMode.valueOf(value) }.getOrNull() },
-                feedUrl = decodedParts[1].orEmpty(),
-                username = decodedParts[2].orEmpty(),
-                rememberedPassword = if (decodedParts.size >= 5 && decodedParts[4].toBoolean()) {
-                    decodedParts[3].orEmpty()
+                feedUrl = decodedParts[fieldOffset].orEmpty(),
+                username = decodedParts[fieldOffset + 1].orEmpty(),
+                rememberedPassword = if (rememberPassword) {
+                    decodedParts[fieldOffset + 2].orEmpty()
                 } else {
                     ""
                 },
-                rememberPassword = decodedParts.getOrNull(4)?.toBoolean() == true,
+                rememberPassword = rememberPassword,
             )
         }
     }

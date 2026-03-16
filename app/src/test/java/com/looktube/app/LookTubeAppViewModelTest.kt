@@ -4,7 +4,6 @@ import com.looktube.data.ConfigurableLookTubeRepository
 import com.looktube.data.FeedConfigurationStore
 import com.looktube.data.SyncedLibraryStore
 import com.looktube.database.InMemoryPlaybackBookmarkStore
-import com.looktube.model.AuthMode
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
@@ -31,7 +30,7 @@ class LookTubeAppViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun bootstrapsSampleFeedAndTracksAuthMode() = runTest {
+    fun bootstrapsSampleFeedWithoutTreatingItAsSignedIn() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
@@ -44,7 +43,6 @@ class LookTubeAppViewModelTest {
         advanceUntilIdle()
 
         assertTrue(viewModel.videos.value.isNotEmpty())
-        assertEquals(null, viewModel.accountSession.value.authMode)
         assertFalse(viewModel.accountSession.value.isSignedIn)
     }
 
@@ -130,7 +128,6 @@ class LookTubeAppViewModelTest {
 private class FakeFeedConfigurationStore : FeedConfigurationStore {
     private val state = MutableStateFlow(
         PersistedFeedConfiguration(
-            authMode = null,
             feedUrl = "",
             username = "",
             rememberedPassword = "",
@@ -140,9 +137,6 @@ private class FakeFeedConfigurationStore : FeedConfigurationStore {
 
     override val persistedConfiguration: StateFlow<PersistedFeedConfiguration> = state.asStateFlow()
 
-    override suspend fun setAuthMode(mode: AuthMode?) {
-        state.value = state.value.copy(authMode = mode)
-    }
 
     override suspend fun setFeedUrl(feedUrl: String) {
         state.value = state.value.copy(feedUrl = feedUrl)

@@ -1,7 +1,6 @@
 package com.looktube.data
 
 import com.looktube.model.AccountSession
-import com.looktube.model.AuthMode
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.PlaybackProgress
@@ -16,13 +15,11 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         AccountSession(
             isSignedIn = false,
             accountLabel = null,
-            authMode = null,
             notes = "Auth spike pending validation against Giant Bomb Premium flows.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
         FeedConfiguration(
-            authMode = null,
             feedUrl = "",
             username = "",
             password = "",
@@ -73,13 +70,9 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         feedConfigurationState.value = feedConfigurationState.value.copy(rememberPassword = rememberPassword)
     }
     override suspend fun signInToPremiumFeed() {
-        if (feedConfigurationState.value.authMode != AuthMode.CredentialedFeed) {
-            feedConfigurationState.value = feedConfigurationState.value.copy(authMode = AuthMode.CredentialedFeed)
-            accountSessionState.value = accountSessionState.value.copy(
-                authMode = AuthMode.CredentialedFeed,
-                notes = "Spike feed-first Premium access first and use credentials only as direct-feed fallback.",
-            )
-        }
+        accountSessionState.value = accountSessionState.value.copy(
+            notes = "Spike feed-first Premium access first and use credentials only as direct-feed fallback.",
+        )
         refreshLibrary()
     }
 
@@ -87,7 +80,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         accountSessionState.value = accountSessionState.value.copy(
             isSignedIn = false,
             accountLabel = null,
-            authMode = feedConfigurationState.value.authMode,
             notes = "Cleared synced data in the in-memory spike repository.",
         )
         syncState.value = LibrarySyncState(
@@ -100,7 +92,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     }
     override suspend fun forgetSavedCredentials() {
         feedConfigurationState.value = feedConfigurationState.value.copy(
-            authMode = null,
             username = "",
             password = "",
             rememberPassword = false,
@@ -108,7 +99,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         accountSessionState.value = accountSessionState.value.copy(
             isSignedIn = false,
             accountLabel = null,
-            authMode = null,
             notes = "Forgot saved credentials in the in-memory spike repository.",
         )
         syncState.value = LibrarySyncState(
