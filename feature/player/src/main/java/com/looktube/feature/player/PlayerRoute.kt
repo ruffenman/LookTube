@@ -24,7 +24,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -259,22 +258,29 @@ private fun EmbeddedPlayerSurface(
             .aspectRatio(16f / 9f),
     ) {
         AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInteropFilter { motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                },
+            modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
                     this.player = player
                     setFullscreenButtonClickListener { onFullscreenToggle() }
+                    setOnTouchListener { _, motionEvent ->
+                        doubleTapGestureDetector.onTouchEvent(motionEvent)
+                        false
+                    }
+                    setOnTouchListener { _, motionEvent ->
+                        doubleTapGestureDetector.onTouchEvent(motionEvent)
+                        false
+                    }
                 }
             },
             update = { playerView ->
                 playerView.player = player
                 playerView.setFullscreenButtonClickListener { onFullscreenToggle() }
+                playerView.setOnTouchListener { _, motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                }
             },
         )
         CastRouteButton(
@@ -307,12 +313,7 @@ private fun FullscreenPlayerSurface(
         modifier = Modifier.fillMaxSize(),
     ) {
         AndroidView(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInteropFilter { motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                },
+            modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
@@ -323,6 +324,10 @@ private fun FullscreenPlayerSurface(
             update = { playerView ->
                 playerView.player = player
                 playerView.setFullscreenButtonClickListener { onFullscreenToggle() }
+                playerView.setOnTouchListener { _, motionEvent ->
+                    doubleTapGestureDetector.onTouchEvent(motionEvent)
+                    false
+                }
             },
         )
         CastRouteButton(

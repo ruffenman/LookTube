@@ -32,8 +32,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
@@ -97,6 +98,7 @@ fun LibraryRoute(
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
+    val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -106,7 +108,13 @@ fun LibraryRoute(
                 groupedVideos.maxOfOrNull { it.publishedAtEpochMillis ?: Long.MIN_VALUE } ?: Long.MIN_VALUE
             }
     }
-    val seriesFilters = remember(videos, sortOption, latestPublishedAtBySeries) {
+    val oldestPublishedAtBySeries = remember(videos) {
+        videos.groupBy(VideoSummary::displaySeriesTitle)
+            .mapValues { (_, groupedVideos) ->
+                groupedVideos.minOfOrNull { it.publishedAtEpochMillis ?: Long.MAX_VALUE } ?: Long.MAX_VALUE
+            }
+    }
+    val seriesFilters = remember(videos, sortOption, latestPublishedAtBySeries, oldestPublishedAtBySeries) {
         val sortedFilters = videos
             .map(VideoSummary::displaySeriesTitle)
             .distinct()
@@ -114,9 +122,9 @@ fun LibraryRoute(
                 when (sortOption) {
                     LibrarySortOption.Latest -> compareByDescending<String> { latestPublishedAtBySeries[it] ?: Long.MIN_VALUE }
                         .thenBy { it.lowercase() }
-                    LibrarySortOption.Title,
-                    LibrarySortOption.Show,
-                    -> compareBy(String::lowercase)
+                    LibrarySortOption.Oldest -> compareBy<String> { oldestPublishedAtBySeries[it] ?: Long.MAX_VALUE }
+                        .thenBy(String::lowercase)
+                    LibrarySortOption.Show -> compareBy(String::lowercase)
                 },
             )
         listOf(ALL_SERIES_FILTER) + sortedFilters
@@ -125,7 +133,7 @@ fun LibraryRoute(
         videos.filter { selectedSeriesFilter == ALL_SERIES_FILTER || it.displaySeriesTitle == selectedSeriesFilter }
     }
     val sortedVideos = remember(filteredVideos, sortOption) {
-        filteredVideos.sortedFor(sortOption)
+        filteredVideos.sortedWith(videoComparator(sortOption))
     }
     val libraryStatusBody = remember(syncState) {
         buildString {
@@ -141,24 +149,31 @@ fun LibraryRoute(
             railEmphasized || listState.firstVisibleItemIndex >= GROUP_LIST_START_INDEX
         }
     }
-    val sections = remember(sortedVideos, sortOption, groupingMode) {
-        sortedVideos
-            .groupBy { video ->
-                when (groupingMode) {
-                    HeuristicGroupingMode.Show -> video.seriesGroupingKey
-                    HeuristicGroupingMode.Cast -> video.castGroupingKey
-                    HeuristicGroupingMode.Topic -> video.topicGroupingKey
+    val sections = remember(filteredVideos, sortOption, groupingMode, isGrouped) {
+        if (!isGrouped) {
+            emptyList()
+        } else {
+            filteredVideos
+                .groupBy { video ->
+                    when (groupingMode) {
+                        HeuristicGroupingMode.None -> video.id
+                        HeuristicGroupingMode.Show -> video.seriesGroupingKey
+                        HeuristicGroupingMode.Cast -> video.castGroupingKey
+                        HeuristicGroupingMode.Topic -> video.topicGroupingKey
+                    }
                 }
-            }
-            .values
-            .map { groupedVideos ->
-                SeriesSection(
-                    title = groupedVideos.resolveGroupTitle(groupingMode),
-                    videos = groupedVideos.sortedFor(sortOption),
-                    latestPublishedAt = groupedVideos.maxOfOrNull { it.publishedAtEpochMillis ?: Long.MIN_VALUE } ?: Long.MIN_VALUE,
-                )
-            }
-            .sortedWith(sectionComparator(sortOption))
+                .values
+                .map { groupedVideos ->
+                    val sortedGroupVideos = groupedVideos.sortedWith(videoComparator(sortOption))
+                    SeriesSection(
+                        title = groupedVideos.resolveGroupTitle(groupingMode),
+                        kindLabel = groupingMode.sectionLabel,
+                        videos = sortedGroupVideos,
+                        sortAnchor = sortedGroupVideos.first(),
+                    )
+                }
+                .sortedWith(sectionComparator(sortOption))
+        }
     }
     val videoCardTextEndPadding = if (sections.isEmpty()) 0.dp else JUMP_RAIL_TEXT_CLEARANCE
     val sectionStartIndices = remember(sections) {
@@ -261,6 +276,18 @@ fun LibraryRoute(
                         )
                     }
                 }
+            } else if (!isGrouped) {
+                items(
+                    items = sortedVideos,
+                    key = { video -> video.id },
+                ) { video ->
+                    VideoListCard(
+                        video = video,
+                        progress = playbackProgress[video.id],
+                        dismissDetailsSignal = listState.isScrollInProgress,
+                        modifier = Modifier.clickable { onVideoSelected(video.id) },
+                    )
+                }
             } else {
                 sections.forEach { section ->
                     item(key = "section-${section.title}") {
@@ -273,6 +300,7 @@ fun LibraryRoute(
                         VideoListCard(
                             video = video,
                             progress = playbackProgress[video.id],
+                            dismissDetailsSignal = listState.isScrollInProgress,
                             textEndPadding = videoCardTextEndPadding,
                             modifier = Modifier.clickable { onVideoSelected(video.id) },
                         )
@@ -341,6 +369,8 @@ private fun BrowseControlsPanel(
     chipRowEndPadding: Dp,
 ) {
     val isSeriesFilterActive = selectedSeriesFilter != ALL_SERIES_FILTER
+    val availableShowCount = (seriesFilters.size - 1).coerceAtLeast(0)
+    var showFiltersExpanded by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -387,7 +417,7 @@ private fun BrowseControlsPanel(
                 }
             }
             BrowseControlSection(
-                label = "Browse by",
+                label = "Group By",
                 contentEndPadding = chipRowEndPadding,
                 content = {
                     HeuristicGroupingMode.entries.forEach { mode ->
@@ -403,7 +433,7 @@ private fun BrowseControlsPanel(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = "Order",
+                    text = "Sort By",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -411,7 +441,7 @@ private fun BrowseControlsPanel(
                     FilterChip(
                         selected = false,
                         onClick = { onSortMenuExpandedChanged(true) },
-                        label = { Text("Sort: ${sortOption.label}") },
+                        label = { Text("Sort By: ${sortOption.label}") },
                     )
                     DropdownMenu(
                         expanded = sortMenuExpanded,
@@ -429,19 +459,63 @@ private fun BrowseControlsPanel(
                     }
                 }
             }
-            BrowseControlSection(
-                label = if (isSeriesFilterActive) "Filter show (active)" else "Filter show",
-                contentEndPadding = chipRowEndPadding,
-                content = {
-                    seriesFilters.forEach { filter ->
-                        FilterChip(
-                            selected = selectedSeriesFilter == filter,
-                            onClick = { onSeriesFilterChanged(filter) },
-                            label = { Text(filter) },
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showFiltersExpanded = !showFiltersExpanded },
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                tonalElevation = 1.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "Show filters",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Text(
+                            text = if (isSeriesFilterActive) {
+                                "Filtering to $selectedSeriesFilter."
+                            } else {
+                                "$availableShowCount shows available. Collapsed by default."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                },
-            )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (showFiltersExpanded) "Hide" else "Show",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            if (showFiltersExpanded) {
+                BrowseControlSection(
+                    label = if (isSeriesFilterActive) "Filter show (active)" else "Filter show",
+                    contentEndPadding = chipRowEndPadding,
+                    content = {
+                        seriesFilters.forEach { filter ->
+                            FilterChip(
+                                selected = selectedSeriesFilter == filter,
+                                onClick = { onSeriesFilterChanged(filter) },
+                                label = { Text(filter) },
+                            )
+                        }
+                    },
+                )
+            }
         }
     }
 }
@@ -469,24 +543,29 @@ private fun BrowseControlSection(
 
 private data class SeriesSection(
     val title: String,
+    val kindLabel: String,
     val videos: List<VideoSummary>,
-    val latestPublishedAt: Long,
+    val sortAnchor: VideoSummary,
 )
 
-private enum class HeuristicGroupingMode(val label: String) {
-    Show("By show"),
-    Cast("By cast"),
-    Topic("By topic"),
+private enum class HeuristicGroupingMode(
+    val label: String,
+    val sectionLabel: String,
+) {
+    None("None", "Videos"),
+    Show("Show", "Show"),
+    Cast("Cast", "Cast"),
+    Topic("Topic", "Topic"),
 }
 
 private enum class LibrarySortOption(val label: String) {
     Latest("Latest"),
-    Title("Title"),
     Show("Show"),
+    Oldest("Oldest"),
 }
 
 private const val ALL_SERIES_FILTER = "All shows"
-private const val GROUP_LIST_START_INDEX = 4
+private const val GROUP_LIST_START_INDEX = 3
 private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
 private val JUMP_RAIL_WIDTH = 176.dp
 private val JUMP_RAIL_LABEL_WIDTH = 156.dp
@@ -495,26 +574,30 @@ private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_E
 private val JUMP_RAIL_CONTROL_CLEARANCE = 92.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 
-private fun List<VideoSummary>.sortedFor(sortOption: LibrarySortOption): List<VideoSummary> =
+private fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
     when (sortOption) {
-        LibrarySortOption.Latest -> sortedByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-        LibrarySortOption.Title -> sortedBy { it.title.lowercase() }
-        LibrarySortOption.Show -> sortedWith(
-            compareBy<VideoSummary> { it.displaySeriesTitle.lowercase() }
-                .thenByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-                .thenBy { it.title.lowercase() },
-        )
+        LibrarySortOption.Latest -> compareByDescending<VideoSummary> { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
+            .thenBy { it.displaySeriesTitle.lowercase() }
+            .thenBy { it.title.lowercase() }
+        LibrarySortOption.Show -> compareBy<VideoSummary> { it.displaySeriesTitle.lowercase() }
+            .thenByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
+            .thenBy { it.title.lowercase() }
+        LibrarySortOption.Oldest -> compareBy<VideoSummary> { it.publishedAtEpochMillis ?: Long.MAX_VALUE }
+            .thenBy { it.displaySeriesTitle.lowercase() }
+            .thenBy { it.title.lowercase() }
     }
 
-private fun sectionComparator(sortOption: LibrarySortOption): Comparator<SeriesSection> =
-    when (sortOption) {
-        LibrarySortOption.Latest -> compareByDescending<SeriesSection> { it.latestPublishedAt }
-            .thenBy { it.title.lowercase() }
-        LibrarySortOption.Title,
-        LibrarySortOption.Show,
-        -> compareBy<SeriesSection> { it.title.lowercase() }
-            .thenByDescending { it.latestPublishedAt }
+private fun sectionComparator(sortOption: LibrarySortOption): Comparator<SeriesSection> {
+    val anchorComparator = videoComparator(sortOption)
+    return Comparator { left, right ->
+        val anchorComparison = anchorComparator.compare(left.sortAnchor, right.sortAnchor)
+        if (anchorComparison != 0) {
+            anchorComparison
+        } else {
+            left.title.lowercase().compareTo(right.title.lowercase())
+        }
     }
+}
 
 private fun buildMetadataLine(
     video: VideoSummary,
@@ -543,28 +626,45 @@ private fun formatDuration(seconds: Long): String {
 private fun SeriesSectionHeader(section: SeriesSection) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.72f),
-        tonalElevation = 2.dp,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.46f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
-                text = section.title,
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f),
+                text = section.kindLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    Text(
+                        text = "${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -573,11 +673,20 @@ private fun SeriesSectionHeader(section: SeriesSection) {
 private fun VideoListCard(
     video: VideoSummary,
     progress: PlaybackProgress?,
+    dismissDetailsSignal: Boolean = false,
     textEndPadding: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
     val progressFraction = progress?.takeIf { it.durationSeconds > 0 }
         ?.let { (it.positionSeconds.toFloat() / it.durationSeconds.toFloat()).coerceIn(0f, 1f) }
+    var showFullDetails by rememberSaveable(video.id) { mutableStateOf(false) }
+    var descriptionTruncated by remember(video.id) { mutableStateOf(false) }
+
+    LaunchedEffect(dismissDetailsSignal) {
+        if (dismissDetailsSignal) {
+            showFullDetails = false
+        }
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -644,12 +753,66 @@ private fun VideoListCard(
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { descriptionTruncated = it.hasVisualOverflow },
+                    )
+                }
+                if (descriptionTruncated) {
+                    Text(
+                        text = "More…",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable { showFullDetails = true },
                     )
                 }
                 if (progress != null && progress.durationSeconds > 0) {
                     Text(
                         text = "Resume at ${formatDuration(progress.positionSeconds)} of ${formatDuration(progress.durationSeconds)}",
                         style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+    if (showFullDetails) {
+        Dialog(
+            onDismissRequest = { showFullDetails = false },
+        ) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                tonalElevation = 6.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = video.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    Text(
+                        text = "Show: ${video.displaySeriesTitle}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    buildMetadataLine(video, progress).takeIf(String::isNotBlank)?.let { metadataLine ->
+                        Text(
+                            text = metadataLine,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (video.description.isNotBlank()) {
+                        Text(
+                            text = video.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                    Text(
+                        text = "Tap outside this card or scroll the list to dismiss.",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -729,25 +892,18 @@ private fun ShowJumpRail(
     Row(
         modifier = modifier
             .width(JUMP_RAIL_WIDTH)
-            .pointerInput(contentListState) {
-                detectVerticalDragGestures(
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        railScope.launch {
-                            contentListState.scrollBy(-dragAmount)
-                        }
-                    },
-                )
-            },
+            .jumpRailDragModifier(contentListState, railScope),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LazyColumn(
             state = listState,
+            userScrollEnabled = false,
             modifier = Modifier
                 .width(JUMP_RAIL_LABEL_WIDTH)
                 .graphicsLayer(alpha = labelAlpha)
-                .padding(end = JUMP_RAIL_LABEL_END_PADDING),
+                .padding(end = JUMP_RAIL_LABEL_END_PADDING)
+                .jumpRailDragModifier(contentListState, railScope),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.End,
             contentPadding = PaddingValues(vertical = 8.dp),
@@ -758,6 +914,7 @@ private fun ShowJumpRail(
                     modifier = Modifier
                         .offset(x = flyoutOffset)
                         .widthIn(max = 148.dp)
+                        .jumpRailDragModifier(contentListState, railScope)
                         .clickable { onGroupSelected(index) },
                     shape = RoundedCornerShape(999.dp),
                     color = if (selected) {
@@ -786,7 +943,6 @@ private fun ShowJumpRail(
                 }
             }
         }
-
         JumpRailTrack(
             groups = groups,
             currentGroupIndex = currentGroupIndex,
@@ -834,6 +990,7 @@ private fun JumpRailTrack(
 
 private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): String =
     when (mode) {
+        HeuristicGroupingMode.None -> map(VideoSummary::title)
         HeuristicGroupingMode.Show -> map(VideoSummary::displaySeriesTitle)
         HeuristicGroupingMode.Cast -> map(VideoSummary::castGroupingTitle)
         HeuristicGroupingMode.Topic -> map(VideoSummary::topicGroupingTitle)
@@ -843,3 +1000,17 @@ private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): S
         .maxWithOrNull(compareBy<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
         ?.key
         ?: first().displaySeriesTitle
+
+private fun Modifier.jumpRailDragModifier(
+    contentListState: LazyListState,
+    railScope: CoroutineScope,
+): Modifier = pointerInput(contentListState) {
+    detectVerticalDragGestures(
+        onVerticalDrag = { change, dragAmount ->
+            change.consume()
+            railScope.launch {
+                contentListState.scrollBy(-dragAmount)
+            }
+        },
+    )
+}
