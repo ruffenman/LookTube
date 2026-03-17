@@ -1044,6 +1044,7 @@ private fun ShowJumpRail(
                 .scrollable(
                     state = contentListState,
                     orientation = Orientation.Vertical,
+                    reverseDirection = true,
                 ),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.End,
