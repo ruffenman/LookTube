@@ -7,8 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1108,12 +1106,6 @@ private fun JumpRailTrack(
         val availableTravel = (maxHeight - thumbHeight).coerceAtLeast(0.dp)
         val thumbOffset = availableTravel * scrollFraction
         val density = LocalDensity.current
-        val dragState = rememberDraggableState { dragAmount ->
-            val availableTravelPx = with(density) { availableTravel.toPx() }.coerceAtLeast(1f)
-            val currentOffsetPx = availableTravelPx * scrollFraction
-            val newFraction = ((currentOffsetPx + dragAmount) / availableTravelPx).coerceIn(0f, 1f)
-            onScrollFractionChanged(newFraction)
-        }
         val trackAlpha by animateFloatAsState(
             targetValue = if (isEmphasized) 0.94f else 0.68f,
             animationSpec = tween(durationMillis = 220),
@@ -1143,16 +1135,6 @@ private fun JumpRailTrack(
                 .size(width = JUMP_RAIL_TRACK_WIDTH, height = thumbHeight)
                 .clip(RoundedCornerShape(999.dp))
                 .background(MaterialTheme.colorScheme.primary),
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = thumbOffset)
-                .size(width = 24.dp, height = thumbHeight)
-                .draggable(
-                    state = dragState,
-                    orientation = Orientation.Vertical,
-                ),
         )
     }
 }
