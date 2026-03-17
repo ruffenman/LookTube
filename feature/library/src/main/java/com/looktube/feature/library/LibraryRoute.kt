@@ -558,7 +558,7 @@ private enum class HeuristicGroupingMode(
     Topic("Topic", "Topic"),
 }
 
-private enum class LibrarySortOption(val label: String) {
+internal enum class LibrarySortOption(val label: String) {
     Latest("Latest"),
     Show("Show"),
     Oldest("Oldest"),
@@ -574,18 +574,51 @@ private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_E
 private val JUMP_RAIL_CONTROL_CLEARANCE = 92.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 
-private fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
-    when (sortOption) {
-        LibrarySortOption.Latest -> compareByDescending<VideoSummary> { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-            .thenBy { it.displaySeriesTitle.lowercase() }
-            .thenBy { it.title.lowercase() }
-        LibrarySortOption.Show -> compareBy<VideoSummary> { it.displaySeriesTitle.lowercase() }
-            .thenByDescending { it.publishedAtEpochMillis ?: Long.MIN_VALUE }
-            .thenBy { it.title.lowercase() }
-        LibrarySortOption.Oldest -> compareBy<VideoSummary> { it.publishedAtEpochMillis ?: Long.MAX_VALUE }
-            .thenBy { it.displaySeriesTitle.lowercase() }
-            .thenBy { it.title.lowercase() }
+internal fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
+    Comparator { left, right ->
+        when (sortOption) {
+            LibrarySortOption.Latest -> {
+                comparePublishedAtDescending(left, right)
+                    .takeIf { it != 0 }
+                    ?: compareTitles(left, right)
+                    ?: left.id.compareTo(right.id)
+            }
+
+            LibrarySortOption.Show -> {
+                compareSeriesTitles(left, right)
+                    .takeIf { it != 0 }
+                    ?: comparePublishedAtDescending(left, right)
+                    .takeIf { it != 0 }
+                    ?: compareTitles(left, right)
+                    ?: left.id.compareTo(right.id)
+            }
+
+            LibrarySortOption.Oldest -> {
+                comparePublishedAtAscending(left, right)
+                    .takeIf { it != 0 }
+                    ?: compareTitles(left, right)
+                    ?: left.id.compareTo(right.id)
+            }
+        }
     }
+
+private fun comparePublishedAtDescending(left: VideoSummary, right: VideoSummary): Int {
+    val leftPublishedAt = left.publishedAtEpochMillis ?: Long.MIN_VALUE
+    val rightPublishedAt = right.publishedAtEpochMillis ?: Long.MIN_VALUE
+    return rightPublishedAt.compareTo(leftPublishedAt)
+}
+
+private fun comparePublishedAtAscending(left: VideoSummary, right: VideoSummary): Int {
+    val leftPublishedAt = left.publishedAtEpochMillis ?: Long.MAX_VALUE
+    val rightPublishedAt = right.publishedAtEpochMillis ?: Long.MAX_VALUE
+    return leftPublishedAt.compareTo(rightPublishedAt)
+}
+
+private fun compareSeriesTitles(left: VideoSummary, right: VideoSummary): Int =
+    left.displaySeriesTitle.lowercase().compareTo(right.displaySeriesTitle.lowercase())
+
+private fun compareTitles(left: VideoSummary, right: VideoSummary): Int =
+    left.title.lowercase().compareTo(right.title.lowercase())
 
 private fun sectionComparator(sortOption: LibrarySortOption): Comparator<SeriesSection> {
     val anchorComparator = videoComparator(sortOption)

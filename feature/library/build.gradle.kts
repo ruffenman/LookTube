@@ -31,4 +31,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+
+    testImplementation(libs.junit4)
 }
