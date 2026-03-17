@@ -59,8 +59,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
@@ -97,13 +95,12 @@ fun LibraryRoute(
     onVideoSelected: (String) -> Unit,
 ) {
     val density = LocalDensity.current
+    val bottomInset = paddingValues.calculateBottomPadding()
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
-    var rootTopInWindow by remember { mutableStateOf(0f) }
-    var videoListAnchorTopInWindow by remember { mutableStateOf(0f) }
     val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
@@ -216,6 +213,15 @@ fun LibraryRoute(
             }
         }
     }
+    val anchorItemOffsetPx by remember(listState) {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { item -> item.index == VIDEO_LIST_ANCHOR_INDEX }
+                ?.offset
+                ?.coerceAtLeast(0)
+                ?: if (listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX) 0 else null
+        }
+    }
     val railHasScrollableContent by remember(listState, sortedVideos, jumpTargets) {
         derivedStateOf {
             sortedVideos.isNotEmpty() && (
@@ -234,20 +240,9 @@ fun LibraryRoute(
                 )
         }
     }
-    val railTopOffset = remember(
-        density,
-        listState.firstVisibleItemIndex,
-        rootTopInWindow,
-        videoListAnchorTopInWindow,
-    ) {
+    val railTopOffset = remember(density, anchorItemOffsetPx) {
         with(density) {
-            if (listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX) {
-                0.dp
-            } else {
-                (videoListAnchorTopInWindow - rootTopInWindow)
-                    .coerceAtLeast(0f)
-                    .toDp()
-            }
+            (anchorItemOffsetPx ?: 0).toDp()
         }
     }
 
@@ -275,12 +270,9 @@ fun LibraryRoute(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues)
-            .onGloballyPositioned { coordinates ->
-                rootTopInWindow = coordinates.positionInWindow().y
-            },
+            .padding(paddingValues),
     ) {
-        val railHeight = (maxHeight - railTopOffset - 16.dp).coerceAtLeast(0.dp)
+        val railHeight = (maxHeight - railTopOffset + bottomInset).coerceAtLeast(0.dp)
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -321,14 +313,7 @@ fun LibraryRoute(
             }
 
             item(key = "video-list-anchor") {
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.dp)
-                        .onGloballyPositioned { coordinates ->
-                            videoListAnchorTopInWindow = coordinates.positionInWindow().y
-                        },
-                )
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.dp))
             }
 
             if (sortedVideos.isEmpty()) {
@@ -401,7 +386,7 @@ fun LibraryRoute(
                     .align(Alignment.TopEnd)
                     .offset(y = railTopOffset)
                     .height(railHeight)
-                    .padding(end = 4.dp, bottom = 16.dp),
+                    .padding(end = 4.dp),
                 onTargetSelected = { target ->
                     railEmphasized = true
                     scope.launch {
@@ -656,6 +641,7 @@ internal enum class LibrarySortOption(val label: String) {
 }
 
 private const val ALL_SERIES_FILTER = "All shows"
+private const val VIDEO_LIST_ANCHOR_INDEX = 3
 private const val VIDEO_LIST_START_INDEX = 4
 private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
 private val JUMP_RAIL_WIDTH = 176.dp
