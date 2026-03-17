@@ -26,6 +26,7 @@ class ConfigurableLookTubeRepository(
     private val syncedLibraryStore: SyncedLibraryStore,
     private val playbackBookmarkStore: PlaybackBookmarkStore,
     private val videoFeedService: VideoFeedService,
+    private val libraryRefreshScheduler: LibraryRefreshScheduler = NoOpLibraryRefreshScheduler,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : LookTubeRepository {
     private val accountSessionState = MutableStateFlow(
@@ -64,6 +65,7 @@ class ConfigurableLookTubeRepository(
 
         val persistedConfiguration = feedConfigurationStore.persistedConfiguration.value
         feedConfigurationState.value = persistedConfiguration.toRuntime()
+        updateBackgroundRefresh(feedConfigurationState.value.feedUrl)
         val persistedSnapshot = syncedLibraryStore.persistedSnapshot.value
         if (
             persistedSnapshot != null &&
@@ -77,7 +79,7 @@ class ConfigurableLookTubeRepository(
             publishStatus(
                 LibrarySyncState(
                     phase = SyncPhase.Success,
-                    message = "Loaded ${persistedSnapshot.videos.size} synced videos from local cache. Sync again to refresh.",
+                    message = "Loaded ${persistedSnapshot.videos.size} synced videos from local cache. Background refresh stays active while this feed URL is saved.",
                     lastSuccessfulSyncSummary = persistedSnapshot.lastSuccessfulSyncSummary
                         ?: "Cached Premium feed with ${persistedSnapshot.videos.size} items.",
                 ),
@@ -103,10 +105,12 @@ class ConfigurableLookTubeRepository(
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationStore.setFeedUrl(feedUrl)
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
+        updateBackgroundRefresh(feedUrl)
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
     }
     override suspend fun signInToPremiumFeed() {
         hasSuccessfulFeedSync = false
+        updateBackgroundRefresh(feedConfigurationState.value.feedUrl)
         refreshLibrary()
     }
     override suspend fun clearSyncedData() {
@@ -118,7 +122,7 @@ class ConfigurableLookTubeRepository(
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Cleared synced library data. Saved feed URL is still available for the next sync.",
+                message = "Cleared synced library data. Saved feed URL is still available, and background refresh will use it the next time sync runs.",
                 lastSuccessfulSyncSummary = null,
             ),
         )
@@ -182,7 +186,7 @@ class ConfigurableLookTubeRepository(
             publishStatus(
                 LibrarySyncState(
                     phase = SyncPhase.Success,
-                    message = "Synced ${syncedVideos.size} videos from the configured Premium feed.",
+                    message = "Synced ${syncedVideos.size} videos from the configured Premium feed. Background refresh will keep checking for new releases.",
                     lastSuccessfulSyncSummary = syncSummary,
                 ),
             )
@@ -220,10 +224,18 @@ class ConfigurableLookTubeRepository(
             )
             else -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Sync your library when you're ready.",
+                message = "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
         }
+
+    private fun updateBackgroundRefresh(feedUrl: String) {
+        if (feedUrl.isBlank()) {
+            libraryRefreshScheduler.cancel()
+        } else {
+            libraryRefreshScheduler.schedule()
+        }
+    }
 
     companion object {
         val seededVideos = listOf(

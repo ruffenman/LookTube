@@ -5,8 +5,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,6 +61,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -81,7 +87,6 @@ import com.looktube.model.topicGroupingTitle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -93,11 +98,14 @@ fun LibraryRoute(
     playbackProgress: Map<String, PlaybackProgress>,
     onVideoSelected: (String) -> Unit,
 ) {
+    val density = LocalDensity.current
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
+    var rootTopInWindow by remember { mutableStateOf(0f) }
+    var videoListAnchorTopInWindow by remember { mutableStateOf(0f) }
     val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
@@ -144,11 +152,6 @@ fun LibraryRoute(
             }
         }
     }
-    val showRailLabels by remember(listState, railEmphasized) {
-        derivedStateOf {
-            railEmphasized || listState.firstVisibleItemIndex >= GROUP_LIST_START_INDEX
-        }
-    }
     val sections = remember(filteredVideos, sortOption, groupingMode, isGrouped) {
         if (!isGrouped) {
             emptyList()
@@ -175,35 +178,89 @@ fun LibraryRoute(
                 .sortedWith(sectionComparator(sortOption))
         }
     }
-    val videoCardTextEndPadding = if (sections.isEmpty()) 0.dp else JUMP_RAIL_TEXT_CLEARANCE
     val sectionStartIndices = remember(sections) {
         buildList {
-            var currentIndex = GROUP_LIST_START_INDEX
+            var currentIndex = VIDEO_LIST_START_INDEX
             sections.forEach { section ->
                 add(currentIndex)
                 currentIndex += 1 + section.videos.size
             }
         }
     }
-    val currentGroupIndex by remember(sections, sectionStartIndices, listState) {
+    val jumpTargets = remember(sections, sectionStartIndices) {
+        buildList {
+            add(JumpRailTarget(title = "Top", itemIndex = 0))
+            sections.forEachIndexed { index, section ->
+                add(
+                    JumpRailTarget(
+                        title = section.title,
+                        itemIndex = sectionStartIndices[index],
+                    ),
+                )
+            }
+        }
+    }
+    val hasWideRailLabels = sections.isNotEmpty()
+    val railTextClearance = when {
+        sections.isNotEmpty() -> JUMP_RAIL_TEXT_CLEARANCE
+        sortedVideos.isNotEmpty() -> TOP_ONLY_RAIL_TEXT_CLEARANCE
+        else -> TRACK_ONLY_CONTENT_CLEARANCE
+    }
+    val currentJumpTargetIndex by remember(sections, sectionStartIndices, listState) {
         derivedStateOf {
             if (sections.isEmpty()) {
                 0
+            } else if (listState.firstVisibleItemIndex < VIDEO_LIST_START_INDEX) {
+                0
             } else {
-                sectionStartIndices.indexOfLast { it <= listState.firstVisibleItemIndex }
+                1 + sectionStartIndices.indexOfLast { it <= listState.firstVisibleItemIndex }
                     .coerceAtLeast(0)
             }
         }
     }
-
-    LaunchedEffect(currentGroupIndex, sections.size) {
-        if (sections.isNotEmpty()) {
-            showRailState.animateScrollToItem(currentGroupIndex.coerceAtMost(sections.lastIndex))
+    val railHasScrollableContent by remember(listState, sortedVideos, jumpTargets) {
+        derivedStateOf {
+            sortedVideos.isNotEmpty() && (
+                listState.canScrollBackward ||
+                    listState.canScrollForward ||
+                    jumpTargets.size > 1
+                )
+        }
+    }
+    val showRailLabels by remember(listState, railEmphasized, jumpTargets) {
+        derivedStateOf {
+            jumpTargets.isNotEmpty() && (
+                railEmphasized ||
+                    jumpTargets.size > 1 ||
+                    listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX
+                )
+        }
+    }
+    val railTopOffset = remember(
+        density,
+        listState.firstVisibleItemIndex,
+        rootTopInWindow,
+        videoListAnchorTopInWindow,
+    ) {
+        with(density) {
+            if (listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX) {
+                0.dp
+            } else {
+                (videoListAnchorTopInWindow - rootTopInWindow)
+                    .coerceAtLeast(0f)
+                    .toDp()
+            }
         }
     }
 
-    LaunchedEffect(listState.isScrollInProgress, sections.size) {
-        if (sections.isEmpty()) {
+    LaunchedEffect(currentJumpTargetIndex, jumpTargets.size) {
+        if (jumpTargets.isNotEmpty()) {
+            showRailState.animateScrollToItem(currentJumpTargetIndex.coerceAtMost(jumpTargets.lastIndex))
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress, railHasScrollableContent) {
+        if (!railHasScrollableContent) {
             railEmphasized = false
             return@LaunchedEffect
         }
@@ -217,16 +274,20 @@ fun LibraryRoute(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues),
+            .padding(paddingValues)
+            .onGloballyPositioned { coordinates ->
+                rootTopInWindow = coordinates.positionInWindow().y
+            },
     ) {
+        val railHeight = (maxHeight - railTopOffset - 16.dp).coerceAtLeast(0.dp)
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 16.dp, top = 0.dp, end = if (sections.isEmpty()) 16.dp else 18.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = 16.dp),
         ) {
@@ -257,7 +318,18 @@ fun LibraryRoute(
                     onSeriesFilterChanged = { selectedSeriesFilter = it },
                     totalVideoCount = videos.size,
                     filteredVideoCount = filteredVideos.size,
-                    chipRowEndPadding = if (sections.isEmpty()) 0.dp else JUMP_RAIL_CONTROL_CLEARANCE,
+                    chipRowEndPadding = 0.dp,
+                )
+            }
+
+            item(key = "video-list-anchor") {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.dp)
+                        .onGloballyPositioned { coordinates ->
+                            videoListAnchorTopInWindow = coordinates.positionInWindow().y
+                        },
                 )
             }
 
@@ -272,7 +344,12 @@ fun LibraryRoute(
                                 selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
                                 else -> "No videos are available in your synced library yet."
                             },
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                top = 16.dp,
+                                end = 16.dp + railTextClearance,
+                                bottom = 16.dp,
+                            ),
                         )
                     }
                 }
@@ -285,13 +362,17 @@ fun LibraryRoute(
                         video = video,
                         progress = playbackProgress[video.id],
                         dismissDetailsSignal = listState.isScrollInProgress,
+                        textEndPadding = railTextClearance,
                         modifier = Modifier.clickable { onVideoSelected(video.id) },
                     )
                 }
             } else {
                 sections.forEach { section ->
                     item(key = "section-${section.title}") {
-                        SeriesSectionHeader(section = section)
+                        SeriesSectionHeader(
+                            section = section,
+                            textEndPadding = railTextClearance,
+                        )
                     }
                     items(
                         items = section.videos,
@@ -301,7 +382,7 @@ fun LibraryRoute(
                             video = video,
                             progress = playbackProgress[video.id],
                             dismissDetailsSignal = listState.isScrollInProgress,
-                            textEndPadding = videoCardTextEndPadding,
+                            textEndPadding = railTextClearance,
                             modifier = Modifier.clickable { onVideoSelected(video.id) },
                         )
                     }
@@ -309,23 +390,30 @@ fun LibraryRoute(
             }
         }
 
-        if (sections.isNotEmpty()) {
+        if (railHasScrollableContent && railHeight > 0.dp) {
             ShowJumpRail(
-                groups = sections,
+                targets = jumpTargets,
                 contentListState = listState,
                 listState = showRailState,
-                currentGroupIndex = currentGroupIndex,
+                currentTargetIndex = currentJumpTargetIndex,
                 isEmphasized = railEmphasized,
                 showLabels = showRailLabels,
-                railScope = scope,
+                hasWideLabels = hasWideRailLabels,
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .padding(end = 4.dp, top = 16.dp, bottom = 16.dp),
-                onGroupSelected = { groupIndex ->
+                    .align(Alignment.TopEnd)
+                    .offset(y = railTopOffset)
+                    .height(railHeight)
+                    .padding(end = 4.dp, bottom = 16.dp),
+                onTargetSelected = { target ->
                     railEmphasized = true
                     scope.launch {
-                        listState.animateScrollToItem(sectionStartIndices[groupIndex])
+                        listState.scrollToItem(target.itemIndex)
+                    }
+                },
+                onScrollFractionChanged = { fraction ->
+                    railEmphasized = true
+                    scope.launch {
+                        listState.scrollToItem(listState.targetItemIndexForFraction(fraction))
                     }
                 },
             )
@@ -548,6 +636,11 @@ private data class SeriesSection(
     val sortAnchor: VideoSummary,
 )
 
+private data class JumpRailTarget(
+    val title: String,
+    val itemIndex: Int,
+)
+
 private enum class HeuristicGroupingMode(
     val label: String,
     val sectionLabel: String,
@@ -565,13 +658,16 @@ internal enum class LibrarySortOption(val label: String) {
 }
 
 private const val ALL_SERIES_FILTER = "All shows"
-private const val GROUP_LIST_START_INDEX = 3
+private const val VIDEO_LIST_START_INDEX = 4
 private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
 private val JUMP_RAIL_WIDTH = 176.dp
+private val TOP_ONLY_RAIL_WIDTH = 84.dp
 private val JUMP_RAIL_LABEL_WIDTH = 156.dp
+private val TOP_ONLY_LABEL_WIDTH = 60.dp
 private val JUMP_RAIL_LABEL_END_PADDING = 6.dp
 private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING
-private val JUMP_RAIL_CONTROL_CLEARANCE = 92.dp
+private val TOP_ONLY_RAIL_TEXT_CLEARANCE = TOP_ONLY_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING + 8.dp
+private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 
 internal fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
@@ -656,7 +752,10 @@ private fun formatDuration(seconds: Long): String {
 }
 
 @Composable
-private fun SeriesSectionHeader(section: SeriesSection) {
+private fun SeriesSectionHeader(
+    section: SeriesSection,
+    textEndPadding: Dp,
+) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -667,7 +766,12 @@ private fun SeriesSectionHeader(section: SeriesSection) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(
+                    start = 16.dp,
+                    top = 14.dp,
+                    end = 16.dp + textEndPadding,
+                    bottom = 14.dp,
+                ),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
@@ -897,16 +1001,20 @@ private fun VideoThumbnail(video: VideoSummary) {
 
 @Composable
 private fun ShowJumpRail(
-    groups: List<SeriesSection>,
+    targets: List<JumpRailTarget>,
     contentListState: LazyListState,
     listState: LazyListState,
-    currentGroupIndex: Int,
+    currentTargetIndex: Int,
     isEmphasized: Boolean,
     showLabels: Boolean,
-    railScope: CoroutineScope,
+    hasWideLabels: Boolean,
     modifier: Modifier = Modifier,
-    onGroupSelected: (Int) -> Unit,
+    onTargetSelected: (JumpRailTarget) -> Unit,
+    onScrollFractionChanged: (Float) -> Unit,
 ) {
+    val scrollFraction by remember(contentListState) {
+        derivedStateOf { contentListState.approximateScrollFraction() }
+    }
     val labelAlpha by animateFloatAsState(
         targetValue = when {
             !showLabels -> 0f
@@ -924,8 +1032,7 @@ private fun ShowJumpRail(
 
     Row(
         modifier = modifier
-            .width(JUMP_RAIL_WIDTH)
-            .jumpRailDragModifier(contentListState, railScope),
+            .width(if (hasWideLabels) JUMP_RAIL_WIDTH else TOP_ONLY_RAIL_WIDTH),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -933,22 +1040,24 @@ private fun ShowJumpRail(
             state = listState,
             userScrollEnabled = false,
             modifier = Modifier
-                .width(JUMP_RAIL_LABEL_WIDTH)
+                .width(if (hasWideLabels) JUMP_RAIL_LABEL_WIDTH else TOP_ONLY_LABEL_WIDTH)
                 .graphicsLayer(alpha = labelAlpha)
                 .padding(end = JUMP_RAIL_LABEL_END_PADDING)
-                .jumpRailDragModifier(contentListState, railScope),
+                .scrollable(
+                    state = contentListState,
+                    orientation = Orientation.Vertical,
+                ),
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.End,
             contentPadding = PaddingValues(vertical = 8.dp),
         ) {
-            itemsIndexed(groups) { index, group ->
-                val selected = index == currentGroupIndex
+            itemsIndexed(targets) { index, target ->
+                val selected = index == currentTargetIndex
                 Surface(
                     modifier = Modifier
                         .offset(x = flyoutOffset)
-                        .widthIn(max = 148.dp)
-                        .jumpRailDragModifier(contentListState, railScope)
-                        .clickable { onGroupSelected(index) },
+                        .widthIn(max = if (hasWideLabels) 148.dp else TOP_ONLY_LABEL_WIDTH)
+                        .clickable { onTargetSelected(target) },
                     shape = RoundedCornerShape(999.dp),
                     color = if (selected) {
                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
@@ -963,7 +1072,7 @@ private fun ShowJumpRail(
                     tonalElevation = if (selected) 3.dp else 0.dp,
                 ) {
                     Text(
-                        text = group.title,
+                        text = target.title,
                         modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 11.sp,
@@ -977,16 +1086,18 @@ private fun ShowJumpRail(
             }
         }
         JumpRailTrack(
-            groups = groups,
-            currentGroupIndex = currentGroupIndex,
+            scrollFraction = scrollFraction,
+            isEmphasized = isEmphasized,
+            onScrollFractionChanged = onScrollFractionChanged,
         )
     }
 }
 
 @Composable
 private fun JumpRailTrack(
-    groups: List<SeriesSection>,
-    currentGroupIndex: Int,
+    scrollFraction: Float,
+    isEmphasized: Boolean,
+    onScrollFractionChanged: (Float) -> Unit,
 ) {
     BoxWithConstraints(
         modifier = Modifier
@@ -994,13 +1105,20 @@ private fun JumpRailTrack(
             .fillMaxHeight(),
     ) {
         val thumbHeight = 40.dp
-        val fraction = if (groups.size <= 1) {
-            0f
-        } else {
-            currentGroupIndex.toFloat() / groups.lastIndex.toFloat()
+        val availableTravel = (maxHeight - thumbHeight).coerceAtLeast(0.dp)
+        val thumbOffset = availableTravel * scrollFraction
+        val density = LocalDensity.current
+        val dragState = rememberDraggableState { dragAmount ->
+            val availableTravelPx = with(density) { availableTravel.toPx() }.coerceAtLeast(1f)
+            val currentOffsetPx = availableTravelPx * scrollFraction
+            val newFraction = ((currentOffsetPx + dragAmount) / availableTravelPx).coerceIn(0f, 1f)
+            onScrollFractionChanged(newFraction)
         }
-        val trackHeight = maxHeight
-        val thumbOffset = (trackHeight - thumbHeight) * fraction
+        val trackAlpha by animateFloatAsState(
+            targetValue = if (isEmphasized) 0.94f else 0.68f,
+            animationSpec = tween(durationMillis = 220),
+            label = "jumpRailTrackAlpha",
+        )
 
         Box(
             modifier = Modifier
@@ -1008,7 +1126,15 @@ private fun JumpRailTrack(
                 .width(3.dp)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(999.dp))
-                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.68f)),
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = trackAlpha))
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        val availableTravelPx = with(density) { availableTravel.toPx() }.coerceAtLeast(1f)
+                        val targetFraction = ((offset.y - with(density) { thumbHeight.toPx() } / 2f) / availableTravelPx)
+                            .coerceIn(0f, 1f)
+                        onScrollFractionChanged(targetFraction)
+                    }
+                },
         )
         Box(
             modifier = Modifier
@@ -1017,6 +1143,16 @@ private fun JumpRailTrack(
                 .size(width = JUMP_RAIL_TRACK_WIDTH, height = thumbHeight)
                 .clip(RoundedCornerShape(999.dp))
                 .background(MaterialTheme.colorScheme.primary),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = thumbOffset)
+                .size(width = 24.dp, height = thumbHeight)
+                .draggable(
+                    state = dragState,
+                    orientation = Orientation.Vertical,
+                ),
         )
     }
 }
@@ -1034,16 +1170,27 @@ private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): S
         ?.key
         ?: first().displaySeriesTitle
 
-private fun Modifier.jumpRailDragModifier(
-    contentListState: LazyListState,
-    railScope: CoroutineScope,
-): Modifier = pointerInput(contentListState) {
-    detectVerticalDragGestures(
-        onVerticalDrag = { change, dragAmount ->
-            change.consume()
-            railScope.launch {
-                contentListState.scrollBy(-dragAmount)
-            }
-        },
-    )
+private fun LazyListState.approximateScrollFraction(): Float {
+    val layoutInfo = layoutInfo
+    if (!canScrollBackward && !canScrollForward) {
+        return 0f
+    }
+    if (!canScrollForward) {
+        return 1f
+    }
+    val totalItems = layoutInfo.totalItemsCount
+    if (totalItems <= 1) {
+        return 0f
+    }
+    val firstVisibleItemSize = layoutInfo.visibleItemsInfo.firstOrNull()?.size?.coerceAtLeast(1) ?: 1
+    val currentPosition = firstVisibleItemIndex + (firstVisibleItemScrollOffset / firstVisibleItemSize.toFloat())
+    return (currentPosition / (totalItems - 1).toFloat()).coerceIn(0f, 1f)
+}
+
+private fun LazyListState.targetItemIndexForFraction(fraction: Float): Int {
+    val targetItemCount = layoutInfo.totalItemsCount
+    if (targetItemCount <= 1) {
+        return 0
+    }
+    return (fraction.coerceIn(0f, 1f) * (targetItemCount - 1)).toInt()
 }

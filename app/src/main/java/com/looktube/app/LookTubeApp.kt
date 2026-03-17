@@ -1,8 +1,15 @@
 package com.looktube.app
+import android.Manifest
 
 import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.os.Build
 import android.net.Uri
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -32,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -48,7 +56,10 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @UnstableApi
-fun LookTubeApp(viewModel: LookTubeAppViewModel) {
+fun LookTubeApp(
+    viewModel: LookTubeAppViewModel,
+    launchIntent: Intent? = null,
+) {
     val accountSession by viewModel.accountSession.collectAsStateWithLifecycle()
     val feedConfiguration by viewModel.feedConfiguration.collectAsStateWithLifecycle()
     val librarySyncState by viewModel.librarySyncState.collectAsStateWithLifecycle()
@@ -56,12 +67,18 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val selectedVideo by viewModel.selectedVideo.collectAsStateWithLifecycle()
     val selectedProgress by viewModel.selectedProgress.collectAsStateWithLifecycle()
+    val requestedPage by viewModel.requestedPage.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var fullscreenModeName by rememberSaveable { mutableStateOf(PlayerFullscreenMode.Off.name) }
+    var notificationPermissionPrompted by rememberSaveable { mutableStateOf(false) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode != PlayerFullscreenMode.Off
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
 
     val topLevelDestinations = listOf(
         TopLevelDestination("auth", "Auth", Icons.Outlined.AccountCircle),
@@ -69,6 +86,23 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
         TopLevelDestination("player", "Player", Icons.Outlined.PlayCircle),
     )
     val pagerState = rememberPagerState(initialPage = 0) { topLevelDestinations.size }
+    BackHandler(enabled = isPlayerFullscreen) {
+        fullscreenModeName = if (isLandscape) {
+            PlayerFullscreenMode.LandscapeSuppressed.name
+        } else {
+            PlayerFullscreenMode.Off.name
+        }
+    }
+
+    LaunchedEffect(launchIntent) {
+        viewModel.handleLaunchIntent(launchIntent)
+    }
+    LaunchedEffect(requestedPage) {
+        requestedPage?.let { pageIndex ->
+            pagerState.animateScrollToPage(pageIndex)
+            viewModel.consumeRequestedPage(pageIndex)
+        }
+    }
 
     LaunchedEffect(selectedVideo?.id, playbackController) {
         val controller = playbackController ?: return@LaunchedEffect
@@ -112,6 +146,19 @@ fun LookTubeApp(viewModel: LookTubeAppViewModel) {
                 ) -> {
                 fullscreenModeName = PlayerFullscreenMode.Off.name
             }
+        }
+    }
+    LaunchedEffect(feedConfiguration.feedUrl, notificationPermissionPrompted) {
+        val shouldRequestPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            feedConfiguration.feedUrl.isNotBlank() &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED &&
+            !notificationPermissionPrompted
+        if (shouldRequestPermission) {
+            notificationPermissionPrompted = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 

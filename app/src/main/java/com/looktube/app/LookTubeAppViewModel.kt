@@ -1,4 +1,5 @@
 package com.looktube.app
+import android.content.Intent
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -8,8 +9,10 @@ import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -22,6 +25,8 @@ class LookTubeAppViewModel(
     val librarySyncState = repository.librarySyncState
     val videos = repository.videos
     val playbackProgress = repository.playbackProgress
+    private val requestedPageState = MutableStateFlow<Int?>(null)
+    val requestedPage: StateFlow<Int?> = requestedPageState.asStateFlow()
 
     val selectedVideo: StateFlow<VideoSummary?> = combine(
         repository.videos,
@@ -70,6 +75,28 @@ class LookTubeAppViewModel(
     fun refreshLibrary() {
         viewModelScope.launch {
             repository.refreshLibrary()
+        }
+    }
+
+    fun handleLaunchIntent(intent: Intent?) {
+        val launchIntent = intent ?: return
+        launchIntent.getStringExtra(LookTubeLaunchContract.EXTRA_OPEN_VIDEO_ID)
+            ?.takeIf(String::isNotBlank)
+            ?.let { videoId ->
+                repository.selectVideo(videoId)
+                requestedPageState.value = LookTubeLaunchContract.PLAYER_PAGE_INDEX
+                return
+            }
+        launchIntent.getIntExtra(LookTubeLaunchContract.EXTRA_TARGET_PAGE, -1)
+            .takeIf { pageIndex -> pageIndex >= 0 }
+            ?.let { pageIndex ->
+                requestedPageState.value = pageIndex
+            }
+    }
+
+    fun consumeRequestedPage(pageIndex: Int) {
+        if (requestedPageState.value == pageIndex) {
+            requestedPageState.value = null
         }
     }
 

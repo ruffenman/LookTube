@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.view.GestureDetector
 import android.view.MotionEvent
+import android.view.View
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -21,7 +26,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -105,44 +113,51 @@ fun PlayerRoute(
 
         isFullscreen -> FullscreenPlayerSurface(
             player = player,
-            onFullscreenToggle = { onFullscreenChanged(false) },
+            onFullscreenToggle = onFullscreenChanged,
         )
 
-        else -> Column(
+        else -> LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
+            contentPadding = PaddingValues(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            LookTubeCard(
-                title = "Now playing",
-                body = buildString {
-                    appendLine(selectedVideo.title)
-                    if (selectedVideo.description.isNotBlank()) {
-                        appendLine()
-                        append(selectedVideo.description)
-                    }
-                },
-            )
-            EmbeddedPlayerSurface(
-                player = player,
-                onFullscreenToggle = { onFullscreenChanged(true) },
-            )
-            LookTubeCard(
-                title = "Playback details",
-                body = buildString {
-                    appendLine("Show: ${selectedVideo.displaySeriesTitle}")
-                    appendLine("Feed category: ${selectedVideo.feedCategory}")
-                    appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
-                    if (playbackProgress != null) {
-                        appendLine("Resume at ${formatPlaybackTime(playbackProgress.positionSeconds)} of ${formatPlaybackTime(playbackProgress.durationSeconds)}.")
-                    } else {
-                        appendLine("No stored resume point yet.")
-                    }
-                    append("Double-tap the video or use the fullscreen button to toggle fullscreen.")
-                },
-            )
+            item {
+                LookTubeCard(
+                    title = "Now playing",
+                    body = buildString {
+                        appendLine(selectedVideo.title)
+                        if (selectedVideo.description.isNotBlank()) {
+                            appendLine()
+                            append(selectedVideo.description)
+                        }
+                    },
+                )
+            }
+            item {
+                EmbeddedPlayerSurface(
+                    player = player,
+                    onFullscreenToggle = onFullscreenChanged,
+                )
+            }
+            item {
+                LookTubeCard(
+                    title = "Playback details",
+                    body = buildString {
+                        appendLine("Show: ${selectedVideo.displaySeriesTitle}")
+                        appendLine("Feed category: ${selectedVideo.feedCategory}")
+                        appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
+                        if (playbackProgress != null) {
+                            appendLine("Resume at ${formatPlaybackTime(playbackProgress.positionSeconds)} of ${formatPlaybackTime(playbackProgress.durationSeconds)}.")
+                        } else {
+                            appendLine("No stored resume point yet.")
+                        }
+                        append("Double-tap the video or use the fullscreen button to toggle fullscreen.")
+                    },
+                )
+            }
         }
     }
 }
@@ -195,146 +210,157 @@ private fun PlayerStatusContent(
     selectedVideo: VideoSummary? = null,
     playbackProgress: PlaybackProgress? = null,
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
             .padding(16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        LookTubePageHeader(
-            title = "Player",
-            subtitle = headerSubtitle,
-        )
+        item {
+            LookTubePageHeader(
+                title = "Player",
+                subtitle = headerSubtitle,
+            )
+        }
         selectedVideo?.let { video ->
+            item {
+                LookTubeCard(
+                    title = video.title,
+                    body = video.description.ifBlank {
+                        "From ${video.displaySeriesTitle}."
+                    },
+                )
+            }
+        }
+        item {
+            PlayerFramePlaceholder(
+                title = frameTitle,
+                body = frameBody,
+            )
+        }
+        item {
             LookTubeCard(
-                title = video.title,
-                body = video.description.ifBlank {
-                    "From ${video.displaySeriesTitle}."
+                title = statusTitle,
+                body = buildString {
+                    append(statusBody)
+                    selectedVideo?.let { video ->
+                        append("\n\nShow: ${video.displaySeriesTitle}")
+                        append("\nFeed category: ${video.feedCategory}")
+                    }
+                    playbackProgress?.takeIf { it.durationSeconds > 0 }?.let { progress ->
+                        append("\nResume point: ${formatPlaybackTime(progress.positionSeconds)} of ${formatPlaybackTime(progress.durationSeconds)}.")
+                    }
                 },
             )
         }
-        PlayerFramePlaceholder(
-            title = frameTitle,
-            body = frameBody,
-        )
-        LookTubeCard(
-            title = statusTitle,
-            body = buildString {
-                append(statusBody)
-                selectedVideo?.let { video ->
-                    append("\n\nShow: ${video.displaySeriesTitle}")
-                    append("\nFeed category: ${video.feedCategory}")
-                }
-                playbackProgress?.takeIf { it.durationSeconds > 0 }?.let { progress ->
-                    append("\nResume point: ${formatPlaybackTime(progress.positionSeconds)} of ${formatPlaybackTime(progress.durationSeconds)}.")
-                }
-            },
-        )
     }
 }
 
 @Composable
 private fun EmbeddedPlayerSurface(
     player: Player,
-    onFullscreenToggle: () -> Unit,
+    onFullscreenToggle: (Boolean) -> Unit,
 ) {
-    val context = LocalContext.current
-    val doubleTapGestureDetector = remember(context, onFullscreenToggle) {
-        GestureDetector(
-            context,
-            object : GestureDetector.SimpleOnGestureListener() {
-                override fun onDown(event: MotionEvent): Boolean = true
-                override fun onDoubleTap(event: MotionEvent): Boolean {
-                    onFullscreenToggle()
-                    return true
-                }
-            },
-        )
-    }
-    Box(
+    PlayerSurface(
+        player = player,
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
-    ) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    useController = true
-                    this.player = player
-                    setFullscreenButtonClickListener { onFullscreenToggle() }
-                    setOnTouchListener { _, motionEvent ->
-                        doubleTapGestureDetector.onTouchEvent(motionEvent)
-                        false
-                    }
-                    setOnTouchListener { _, motionEvent ->
-                        doubleTapGestureDetector.onTouchEvent(motionEvent)
-                        false
-                    }
-                }
-            },
-            update = { playerView ->
-                playerView.player = player
-                playerView.setFullscreenButtonClickListener { onFullscreenToggle() }
-                playerView.setOnTouchListener { _, motionEvent ->
-                    doubleTapGestureDetector.onTouchEvent(motionEvent)
-                    false
-                }
-            },
-        )
-        CastRouteButton(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp),
-        )
-    }
+        castButtonPadding = PaddingValues(12.dp),
+        onFullscreenToggle = onFullscreenToggle,
+        onDoubleTapToggle = { onFullscreenToggle(true) },
+    )
 }
 
 @Composable
 private fun FullscreenPlayerSurface(
     player: Player,
-    onFullscreenToggle: () -> Unit,
+    onFullscreenToggle: (Boolean) -> Unit,
+) {
+    PlayerSurface(
+        player = player,
+        modifier = Modifier.fillMaxSize(),
+        castButtonPadding = PaddingValues(16.dp),
+        onFullscreenToggle = onFullscreenToggle,
+        onDoubleTapToggle = { onFullscreenToggle(false) },
+    )
+}
+
+@Composable
+private fun PlayerSurface(
+    player: Player,
+    modifier: Modifier,
+    castButtonPadding: PaddingValues,
+    onFullscreenToggle: (Boolean) -> Unit,
+    onDoubleTapToggle: () -> Unit,
 ) {
     val context = LocalContext.current
-    val doubleTapGestureDetector = remember(context, onFullscreenToggle) {
+    var controllerVisible by remember { mutableStateOf(true) }
+    val doubleTapGestureDetector = remember(context, onDoubleTapToggle) {
         GestureDetector(
             context,
             object : GestureDetector.SimpleOnGestureListener() {
                 override fun onDown(event: MotionEvent): Boolean = true
+
                 override fun onDoubleTap(event: MotionEvent): Boolean {
-                    onFullscreenToggle()
+                    onDoubleTapToggle()
                     return true
                 }
             },
         )
     }
-    Box(
-        modifier = Modifier.fillMaxSize(),
-    ) {
+
+    Box(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
                     useController = true
+                    setControllerAutoShow(true)
+                    setControllerHideOnTouch(true)
                     this.player = player
-                    setFullscreenButtonClickListener { onFullscreenToggle() }
+                    setControllerVisibilityListener(
+                        PlayerView.ControllerVisibilityListener { visibility ->
+                        controllerVisible = visibility == View.VISIBLE
+                        },
+                    )
+                    setFullscreenButtonClickListener { isFullscreen ->
+                        onFullscreenToggle(isFullscreen)
+                    }
+                    setOnTouchListener { _, motionEvent ->
+                        doubleTapGestureDetector.onTouchEvent(motionEvent)
+                        false
+                    }
                 }
             },
             update = { playerView ->
                 playerView.player = player
-                playerView.setFullscreenButtonClickListener { onFullscreenToggle() }
+                playerView.setControllerVisibilityListener(
+                    PlayerView.ControllerVisibilityListener { visibility ->
+                        controllerVisible = visibility == View.VISIBLE
+                    },
+                )
+                playerView.setFullscreenButtonClickListener { isFullscreen ->
+                    onFullscreenToggle(isFullscreen)
+                }
                 playerView.setOnTouchListener { _, motionEvent ->
                     doubleTapGestureDetector.onTouchEvent(motionEvent)
                     false
                 }
             },
         )
-        CastRouteButton(
+        AnimatedVisibility(
+            visible = controllerVisible,
+            enter = fadeIn(),
+            exit = fadeOut(),
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp),
-        )
+                .align(Alignment.TopEnd)
+                .padding(castButtonPadding),
+        ) {
+            CastRouteButton()
+        }
     }
 }
 
