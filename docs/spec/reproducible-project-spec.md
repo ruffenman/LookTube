@@ -1,6 +1,10 @@
 # LookTube reproducible project spec
 ## Purpose
 LookTube is a native Android companion app for Giant Bomb Premium subscribers. Its primary job is to let a user paste a copied Giant Bomb Premium RSS feed URL, sync the feed directly, browse the resulting library, resume playback, and receive local notifications when later background refreshes discover newly released videos.
+## Transfer-ready package
+The upload-oriented package now lives in `docs/spec/agent-spec-package/`.
+Use that directory as the starting point for future publication to the external agent-spec repository.
+This markdown document remains the repo-grounded narrative reference, while the package captures a more implementation-agnostic behavior contract.
 
 ## Product boundary
 The supported product is intentionally feed-first:
@@ -45,6 +49,33 @@ An implementation that materially changes these choices can still be valid, but 
 1. User clears synced data.
 2. App removes cached library snapshot and playback progress.
 3. App preserves the saved feed URL so the next sync stays cheap.
+## Surface inventory
+### App shell
+- three top-level destinations: `Auth`, `Library`, and `Player`
+- app opens on the Auth page by default
+- top app bar and bottom navigation stay visible outside player fullscreen mode
+- notification launch intents can route directly to the Player page and optionally preselect a video
+
+### Auth surface
+- accepts the copied Premium feed URL as the only supported user input for feed access
+- exposes a primary sync action
+- exposes `Clear synced data` only when a successful sync or cached summary exists
+- communicates five practical user-visible states: setup required, ready, syncing, synced, and needs attention
+
+### Library surface
+- renders a library status card using the current sync state and last successful summary
+- supports grouping by none, show, cast, or topic
+- supports sorting by latest, show, or oldest
+- supports show filtering with the filter tray collapsed by default
+- renders grouped section headers, progress-aware video cards, and a right-side jump rail for quick section navigation
+- opens the selected video in the Player surface
+
+### Player surface
+- shows clear empty, unavailable, preparing, and active playback states
+- resumes playback from saved progress when available
+- supports fullscreen entry from the player control or double tap
+- supports landscape-driven fullscreen behavior
+- exposes a cast route button while player controls are visible
 
 ## Functional targets
 ### Feed configuration and persistence
@@ -73,6 +104,21 @@ An implementation that materially changes these choices can still be valid, but 
 - Playback progress persists locally and is restored on later playback attempts.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 
+### Feed parsing and sync semantics
+- Feed sync performs a direct GET against the copied feed URL.
+- Feed requests use RSS/XML accept headers and do not attach authorization headers or cookies.
+- Playback URLs resolve in this priority order: `media:content`, then `enclosure`, then `link`.
+- Thumbnail URLs resolve from `media:thumbnail` first, then the first image found in the description HTML.
+- Published time may come from `pubDate` or `dc:date`.
+- Duration may come from `media:content@duration` or `itunes:duration`.
+- Show titles are inferred heuristically from category, page URL slug, and title patterns when the feed category itself is generic.
+
+### Persistence semantics
+- feed URL persists separately from synced library data and playback progress
+- secure storage is preferred for the feed URL, with migration from legacy plaintext when available
+- cached library snapshot persists feed URL, videos, and last successful summary
+- playback progress persists per video and updates during playback
+
 ## Security and privacy constraints
 - Do not commit live Giant Bomb feed URLs, cookies, or authenticated XML payloads.
 - Persist only the minimum local state needed for repeat use: feed URL, cached library snapshot, and playback progress.
@@ -96,6 +142,10 @@ An implementation that materially changes these choices can still be valid, but 
 - verify `LibraryRefreshWorker` appears in JobScheduler while a feed URL is saved
 - verify the `looktube.library.updates` channel exists
 - verify later successful detections create distinct visible notification entries
+## Implementation-agnostic invariants
+- Any future implementation may change internal architecture, libraries, or UI toolkit, but it must preserve the feed-first product boundary and the functional targets described here.
+- The spec package in `docs/spec/agent-spec-package/` should be treated as the behavior-first artifact for external reuse.
+- The repo-local markdown docs remain useful references, but the transferable spec should avoid binding future implementations to this repository's exact Kotlin module layout unless that behavior is externally observable.
 
 ## Non-goals
 - website parity with Giant Bomb

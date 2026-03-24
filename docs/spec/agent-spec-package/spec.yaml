@@ -1,0 +1,519 @@
+spec:
+  id: looktube-feed-first-android-client
+  version: "0.1.0"
+  title: LookTube Feed-First Android Client
+  description: >
+    A feed-first mobile client for Giant Bomb Premium videos.
+    The user pastes a copied Premium RSS feed URL, syncs it directly,
+    browses the resulting library, resumes playback, receives local
+    notifications when later background refreshes discover newly released
+    videos, and can cast playback without browser automation.
+
+types:
+  FeedConfiguration:
+    feed_url: string (required, may be blank only before setup or after explicit clearing)
+  PersistedFeedConfiguration:
+    feed_url: string (required)
+  AccountSession:
+    is_signed_in: boolean (required)
+    account_label: string (optional)
+    notes: string (required, user-visible status copy)
+  LibrarySyncState:
+    phase: string (required, Idle | Refreshing | Success | Error)
+    message: string (required, user-visible)
+    last_successful_sync_summary: string (optional)
+  VideoSummary:
+    id: string (required, non-empty)
+    title: string (required, non-empty)
+    description: string (required, may be empty)
+    is_premium: boolean (required)
+    feed_category: string (required)
+    playback_url: string (optional, absolute URL)
+    series_title: string (optional)
+    thumbnail_url: string (optional, absolute URL)
+    published_at_epoch_millis: integer (optional)
+    duration_seconds: integer (optional, > 0)
+  PersistedLibrarySnapshot:
+    feed_url: string (required)
+    videos: array of VideoSummary (required)
+    last_successful_sync_summary: string (optional)
+  PlaybackProgress:
+    video_id: string (required)
+    position_seconds: integer (required, >= 0)
+    duration_seconds: integer (required, >= 0)
+  LaunchIntent:
+    open_video_id: string (optional)
+    target_page: integer (optional, 0 | 1 | 2)
+  NotificationRecord:
+    channel_id: string (required)
+    title: string (required)
+    body: string (required)
+    latest_video_id: string (required)
+    action: string (required, opens player page with selected video)
+  LibraryBrowseState:
+    grouping_mode: string (required, none | show | cast | topic)
+    sort_mode: string (required, latest | show | oldest)
+    selected_show_filter: string (required, may be "All shows")
+    show_filters_expanded: boolean (required)
+
+contract:
+  functions:
+    - name: bootstrap_app
+      description: Restore the saved feed configuration, cached library snapshot, and playback progress on app start.
+      parameters:
+        persisted_feed_configuration: PersistedFeedConfiguration (optional)
+        persisted_library_snapshot: PersistedLibrarySnapshot (optional)
+        persisted_playback_progress: array of PlaybackProgress (optional)
+      returns:
+        account_session: AccountSession
+        feed_configuration: FeedConfiguration
+        library_sync_state: LibrarySyncState
+        videos: array of VideoSummary
+    - name: update_feed_url
+      description: Replace the saved copied feed URL and update background refresh registration state.
+      parameters:
+        feed_url: string (required, may be blank)
+      returns:
+        feed_configuration: FeedConfiguration
+        library_sync_state: LibrarySyncState
+    - name: sync_premium_feed
+      description: Load feed-backed videos directly from the copied Premium feed URL and replace the active library on success.
+      parameters:
+        feed_url: string (required, non-empty)
+      returns:
+        library_sync_state: LibrarySyncState
+        videos: array of VideoSummary
+        persisted_library_snapshot: PersistedLibrarySnapshot
+    - name: clear_synced_data
+      description: Remove the cached library snapshot and playback progress while keeping the saved feed URL.
+      parameters: {}
+      returns:
+        feed_configuration: FeedConfiguration
+        library_sync_state: LibrarySyncState
+        videos: array of VideoSummary
+    - name: select_video
+      description: Select a video from the library and make it the active Player target.
+      parameters:
+        video_id: string (required)
+      returns:
+        selected_video: VideoSummary (optional)
+        target_page: integer (required, 2)
+    - name: handle_launch_intent
+      description: Accept a launch request from the app shell or a notification tap and route the UI accordingly.
+      parameters:
+        intent: LaunchIntent (optional)
+      returns:
+        selected_video_id: string (optional)
+        target_page: integer (optional)
+    - name: background_refresh_tick
+      description: Run a background refresh while a saved feed URL exists, compare the latest result with the previous snapshot, and optionally emit a notification.
+      parameters:
+        saved_feed_url: string (required, non-empty)
+        previous_snapshot: PersistedLibrarySnapshot (optional)
+      returns:
+        library_sync_state: LibrarySyncState
+        latest_snapshot: PersistedLibrarySnapshot (optional)
+        notification: NotificationRecord (optional)
+    - name: persist_playback_progress
+      description: Save the active playback position for the current video so later playback can resume.
+      parameters:
+        video_id: string (required)
+        position_seconds: integer (required, >= 0)
+        duration_seconds: integer (required, >= 0)
+      returns:
+        playback_progress: PlaybackProgress
+  surfaces:
+    - name: auth
+      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, and clearing synced data.
+      visible_states:
+        - setup required
+        - ready
+        - syncing
+        - synced
+        - needs attention
+      primary_actions:
+        - edit saved feed URL
+        - sync Premium feed
+        - clear synced data
+    - name: library
+      description: Browse surface for synced videos, status summary, grouping, sorting, filtering, and section jumping.
+      primary_actions:
+        - group by none, show, cast, or topic
+        - sort by latest, show, or oldest
+        - expand or collapse show filters
+        - jump to a section from the right-side jump rail
+        - open a video in the player
+    - name: player
+      description: Playback surface for empty, unavailable, preparing, and active playback states.
+      primary_actions:
+        - resume playback
+        - toggle fullscreen
+        - cast playback
+  background_processes:
+    - name: library_refresh
+      description: Periodic refresh that stays registered while a non-blank saved feed URL exists.
+      side_effects:
+        - refresh feed-backed library content
+        - compare latest and previous snapshots for the same feed URL
+        - post a local notification when newly discovered video IDs appear
+  launch_contract:
+    pages:
+      0: auth
+      1: library
+      2: player
+    extras:
+      open_video_id: string (optional)
+      target_page: integer (optional)
+
+scenarios:
+  - id: bootstrap_without_saved_feed_uses_seeded_fallback
+    description: First launch without a saved feed URL keeps the app usable with seeded library content and setup-required status.
+    when:
+      call: bootstrap_app
+      args:
+        persisted_feed_configuration: {feed_url: ""}
+        persisted_library_snapshot: null
+        persisted_playback_progress: []
+    then:
+      - returns.feed_configuration.feed_url == ""
+      - returns.library_sync_state.phase == "Idle"
+      - returns.account_session.is_signed_in == false
+      - returns.videos is non-empty array
+  - id: bootstrap_with_cached_snapshot_restores_local_library
+    description: App startup restores the cached synced library when the saved feed URL matches the persisted snapshot.
+    when:
+      call: bootstrap_app
+      args:
+        persisted_feed_configuration: {feed_url: "https://example.com/premium.xml"}
+        persisted_library_snapshot:
+          feed_url: "https://example.com/premium.xml"
+          videos:
+            - id: "video-1"
+              title: "Cached premium video"
+              description: "Cached description"
+              is_premium: true
+              feed_category: "Premium"
+          last_successful_sync_summary: "Premium feed sync loaded 1 items."
+        persisted_playback_progress: []
+    then:
+      - returns.library_sync_state.phase == "Success"
+      - returns.account_session.is_signed_in == true
+      - returns.videos[0].id == "video-1"
+  - id: auth_surface_requires_feed_before_sync
+    description: Auth surface remains in setup-required state until a copied feed URL is present.
+    when:
+      surface: auth
+      state:
+        feed_configuration: {feed_url: ""}
+        account_session: {is_signed_in: false, notes: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
+        library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
+    then:
+      - visible status label == "Setup required"
+      - primary sync action is disabled
+      - clear synced data action is hidden
+  - id: saved_feed_without_successful_sync_is_ready
+    description: Once a copied feed URL is saved, Auth moves to a ready state even before the first successful sync.
+    when:
+      surface: auth
+      state:
+        feed_configuration: {feed_url: "https://example.com/premium.xml"}
+        account_session: {is_signed_in: false, notes: "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current."}
+        library_sync_state: {phase: "Idle", message: "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current."}
+    then:
+      - visible status label == "Ready"
+      - primary sync action is enabled
+  - id: sync_success_replaces_library_and_marks_session_synced
+    description: A successful feed sync replaces the active library and marks the session as synced.
+    when:
+      call: sync_premium_feed
+      args:
+        feed_url: "https://example.com/premium.xml"
+    then:
+      - returns.library_sync_state.phase == "Success"
+      - returns.videos is non-empty array
+      - returns.persisted_library_snapshot.feed_url == "https://example.com/premium.xml"
+  - id: sync_failure_surfaces_error_state
+    description: Feed sync failures produce a visible error state instead of crashing the app.
+    when:
+      call: sync_premium_feed
+      args:
+        feed_url: "https://example.com/failing-premium.xml"
+    then:
+      - returns.library_sync_state.phase == "Error"
+      - returns.library_sync_state.message contains "Feed sync failed"
+  - id: clear_synced_data_preserves_saved_feed_url
+    description: Clearing synced data removes cached library and progress but keeps the saved feed URL for later re-sync.
+    when:
+      call: clear_synced_data
+      args: {}
+    then:
+      - returns.feed_configuration.feed_url is string
+      - returns.library_sync_state.phase == "Idle"
+      - returns.library_sync_state.message contains "Saved feed URL"
+  - id: notification_permission_requested_after_feed_saved
+    description: On OS versions that gate notifications behind runtime permission, the app requests permission once a non-blank feed URL is saved and permission is not already granted.
+    when:
+      surface: auth
+      state:
+        feed_configuration: {feed_url: "https://example.com/premium.xml"}
+        notification_permission: denied
+        platform_supports_runtime_notification_permission: true
+    then:
+      - app requests notification permission
+      - request is not repeated continuously within the same remembered UI session
+  - id: background_refresh_scheduled_while_feed_url_exists
+    description: Saving a non-blank feed URL keeps periodic background refresh registered.
+    when:
+      call: update_feed_url
+      args:
+        feed_url: "https://example.com/premium.xml"
+    then:
+      - background process "library_refresh" is registered
+  - id: background_refresh_canceled_when_feed_url_cleared
+    description: Clearing the saved feed URL removes periodic background refresh registration.
+    when:
+      call: update_feed_url
+      args:
+        feed_url: ""
+    then:
+      - background process "library_refresh" is absent
+  - id: first_successful_sync_is_silent
+    description: The first successful sync for a feed URL does not immediately post a new-release notification.
+    when:
+      call: background_refresh_tick
+      args:
+        saved_feed_url: "https://example.com/premium.xml"
+        previous_snapshot: null
+    then:
+      - returns.notification is absent
+  - id: new_release_detection_uses_video_ids_for_same_feed
+    description: New-release detection compares latest and previous snapshots for the same feed URL and treats previously unseen video IDs as new videos.
+    when:
+      call: background_refresh_tick
+      args:
+        saved_feed_url: "https://example.com/premium.xml"
+        previous_snapshot:
+          feed_url: "https://example.com/premium.xml"
+          videos:
+            - id: "video-1"
+              title: "Older item"
+              description: ""
+              is_premium: true
+              feed_category: "Premium"
+    then:
+      - if latest snapshot contains "video-2" and not "video-1" only, returns.notification.latest_video_id == "video-2"
+  - id: feed_switches_do_not_generate_false_positive_notifications
+    description: Switching to a different feed URL does not treat the first snapshot from the new feed as a new-release notification event.
+    when:
+      call: background_refresh_tick
+      args:
+        saved_feed_url: "https://example.com/other-premium.xml"
+        previous_snapshot:
+          feed_url: "https://example.com/premium.xml"
+          videos:
+            - id: "video-1"
+              title: "Older item"
+              description: ""
+              is_premium: true
+              feed_category: "Premium"
+    then:
+      - returns.notification is absent
+  - id: repeated_new_release_detections_create_distinct_notifications
+    description: Each later successful detection of a newly discovered latest video results in a distinct local notification entry rather than silently overwriting the previous one.
+    when:
+      call: background_refresh_tick
+      args:
+        saved_feed_url: "https://example.com/premium.xml"
+        previous_snapshot: {feed_url: "https://example.com/premium.xml", videos: [{id: "video-1", title: "Older", description: "", is_premium: true, feed_category: "Premium"}]}
+    then:
+      - if one run discovers latest_video_id "video-2" and a later run discovers latest_video_id "video-3", the resulting notification records are distinct
+  - id: notification_tap_routes_to_player
+    description: Tapping a library-update notification opens the Player page and selects the newest discovered video.
+    when:
+      call: handle_launch_intent
+      args:
+        intent:
+          open_video_id: "video-9"
+          target_page: 2
+    then:
+      - returns.selected_video_id == "video-9"
+      - returns.target_page == 2
+  - id: library_empty_state_prompts_auth_sync
+    description: Library surface tells the user to sync from Auth when no synced videos are available.
+    when:
+      surface: library
+      state:
+        videos: []
+        library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
+    then:
+      - visible empty-state copy contains "Sync your Premium feed on Auth"
+  - id: library_default_controls_are_show_latest_with_filters_collapsed
+    description: Library browsing defaults to show grouping, latest sorting, and collapsed show filters.
+    when:
+      surface: library
+      state:
+        browse_state:
+          grouping_mode: "show"
+          sort_mode: "latest"
+          selected_show_filter: "All shows"
+          show_filters_expanded: false
+    then:
+      - visible grouping mode == "Show"
+      - visible sort mode == "Latest"
+      - visible show-filters control indicates collapsed by default
+  - id: library_supports_multiple_grouping_modes
+    description: Library can regroup the same synced videos by show, cast, topic, or not grouped.
+    when:
+      surface: library
+      action:
+        set grouping_mode to one of [none, show, cast, topic]
+    then:
+      - visible library organization changes to reflect the chosen grouping mode
+  - id: latest_and_oldest_sorts_are_global_not_implicit_show_groups
+    description: Latest and oldest sorting behave as global chronological sorts instead of silently regrouping flat lists by show.
+    when:
+      surface: library
+      action:
+        set sort_mode to "latest" or "oldest"
+    then:
+      - flat-list ordering is determined by chronological sort and tie-break rules, not by implicit show grouping
+  - id: selecting_library_video_opens_player
+    description: Selecting a library video moves the app to the Player surface with that video selected.
+    when:
+      call: select_video
+      args:
+        video_id: "video-7"
+    then:
+      - returns.target_page == 2
+  - id: player_empty_state_is_clear
+    description: Player surface shows a clear empty-state message when no video is selected.
+    when:
+      surface: player
+      state:
+        selected_video: null
+    then:
+      - visible status title == "Nothing queued yet"
+  - id: player_unavailable_state_handles_missing_playback_url
+    description: Selecting a synced video with no playable URL produces an unavailable state instead of a crash.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-8"
+          title: "Broken item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: null
+    then:
+      - visible status title == "Playback unavailable"
+  - id: player_resume_uses_saved_progress
+    description: When saved progress exists, playback seeks near the stored position before auto-playing.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-9"
+          title: "Playable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-9.mp4"
+        playback_progress:
+          video_id: "video-9"
+          position_seconds: 1250
+          duration_seconds: 4200
+    then:
+      - playback begins near 1250 seconds
+  - id: player_supports_fullscreen_toggle_and_landscape_behavior
+    description: Player supports fullscreen from controls or double tap, and landscape can drive fullscreen behavior while a video is selected.
+    when:
+      surface: player
+      action:
+        toggle fullscreen or rotate device to landscape during active playback
+    then:
+      - player enters fullscreen presentation
+      - leaving fullscreen restores the standard shell presentation
+  - id: cast_button_is_available_with_player_controls
+    description: Player surface exposes a cast route control while playback controls are visible.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-10"
+          title: "Castable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-10.mp4"
+        player_controls_visible: true
+    then:
+      - visible cast action exists
+  - id: playback_progress_persists_during_and_after_playback
+    description: Playback progress is stored frequently during playback and also on pauses, item transitions, and service teardown.
+    when:
+      call: persist_playback_progress
+      args:
+        video_id: "video-11"
+        position_seconds: 300
+        duration_seconds: 1800
+    then:
+      - returns.playback_progress.video_id == "video-11"
+      - returns.playback_progress.position_seconds == 300
+  - id: feed_parser_prefers_media_content_then_enclosure_then_link
+    description: Parser chooses the first available playable target in a stable priority order.
+    when:
+      input: RSS item with media:content, enclosure, and link candidates
+    then:
+      - playback_url resolves from media:content first
+      - if media:content is absent, playback_url resolves from enclosure
+      - if both are absent, playback_url resolves from link
+  - id: parser_infers_show_titles_and_thumbnails_heuristically
+    description: Generic feed categories still produce useful show titles and thumbnails using item title, page link, and description heuristics.
+    when:
+      input: RSS item with generic category and title similar to "Quick Look: Future Cop L.A.P.D."
+    then:
+      - series_title == "Quick Look"
+      - thumbnail_url may come from the first image in description HTML
+  - id: feed_sync_requests_do_not_use_browser_session_replay
+    description: Feed sync uses a direct request to the copied feed URL without browser automation, cookies, or explicit authorization headers.
+    when:
+      call: sync_premium_feed
+      args:
+        feed_url: "https://example.com/premium.xml"
+    then:
+      - request uses direct HTTP GET
+      - request.Authorization header is absent
+      - request.Cookie header is absent
+  - id: feed_url_persistence_prefers_secure_storage_and_migrates_legacy_data
+    description: Saved feed URLs use platform secure storage when available and migrate legacy plaintext values into the secure payload on read.
+    when:
+      call: update_feed_url
+      args:
+        feed_url: "https://example.com/premium.xml?token=secret"
+    then:
+      - persisted feed URL is protected at rest when secure storage is available
+      - legacy plaintext storage may be used only as fallback for the feed URL itself
+
+constraints:
+  product_boundary:
+    - copied Giant Bomb Premium feed URL is the only supported user-facing sync input
+    - implementation must not require browser automation, cookie harvesting, or unsupported website sign-in replay
+    - no server-push notification backend is required; new-release notifications come from local background refresh diffs
+  security:
+    - if feed URL is persisted, secure platform storage must be used when available
+    - live feed URLs, cookies, and raw authenticated feed payloads must not be committed as fixtures or examples
+    - feed sync and playback flows must not log secret-bearing feed URLs verbatim in normal operation
+  compatibility:
+    - implementation must preserve the three top-level surfaces: Auth, Library, and Player
+    - implementation must preserve the launch-intent behavior for opening the Player page and optionally preselecting a video
+    - parser must accept RSS item shapes that expose playback targets through media:content, enclosure, or link
+    - app must remain usable before the first successful live feed sync
+  reliability:
+    - background refresh remains registered while a non-blank saved feed URL exists
+    - initial successful sync for a feed URL stays silent
+    - later successful detections of newly discovered video IDs must be able to surface as distinct visible notifications
+    - background refresh may retry transient failures up to three attempts before giving up
+  operational:
+    - direct feed requests must use finite network timeouts instead of hanging indefinitely
+    - playback progress persistence should be frequent enough that normal resume loss stays within a few seconds

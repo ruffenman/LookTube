@@ -43,6 +43,7 @@ Run the managed-device smoke lane when emulator support is ready:
 - `WARP.md` - short operational instructions for future dev-agent sessions
 - `docs/spec/product-spec.md` - living scope, milestones, and acceptance criteria
 - `docs/spec/reproducible-project-spec.md` - implementation-oriented project spec for future external sharing
+- `docs/spec/agent-spec-package/` - transfer-ready `spec.yaml` + `metadata.toml` package aligned to the target agent-spec repository format
 - `docs/architecture/overview.md` - module boundaries and data flow
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks
 - `docs/testing/local-ci.md` - Ralph loop workflow and validation strategy
