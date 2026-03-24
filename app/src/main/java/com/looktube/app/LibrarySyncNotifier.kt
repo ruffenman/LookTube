@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -39,7 +40,9 @@ class LibrarySyncNotifier(
     @SuppressLint("MissingPermission")
     fun notifyAboutNewVideos(newVideos: List<VideoSummary>) {
         val newestVideo = newVideos.firstOrNull() ?: return
+        ensureNotificationChannel()
         if (!notificationsPermitted()) {
+            Log.i(TAG, "Skipping library update notification because notifications are not permitted.")
             return
         }
 
@@ -62,9 +65,14 @@ class LibrarySyncNotifier(
             .setContentIntent(createOpenVideoPendingIntent(newestVideo.id))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setGroup(GROUP_KEY_LIBRARY_UPDATES)
             .build()
-
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        val notificationId = notificationIdFor(newestVideo.id)
+        Log.i(
+            TAG,
+            "Posting library update notification id=$notificationId count=${newVideos.size} latestVideoId=${newestVideo.id}",
+        )
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     private fun createOpenVideoPendingIntent(videoId: String): PendingIntent =
@@ -86,8 +94,14 @@ class LibrarySyncNotifier(
                 Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
 
+    internal fun notificationIdFor(videoId: String): Int =
+        NOTIFICATION_ID_BASE + (videoId.hashCode() and NOTIFICATION_ID_MASK)
+
     companion object {
+        private const val TAG = "LibrarySyncNotifier"
         private const val CHANNEL_ID = "looktube.library.updates"
-        private const val NOTIFICATION_ID = 7_213
+        private const val GROUP_KEY_LIBRARY_UPDATES = "looktube.library.updates.group"
+        private const val NOTIFICATION_ID_BASE = 7_213
+        private const val NOTIFICATION_ID_MASK = 0x00FF_FFFF
     }
 }

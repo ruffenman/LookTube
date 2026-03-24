@@ -16,7 +16,7 @@ Current coverage:
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted feed URLs, seeded fallback behavior, and feed sync transitions
-- `app` unit tests
+- `app` unit tests, including background refresh diff and notification-posting regressions
 - committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player surfaces
 - managed-device smoke coverage now also checks the player empty-state surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
@@ -39,6 +39,21 @@ The app is configured with a `pixel6Api36` managed virtual device. The smoke lan
 ```powershell path=null start=null
 .\gradlew.bat verifyLocal
 ```
+
+## Connected-device notification validation
+Use a connected Android device when notification reliability changes are under review:
+
+```powershell path=null start=null
+adb devices
+adb shell dumpsys jobscheduler com.looktube.app
+adb shell dumpsys notification --noredact | findstr "looktube.library.updates"
+```
+
+Functional target for manual validation:
+- `LibraryRefreshWorker` is scheduled while a saved feed URL exists
+- the `looktube.library.updates` channel exists on-device
+- later successful detections produce distinct notification entries for distinct newly discovered latest video IDs
+- the first sync for a feed URL remains silent
 
 ## Visual regression lane
 Record or refresh committed screenshot baselines when the UI intentionally changes:
@@ -77,4 +92,4 @@ The playback probe samples extracted playback targets from the configured feed a
 - prefer sanitized local fixtures in automated tests
 - do not commit authenticated responses or cookies
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
-- current app behavior persists only the copied feed URL locally and keeps the product strictly feed-first
+- current app behavior persists only the copied feed URL locally, keeps the product strictly feed-first, and treats library-update notifications as a local snapshot-diff result rather than a separate server-push feature

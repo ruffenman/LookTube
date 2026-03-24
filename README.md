@@ -6,6 +6,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
 - copied Giant Bomb Premium RSS URLs are the only supported sync input and persist encrypted at rest
 - persisted synced-library state and playback resume state across app restarts
+- WorkManager-backed background refresh plus device notifications for newly discovered videos
 - app-level Media3 playback service/session with background playback and fullscreen support
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
 - committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player states
@@ -41,6 +42,7 @@ Run the managed-device smoke lane when emulator support is ready:
 ## Documentation map
 - `WARP.md` - short operational instructions for future dev-agent sessions
 - `docs/spec/product-spec.md` - living scope, milestones, and acceptance criteria
+- `docs/spec/reproducible-project-spec.md` - implementation-oriented project spec for future external sharing
 - `docs/architecture/overview.md` - module boundaries and data flow
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks
 - `docs/testing/local-ci.md` - Ralph loop workflow and validation strategy
@@ -60,6 +62,7 @@ Run the managed-device smoke lane when emulator support is ready:
 
 ## Near-term implementation focus
 1. validate additional copied Premium feed variants and playback targets against the same feed-only path
-2. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
-3. keep expanding screenshot-oriented visual regression coverage around richer playback states and feed-sync states
-4. tighten any remaining Giant Bomb-specific playback edge cases found during device validation without drifting into unsupported site automation
+2. harden repeat-use reliability for background refresh and new-release notifications on real devices
+3. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
+4. keep expanding screenshot-oriented visual regression coverage around richer playback states and feed-sync states
+5. tighten any remaining Giant Bomb-specific playback edge cases found during device validation without drifting into unsupported site automation

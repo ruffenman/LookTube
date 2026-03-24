@@ -1,6 +1,7 @@
 package com.looktube.app
 
 import android.content.Context
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.media3.common.util.UnstableApi
@@ -18,20 +19,31 @@ class LibraryRefreshWorker(
         val previousSnapshot = appContainer.syncedLibraryStore.persistedSnapshot.value
 
         return runCatching {
+            Log.i(TAG, "Starting background library refresh attempt=${runAttemptCount + 1}")
             appContainer.repository.refreshLibrary()
             val syncState = appContainer.repository.librarySyncState.value
             val latestSnapshot = appContainer.syncedLibraryStore.persistedSnapshot.value
             if (syncState.phase == SyncPhase.Success) {
-                latestSnapshot?.newVideosComparedTo(previousSnapshot)?.takeIf(List<VideoSummary>::isNotEmpty)?.let {
-                    appContainer.librarySyncNotifier.notifyAboutNewVideos(it)
+                val newVideos = latestSnapshot.newVideosComparedTo(previousSnapshot)
+                if (newVideos.isNotEmpty()) {
+                    Log.i(
+                        TAG,
+                        "Background refresh found ${newVideos.size} new videos; latestVideoId=${newVideos.first().id}",
+                    )
+                    appContainer.librarySyncNotifier.notifyAboutNewVideos(newVideos)
+                } else {
+                    Log.i(TAG, "Background refresh succeeded with no newly discovered videos.")
                 }
                 Result.success()
             } else if (runAttemptCount < 3) {
+                Log.w(TAG, "Background refresh did not reach success state; scheduling retry.")
                 Result.retry()
             } else {
+                Log.w(TAG, "Background refresh exhausted retries without a successful sync state.")
                 Result.failure()
             }
         }.getOrElse {
+            Log.w(TAG, "Background refresh failed on attempt=${runAttemptCount + 1}", it)
             if (runAttemptCount < 3) {
                 Result.retry()
             } else {
@@ -39,9 +51,13 @@ class LibraryRefreshWorker(
             }
         }
     }
+
+    companion object {
+        private const val TAG = "LibraryRefreshWorker"
+    }
 }
 
-private fun com.looktube.model.PersistedLibrarySnapshot?.newVideosComparedTo(
+internal fun com.looktube.model.PersistedLibrarySnapshot?.newVideosComparedTo(
     previousSnapshot: com.looktube.model.PersistedLibrarySnapshot?,
 ): List<VideoSummary> {
     if (this == null || previousSnapshot == null) {

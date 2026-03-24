@@ -18,6 +18,26 @@ import org.junit.Test
 
 class ConfigurableLookTubeRepositoryTest {
     @Test
+    fun bootstrapSchedulesBackgroundRefreshWhenFeedUrlExists() = runTest {
+        val scheduler = FakeLibraryRefreshScheduler()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(
+                PersistedFeedConfiguration(
+                    feedUrl = "https://example.com/feed.xml",
+                ),
+            ),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = FakeVideoFeedService(),
+            libraryRefreshScheduler = scheduler,
+        )
+
+        repository.bootstrap()
+
+        assertEquals(1, scheduler.scheduleCount)
+        assertEquals(0, scheduler.cancelCount)
+    }
+    @Test
     fun bootstrapLoadsPersistedFeedUrlAndKeepsSeededFallback() = runTest {
         val store = FakeFeedConfigurationStore(
             PersistedFeedConfiguration(
@@ -78,6 +98,25 @@ class ConfigurableLookTubeRepositoryTest {
     }
 
     @Test
+    fun updateFeedUrlCancelsBackgroundRefreshWhenCleared() = runTest {
+        val scheduler = FakeLibraryRefreshScheduler()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = FakeVideoFeedService(),
+            libraryRefreshScheduler = scheduler,
+        )
+
+        repository.bootstrap()
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.updateFeedUrl("")
+
+        assertEquals(1, scheduler.scheduleCount)
+        assertEquals(2, scheduler.cancelCount)
+    }
+
+    @Test
     fun clearSyncedDataKeepsSavedFeedUrlReadyForResync() = runTest {
         val store = FakeFeedConfigurationStore()
         val repository = ConfigurableLookTubeRepository(
@@ -96,6 +135,19 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals("https://example.com/premium.xml", repository.feedConfiguration.value.feedUrl)
         assertEquals("premium-quick-look-1", repository.videos.value.first().id)
         assertTrue(repository.librarySyncState.value.message.contains("Saved feed URL"))
+    }
+}
+
+private class FakeLibraryRefreshScheduler : LibraryRefreshScheduler {
+    var scheduleCount: Int = 0
+    var cancelCount: Int = 0
+
+    override fun schedule() {
+        scheduleCount += 1
+    }
+
+    override fun cancel() {
+        cancelCount += 1
     }
 }
 

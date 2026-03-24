@@ -18,6 +18,7 @@
 
 ## Design consequence
 The first implementation path should stay feed-first, not legacy-API-first. Until Giant Bomb exposes an official supported media/mobile integration path, LookTube should avoid browser-backed sign-in flows, cookie harvesting, or other website automation. The current supported integration path is the copied feed URL itself.
+Background library notifications should stay local to that same feed-first path: detect new releases by comparing persisted feed snapshots for the same feed URL, not by layering in a second service or site-automation dependency.
 
 ## What is implemented in the repo today
 - fixture-driven RSS parsing in `core:network`
@@ -26,6 +27,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 - a configurable repository that persists the feed URL locally, with that copied feed input protected at rest inside the app
 - a user-facing action for clearing synced library data while preserving the copied feed URL
 - a live Premium RSS fetch path that can replace seeded library content when configured successfully
+- a WorkManager-backed background refresh path that can notify about newly discovered videos after later successful syncs
 - seeded fallback library data that keeps the app usable and testable before live credentials are available
 - a Media3-backed player screen that can attempt playback when a synced item exposes a stream URL
 - a user-facing feed sync flow that treats a successful Premium feed sync as the current authenticated state
@@ -36,6 +38,7 @@ The first implementation path should stay feed-first, not legacy-API-first. Unti
 - confirm the minimum set of headers, cookies, and redirects required for authenticated playback handoff
 - confirm how often the site behavior changes enough to require fixture refreshes
 - validate whether other real Premium feed variants also behave like the validated `premium-videos` probe
+- confirm whether Giant Bomb feed item IDs stay stable enough across more real feed variants to remain the right local change detector for notification diffs
 - do not introduce website-login/session automation unless Giant Bomb publishes an official supported path
 
 ## Probe policy
