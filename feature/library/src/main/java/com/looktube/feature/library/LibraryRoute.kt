@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,6 +59,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -83,6 +86,7 @@ import com.looktube.model.topicGroupingTitle
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -201,6 +205,7 @@ fun LibraryRoute(
         sortedVideos.isNotEmpty() -> TOP_ONLY_RAIL_TEXT_CLEARANCE
         else -> TRACK_ONLY_CONTENT_CLEARANCE
     }
+    var videoListAnchorOffsetPx by remember { mutableIntStateOf(Int.MAX_VALUE) }
     val currentJumpTargetIndex by remember(sections, sectionStartIndices, listState) {
         derivedStateOf {
             if (sections.isEmpty()) {
@@ -213,13 +218,13 @@ fun LibraryRoute(
             }
         }
     }
-    val anchorItemOffsetPx by remember(listState) {
+    val railTopOffsetPx by remember(listState, videoListAnchorOffsetPx) {
         derivedStateOf {
-            listState.layoutInfo.visibleItemsInfo
-                .firstOrNull { item -> item.index == VIDEO_LIST_ANCHOR_INDEX }
-                ?.offset
-                ?.coerceAtLeast(0)
-                ?: if (listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX) 0 else null
+            if (listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX) {
+                0
+            } else {
+                videoListAnchorOffsetPx.coerceAtLeast(0)
+            }
         }
     }
     val railHasScrollableContent by remember(listState, sortedVideos, jumpTargets) {
@@ -238,11 +243,6 @@ fun LibraryRoute(
                     jumpTargets.size > 1 ||
                     listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX
                 )
-        }
-    }
-    val railTopOffset = remember(density, anchorItemOffsetPx) {
-        with(density) {
-            (anchorItemOffsetPx ?: 0).toDp()
         }
     }
 
@@ -272,6 +272,11 @@ fun LibraryRoute(
             .fillMaxSize()
             .padding(paddingValues),
     ) {
+        val railTopOffset = if (railTopOffsetPx == Int.MAX_VALUE) {
+            maxHeight
+        } else {
+            with(density) { railTopOffsetPx.toDp() }
+        }
         val railHeight = (maxHeight - railTopOffset + bottomInset).coerceAtLeast(0.dp)
         LazyColumn(
             state = listState,
@@ -313,7 +318,14 @@ fun LibraryRoute(
             }
 
             item(key = "video-list-anchor") {
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.dp))
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.dp)
+                        .onGloballyPositioned { coordinates ->
+                            videoListAnchorOffsetPx = coordinates.boundsInParent().top.roundToInt()
+                        },
+                )
             }
 
             if (sortedVideos.isEmpty()) {
@@ -612,7 +624,7 @@ private fun BrowseControlSection(
     }
 }
 
-private data class SeriesSection(
+internal data class SeriesSection(
     val title: String,
     val kindLabel: String,
     val videos: List<VideoSummary>,
@@ -641,7 +653,6 @@ internal enum class LibrarySortOption(val label: String) {
 }
 
 private const val ALL_SERIES_FILTER = "All shows"
-private const val VIDEO_LIST_ANCHOR_INDEX = 3
 private const val VIDEO_LIST_START_INDEX = 4
 private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
 private val JUMP_RAIL_WIDTH = 176.dp
@@ -700,17 +711,26 @@ private fun compareSeriesTitles(left: VideoSummary, right: VideoSummary): Int =
 private fun compareTitles(left: VideoSummary, right: VideoSummary): Int =
     left.title.lowercase().compareTo(right.title.lowercase())
 
-private fun sectionComparator(sortOption: LibrarySortOption): Comparator<SeriesSection> {
-    val anchorComparator = videoComparator(sortOption)
-    return Comparator { left, right ->
-        val anchorComparison = anchorComparator.compare(left.sortAnchor, right.sortAnchor)
-        if (anchorComparison != 0) {
-            anchorComparison
-        } else {
-            left.title.lowercase().compareTo(right.title.lowercase())
+internal fun sectionComparator(sortOption: LibrarySortOption): Comparator<SeriesSection> =
+    Comparator { left, right ->
+        when (sortOption) {
+            LibrarySortOption.Latest -> {
+                comparePublishedAtDescending(left.sortAnchor, right.sortAnchor)
+                    .takeIf { it != 0 }
+                    ?: left.title.lowercase().compareTo(right.title.lowercase())
+            }
+
+            LibrarySortOption.Show -> {
+                left.title.lowercase().compareTo(right.title.lowercase())
+            }
+
+            LibrarySortOption.Oldest -> {
+                comparePublishedAtAscending(left.sortAnchor, right.sortAnchor)
+                    .takeIf { it != 0 }
+                    ?: left.title.lowercase().compareTo(right.title.lowercase())
+            }
         }
     }
-}
 
 private fun buildMetadataLine(
     video: VideoSummary,

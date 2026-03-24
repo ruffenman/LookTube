@@ -89,6 +89,62 @@ class LibrarySortTest {
         assertEquals(listOf("b", "a", "c"), sortedIds)
     }
 
+    @Test
+    fun latestSectionSortBreaksTimestampTiesBySectionTitleInsteadOfEpisodeTitle() {
+        val zetaSection = section(
+            title = "Zeta Show",
+            sortAnchor = video(
+                id = "zeta-newest",
+                title = "Alpha Episode",
+                seriesTitle = "Zeta Show",
+                publishedAtEpochMillis = 2_000L,
+            ),
+        )
+        val alphaSection = section(
+            title = "Alpha Show",
+            sortAnchor = video(
+                id = "alpha-newest",
+                title = "Zulu Episode",
+                seriesTitle = "Alpha Show",
+                publishedAtEpochMillis = 2_000L,
+            ),
+        )
+
+        val sortedTitles = listOf(zetaSection, alphaSection)
+            .sortedWith(sectionComparator(LibrarySortOption.Latest))
+            .map(SeriesSection::title)
+
+        assertEquals(listOf("Alpha Show", "Zeta Show"), sortedTitles)
+    }
+
+    @Test
+    fun oldestSectionSortBreaksTimestampTiesBySectionTitleInsteadOfEpisodeTitle() {
+        val zetaSection = section(
+            title = "Zeta Show",
+            sortAnchor = video(
+                id = "zeta-oldest",
+                title = "Alpha Episode",
+                seriesTitle = "Zeta Show",
+                publishedAtEpochMillis = 1_000L,
+            ),
+        )
+        val alphaSection = section(
+            title = "Alpha Show",
+            sortAnchor = video(
+                id = "alpha-oldest",
+                title = "Zulu Episode",
+                seriesTitle = "Alpha Show",
+                publishedAtEpochMillis = 1_000L,
+            ),
+        )
+
+        val sortedTitles = listOf(zetaSection, alphaSection)
+            .sortedWith(sectionComparator(LibrarySortOption.Oldest))
+            .map(SeriesSection::title)
+
+        assertEquals(listOf("Alpha Show", "Zeta Show"), sortedTitles)
+    }
+
     private fun video(
         id: String,
         title: String,
@@ -103,5 +159,15 @@ class LibrarySortTest {
         playbackUrl = null,
         seriesTitle = seriesTitle,
         publishedAtEpochMillis = publishedAtEpochMillis,
+    )
+
+    private fun section(
+        title: String,
+        sortAnchor: VideoSummary,
+    ) = SeriesSection(
+        title = title,
+        kindLabel = "Show",
+        videos = listOf(sortAnchor),
+        sortAnchor = sortAnchor,
     )
 }
