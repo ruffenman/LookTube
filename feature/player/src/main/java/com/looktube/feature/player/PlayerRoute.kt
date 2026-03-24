@@ -298,6 +298,7 @@ private fun PlayerSurface(
 ) {
     val context = LocalContext.current
     var controllerVisible by remember { mutableStateOf(true) }
+    var playerView by remember { mutableStateOf<PlayerView?>(null) }
     val doubleTapGestureDetector = remember(context, onDoubleTapToggle) {
         GestureDetector(
             context,
@@ -311,16 +312,48 @@ private fun PlayerSurface(
             },
         )
     }
+    DisposableEffect(player, playerView) {
+        val hostPlayerView = playerView
+        if (hostPlayerView == null) {
+            onDispose { }
+        } else {
+            val listener = object : Player.Listener {
+                override fun onEvents(player: Player, events: Player.Events) {
+                    hostPlayerView.keepScreenOn = shouldKeepScreenOn(
+                        isPlaying = player.isPlaying,
+                        playWhenReady = player.playWhenReady,
+                        playbackState = player.playbackState,
+                    )
+                }
+            }
+            hostPlayerView.keepScreenOn = shouldKeepScreenOn(
+                isPlaying = player.isPlaying,
+                playWhenReady = player.playWhenReady,
+                playbackState = player.playbackState,
+            )
+            player.addListener(listener)
+            onDispose {
+                hostPlayerView.keepScreenOn = false
+                player.removeListener(listener)
+            }
+        }
+    }
 
     Box(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
+                    playerView = this
                     useController = true
                     setControllerAutoShow(true)
                     setControllerHideOnTouch(true)
                     this.player = player
+                    keepScreenOn = shouldKeepScreenOn(
+                        isPlaying = player.isPlaying,
+                        playWhenReady = player.playWhenReady,
+                        playbackState = player.playbackState,
+                    )
                     setControllerVisibilityListener(
                         PlayerView.ControllerVisibilityListener { visibility ->
                         controllerVisible = visibility == View.VISIBLE
@@ -335,17 +368,23 @@ private fun PlayerSurface(
                     }
                 }
             },
-            update = { playerView ->
-                playerView.player = player
-                playerView.setControllerVisibilityListener(
+            update = { hostPlayerView ->
+                playerView = hostPlayerView
+                hostPlayerView.player = player
+                hostPlayerView.keepScreenOn = shouldKeepScreenOn(
+                    isPlaying = player.isPlaying,
+                    playWhenReady = player.playWhenReady,
+                    playbackState = player.playbackState,
+                )
+                hostPlayerView.setControllerVisibilityListener(
                     PlayerView.ControllerVisibilityListener { visibility ->
                         controllerVisible = visibility == View.VISIBLE
                     },
                 )
-                playerView.setFullscreenButtonClickListener { isFullscreen ->
+                hostPlayerView.setFullscreenButtonClickListener { isFullscreen ->
                     onFullscreenToggle(isFullscreen)
                 }
-                playerView.setOnTouchListener { _, motionEvent ->
+                hostPlayerView.setOnTouchListener { _, motionEvent ->
                     doubleTapGestureDetector.onTouchEvent(motionEvent)
                     false
                 }
@@ -407,3 +446,9 @@ private fun formatPlaybackTime(seconds: Long): String {
         "%d:%02d".format(minutes, remainingSeconds)
     }
 }
+
+internal fun shouldKeepScreenOn(
+    isPlaying: Boolean,
+    playWhenReady: Boolean,
+    playbackState: Int,
+): Boolean = isPlaying || (playWhenReady && playbackState == Player.STATE_BUFFERING)

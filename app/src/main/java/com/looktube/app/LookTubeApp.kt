@@ -75,7 +75,7 @@ fun LookTubeApp(
     var fullscreenModeName by rememberSaveable { mutableStateOf(PlayerFullscreenMode.Off.name) }
     var notificationPermissionPrompted by rememberSaveable { mutableStateOf(false) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
-    val isPlayerFullscreen = fullscreenMode != PlayerFullscreenMode.Off
+    val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -87,10 +87,11 @@ fun LookTubeApp(
     )
     val pagerState = rememberPagerState(initialPage = 0) { topLevelDestinations.size }
     BackHandler(enabled = isPlayerFullscreen) {
-        fullscreenModeName = if (isLandscape) {
-            PlayerFullscreenMode.LandscapeSuppressed.name
-        } else {
-            PlayerFullscreenMode.Off.name
+        fullscreenModeName = exitFullscreenModeForBack(isLandscape).name
+        if (pagerState.currentPage != LookTubeLaunchContract.PLAYER_PAGE_INDEX) {
+            scope.launch {
+                pagerState.animateScrollToPage(LookTubeLaunchContract.PLAYER_PAGE_INDEX)
+            }
         }
     }
 
@@ -134,7 +135,7 @@ fun LookTubeApp(
     }
     LaunchedEffect(pagerState.currentPage, selectedVideo?.id, isLandscape, fullscreenModeName) {
         when {
-            pagerState.currentPage != 2 || selectedVideo == null -> {
+            pagerState.currentPage != LookTubeLaunchContract.PLAYER_PAGE_INDEX || selectedVideo == null -> {
                 fullscreenModeName = PlayerFullscreenMode.Off.name
             }
             isLandscape && fullscreenMode == PlayerFullscreenMode.Off -> {
@@ -235,7 +236,9 @@ fun LookTubeApp(
                         playbackProgress = playbackProgress,
                         onVideoSelected = { videoId ->
                             viewModel.selectVideo(videoId)
-                            scope.launch { pagerState.animateScrollToPage(2) }
+                            scope.launch {
+                                pagerState.animateScrollToPage(LookTubeLaunchContract.PLAYER_PAGE_INDEX)
+                            }
                         },
                     )
 
@@ -290,9 +293,23 @@ private fun rememberPlaybackController(): MediaController? {
     return controller
 }
 
-private enum class PlayerFullscreenMode {
+internal enum class PlayerFullscreenMode {
     Off,
     Manual,
     AutoLandscape,
     LandscapeSuppressed,
 }
+
+internal fun PlayerFullscreenMode.isPlayerSurfaceFullscreen(): Boolean = when (this) {
+    PlayerFullscreenMode.Manual,
+    PlayerFullscreenMode.AutoLandscape -> true
+    PlayerFullscreenMode.Off,
+    PlayerFullscreenMode.LandscapeSuppressed -> false
+}
+
+internal fun exitFullscreenModeForBack(isLandscape: Boolean): PlayerFullscreenMode =
+    if (isLandscape) {
+        PlayerFullscreenMode.LandscapeSuppressed
+    } else {
+        PlayerFullscreenMode.Off
+    }
