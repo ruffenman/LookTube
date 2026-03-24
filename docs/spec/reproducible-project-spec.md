@@ -5,6 +5,10 @@ LookTube is a native Android companion app for Giant Bomb Premium subscribers. I
 The upload-oriented package now lives in `docs/spec/agent-spec-package/`.
 Use that directory as the starting point for future publication to the external agent-spec repository.
 This markdown document remains the repo-grounded narrative reference, while the package captures a more implementation-agnostic behavior contract.
+The package now includes:
+- `spec.yaml` for types, contract, scenarios, and constraints
+- `metadata.toml` for discovery metadata
+- `references/architecture.md` for supporting descriptive context that stays behavior-first rather than implementation-binding
 
 ## Product boundary
 The supported product is intentionally feed-first:
