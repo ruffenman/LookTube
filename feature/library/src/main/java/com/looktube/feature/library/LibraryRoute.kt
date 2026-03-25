@@ -47,8 +47,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -59,14 +57,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -102,6 +95,7 @@ fun LibraryRoute(
     onVideoSelected: (String) -> Unit,
 ) {
     val density = LocalDensity.current
+    val listTopContentPaddingPx = with(density) { LIST_TOP_CONTENT_PADDING.roundToPx() }
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
@@ -207,28 +201,21 @@ fun LibraryRoute(
         sortedVideos.isNotEmpty() -> TOP_ONLY_RAIL_TEXT_CLEARANCE
         else -> TRACK_ONLY_CONTENT_CLEARANCE
     }
-    var overviewContainerHeightPx by remember { mutableIntStateOf(0) }
-    var collapsedOverviewOffsetPx by remember { mutableFloatStateOf(0f) }
-    val overviewVisibleHeightPx by remember(overviewContainerHeightPx, collapsedOverviewOffsetPx) {
+    val resultsAnchorOffsetPx by remember(listState, listTopContentPaddingPx) {
         derivedStateOf {
-            (overviewContainerHeightPx - collapsedOverviewOffsetPx)
-                .coerceAtLeast(0f)
-        }
-    }
-    val overviewVisibleHeight = with(density) { overviewVisibleHeightPx.toDp() }
-    val isEpisodeListAtTop by remember(listState) {
-        derivedStateOf {
-            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+            listState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == RESULTS_ANCHOR_INDEX }
+                ?.offset
+                ?.minus(listTopContentPaddingPx)
+                ?.coerceAtLeast(0)
+                ?: if (listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX) 0 else Int.MAX_VALUE
         }
     }
     val currentJumpTargetIndex by remember(sections, sectionStartIndices, listState) {
         derivedStateOf {
             if (sections.isEmpty()) {
                 0
-            } else if (
-                listState.firstVisibleItemIndex == VIDEO_LIST_START_INDEX &&
-                listState.firstVisibleItemScrollOffset == 0
-            ) {
+            } else if (resultsAnchorOffsetPx > 0 || listState.firstVisibleItemIndex < VIDEO_LIST_START_INDEX) {
                 0
             } else {
                 1 + sectionStartIndices.indexOfLast { it <= listState.firstVisibleItemIndex }
@@ -250,46 +237,8 @@ fun LibraryRoute(
             jumpTargets.isNotEmpty() && (
                 railEmphasized ||
                     jumpTargets.size > 1 ||
-                    listState.firstVisibleItemIndex >= VIDEO_LIST_START_INDEX
+                    resultsAnchorOffsetPx == 0
                 )
-        }
-    }
-
-    val overviewCollapseConnection = remember(overviewContainerHeightPx, isEpisodeListAtTop) {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (source != NestedScrollSource.UserInput) {
-                    return Offset.Zero
-                }
-                if (available.y >= 0f || overviewContainerHeightPx == 0) {
-                    return Offset.Zero
-                }
-                val previousOffset = collapsedOverviewOffsetPx
-                val newOffset = (collapsedOverviewOffsetPx - available.y)
-                    .coerceIn(0f, overviewContainerHeightPx.toFloat())
-                collapsedOverviewOffsetPx = newOffset
-                val consumed = newOffset - previousOffset
-                return Offset(x = 0f, y = -consumed)
-            }
-
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                if (source != NestedScrollSource.UserInput) {
-                    return Offset.Zero
-                }
-                if (available.y <= 0f || !isEpisodeListAtTop || collapsedOverviewOffsetPx <= 0f) {
-                    return Offset.Zero
-                }
-                val previousOffset = collapsedOverviewOffsetPx
-                val newOffset = (collapsedOverviewOffsetPx - available.y)
-                    .coerceIn(0f, overviewContainerHeightPx.toFloat())
-                collapsedOverviewOffsetPx = newOffset
-                val consumedByParent = previousOffset - newOffset
-                return Offset(x = 0f, y = consumedByParent)
-            }
         }
     }
     LaunchedEffect(currentJumpTargetIndex, jumpTargets.size) {
@@ -313,150 +262,139 @@ fun LibraryRoute(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues)
-            .nestedScroll(overviewCollapseConnection),
+            .padding(paddingValues),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset(y = with(density) { -collapsedOverviewOffsetPx.toDp() })
-                .onSizeChanged { size ->
-                    overviewContainerHeightPx = size.height
-                    collapsedOverviewOffsetPx = collapsedOverviewOffsetPx
-                        .coerceIn(0f, size.height.toFloat())
-                },
-        ) {
-            LibraryOverviewPanel(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp),
-                libraryStatusBody = libraryStatusBody,
-                groupingMode = groupingMode,
-                onGroupingModeChanged = { groupingMode = it },
-                sortOption = sortOption,
-                sortMenuExpanded = sortMenuExpanded,
-                onSortMenuExpandedChanged = { sortMenuExpanded = it },
-                onSortOptionChanged = { sortOption = it },
-                seriesFilters = seriesFilters,
-                selectedSeriesFilter = selectedSeriesFilter,
-                onSeriesFilterChanged = { selectedSeriesFilter = it },
-                totalVideoCount = videos.size,
-                filteredVideoCount = filteredVideos.size,
-            )
-            Spacer(modifier = Modifier.height(14.dp))
+        val railTopOffset = if (resultsAnchorOffsetPx == Int.MAX_VALUE) {
+            maxHeight
+        } else {
+            resultsAnchorOffsetPx.dp
         }
-
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = overviewVisibleHeight)
-                .padding(horizontal = 16.dp),
-        ) {
-            val railVerticalPadding = 16.dp
-            val railHeight = (maxHeight - (railVerticalPadding * 2)).coerceAtLeast(0.dp)
+        val railHeight = (maxHeight - railTopOffset).coerceAtLeast(0.dp)
+        if (resultsAnchorOffsetPx != Int.MAX_VALUE) {
             Surface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(y = railTopOffset)
+                    .height(railHeight)
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
                 tonalElevation = 2.dp,
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp),
+            ) {}
+        }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(vertical = LIST_TOP_CONTENT_PADDING),
+        ) {
+            item(key = "library-overview-panel") {
+                LibraryOverviewPanel(
+                    libraryStatusBody = libraryStatusBody,
+                    groupingMode = groupingMode,
+                    onGroupingModeChanged = { groupingMode = it },
+                    sortOption = sortOption,
+                    sortMenuExpanded = sortMenuExpanded,
+                    onSortMenuExpandedChanged = { sortMenuExpanded = it },
+                    onSortOptionChanged = { sortOption = it },
+                    seriesFilters = seriesFilters,
+                    selectedSeriesFilter = selectedSeriesFilter,
+                    onSeriesFilterChanged = { selectedSeriesFilter = it },
+                    totalVideoCount = videos.size,
+                    filteredVideoCount = filteredVideos.size,
+                )
+            }
+            item(key = "results-anchor") {
+                Spacer(modifier = Modifier.fillMaxWidth().height(0.dp))
+            }
+            if (sortedVideos.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        if (sortedVideos.isEmpty()) {
-                            item {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(
-                                        text = when {
-                                            videos.isEmpty() -> "Sync your Premium feed on Auth to load your library."
-                                            selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
-                                            else -> "No videos are available in your synced library yet."
-                                        },
-                                        modifier = Modifier.padding(
-                                            start = 16.dp,
-                                            top = 16.dp,
-                                            end = 16.dp + railTextClearance,
-                                            bottom = 16.dp,
-                                        ),
-                                    )
-                                }
-                            }
-                        } else if (!isGrouped) {
-                            items(
-                                items = sortedVideos,
-                                key = { video -> video.id },
-                            ) { video ->
-                                VideoListCard(
-                                    video = video,
-                                    progress = playbackProgress[video.id],
-                                    dismissDetailsSignal = listState.isScrollInProgress,
-                                    textEndPadding = railTextClearance,
-                                    modifier = Modifier.clickable { onVideoSelected(video.id) },
-                                )
-                            }
-                        } else {
-                            sections.forEach { section ->
-                                item(key = "section-${section.title}") {
-                                    SeriesSectionHeader(
-                                        section = section,
-                                        textEndPadding = railTextClearance,
-                                    )
-                                }
-                                items(
-                                    items = section.videos,
-                                    key = { video -> "${section.title}-${video.id}" },
-                                ) { video ->
-                                    VideoListCard(
-                                        video = video,
-                                        progress = playbackProgress[video.id],
-                                        dismissDetailsSignal = listState.isScrollInProgress,
-                                        textEndPadding = railTextClearance,
-                                        modifier = Modifier.clickable { onVideoSelected(video.id) },
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = when {
+                                videos.isEmpty() -> "Sync your Premium feed on Auth to load your library."
+                                selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
+                                else -> "No videos are available in your synced library yet."
+                            },
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                top = 16.dp,
+                                end = 16.dp + railTextClearance,
+                                bottom = 16.dp,
+                            ),
+                        )
                     }
-
-                    if (railHasScrollableContent && railHeight > 0.dp) {
-                        ShowJumpRail(
-                            targets = jumpTargets,
-                            contentListState = listState,
-                            listState = showRailState,
-                            currentTargetIndex = currentJumpTargetIndex,
-                            isEmphasized = railEmphasized,
-                            showLabels = showRailLabels,
-                            hasWideLabels = hasWideRailLabels,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(top = railVerticalPadding, end = 4.dp, bottom = railVerticalPadding)
-                                .height(railHeight),
-                            onTargetSelected = { target ->
-                                railEmphasized = true
-                                scope.launch {
-                                    listState.scrollToItem(target.itemIndex)
-                                }
-                            },
-                            onScrollFractionChanged = { fraction ->
-                                railEmphasized = true
-                                scope.launch {
-                                    listState.scrollToItem(listState.targetItemIndexForFraction(fraction))
-                                }
-                            },
+                }
+            } else if (!isGrouped) {
+                items(
+                    items = sortedVideos,
+                    key = { video -> video.id },
+                ) { video ->
+                    VideoListCard(
+                        video = video,
+                        progress = playbackProgress[video.id],
+                        dismissDetailsSignal = listState.isScrollInProgress,
+                        textEndPadding = railTextClearance,
+                        modifier = Modifier.clickable { onVideoSelected(video.id) },
+                    )
+                }
+            } else {
+                sections.forEach { section ->
+                    item(key = "section-${section.title}") {
+                        SeriesSectionHeader(
+                            section = section,
+                            textEndPadding = railTextClearance,
+                        )
+                    }
+                    items(
+                        items = section.videos,
+                        key = { video -> "${section.title}-${video.id}" },
+                    ) { video ->
+                        VideoListCard(
+                            video = video,
+                            progress = playbackProgress[video.id],
+                            dismissDetailsSignal = listState.isScrollInProgress,
+                            textEndPadding = railTextClearance,
+                            modifier = Modifier.clickable { onVideoSelected(video.id) },
                         )
                     }
                 }
             }
+        }
+        if (railHasScrollableContent && railHeight > 0.dp) {
+            ShowJumpRail(
+                targets = jumpTargets,
+                contentListState = listState,
+                listState = showRailState,
+                currentTargetIndex = currentJumpTargetIndex,
+                isEmphasized = railEmphasized,
+                showLabels = showRailLabels,
+                hasWideLabels = hasWideRailLabels,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(y = railTopOffset)
+                    .padding(top = LIST_TOP_CONTENT_PADDING, end = 4.dp, bottom = LIST_TOP_CONTENT_PADDING)
+                    .height((railHeight - (LIST_TOP_CONTENT_PADDING * 2)).coerceAtLeast(0.dp)),
+                onTargetSelected = { target ->
+                    railEmphasized = true
+                    scope.launch {
+                        listState.scrollToItem(target.itemIndex)
+                    }
+                },
+                onScrollFractionChanged = { fraction ->
+                    railEmphasized = true
+                    scope.launch {
+                        listState.scrollToItem(listState.targetItemIndexForFraction(fraction))
+                    }
+                },
+            )
         }
     }
 }
@@ -750,8 +688,10 @@ internal enum class LibrarySortOption(val label: String) {
 }
 
 private const val ALL_SERIES_FILTER = "All shows"
-private const val VIDEO_LIST_START_INDEX = 0
+private const val RESULTS_ANCHOR_INDEX = 1
+private const val VIDEO_LIST_START_INDEX = 2
 private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
+private val LIST_TOP_CONTENT_PADDING = 16.dp
 private val JUMP_RAIL_WIDTH = 176.dp
 private val TOP_ONLY_RAIL_WIDTH = 84.dp
 private val JUMP_RAIL_LABEL_WIDTH = 156.dp
