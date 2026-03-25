@@ -67,7 +67,7 @@ An implementation that materially changes these choices can still be valid, but 
 - communicates five practical user-visible states: setup required, ready, syncing, synced, and needs attention
 
 ### Library surface
-- renders a fixed overview panel above the scrolling episode list using the current sync state and last successful summary
+- renders an overview panel above the scrolling episode list using the current sync state and last successful summary
 - supports grouping by none, show, cast, or topic
 - supports sorting by latest, show, or oldest
 - supports show filtering with the filter tray collapsed by default
@@ -93,7 +93,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Successful sync replaces the active library with feed-backed items.
 - If no successful feed snapshot is available, the app may use seeded fallback data so the shell remains usable and testable.
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
-- The library overview/status/settings panel remains visually separate from the scrolling episode list, and the jump rail does not overlap that overview panel.
+- The library overview/status/settings panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 
 ### Background refresh and notifications
 - Saving a non-blank feed URL results in one active periodic background refresh registration.

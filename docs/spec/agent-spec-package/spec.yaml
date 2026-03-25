@@ -152,7 +152,7 @@ contract:
         - sync Premium feed
         - clear synced data
     - name: library
-      description: Browse surface for synced videos with a fixed overview panel, grouping, sorting, filtering, rich cards, and section jumping.
+      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -524,14 +524,14 @@ scenarios:
       - jump rail contains target "Top"
       - jump rail contains at least one section target
   - id: library_overview_panel_stays_above_scrolling_results
-    description: Library status and browsing controls remain in a fixed overview panel above the scrolling episode list, and the jump rail anchors only to the episode-list panel.
+    description: Library status and browsing controls remain in an overview panel above the scrolling episode list, can scroll away before the results take over the viewport, and the jump rail anchors only to the episode-list panel.
     when:
       surface: library
       state:
         videos is non-empty array
         grouped_sections_exist: true
     then:
-      - library status and browsing controls remain visible above the scrolling results panel
+      - library status and browsing controls remain above the scrolling results panel until scrolled away
       - jump rail does not overlap the fixed overview panel
   - id: library_video_cards_show_resume_progress_when_available
     description: Library cards display resume context when saved playback progress exists for a video.

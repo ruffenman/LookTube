@@ -47,6 +47,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,9 +59,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,6 +101,7 @@ fun LibraryRoute(
     playbackProgress: Map<String, PlaybackProgress>,
     onVideoSelected: (String) -> Unit,
 ) {
+    val density = LocalDensity.current
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
@@ -199,6 +207,20 @@ fun LibraryRoute(
         sortedVideos.isNotEmpty() -> TOP_ONLY_RAIL_TEXT_CLEARANCE
         else -> TRACK_ONLY_CONTENT_CLEARANCE
     }
+    var overviewContainerHeightPx by remember { mutableIntStateOf(0) }
+    var collapsedOverviewOffsetPx by remember { mutableFloatStateOf(0f) }
+    val overviewVisibleHeightPx by remember(overviewContainerHeightPx, collapsedOverviewOffsetPx) {
+        derivedStateOf {
+            (overviewContainerHeightPx - collapsedOverviewOffsetPx)
+                .coerceAtLeast(0f)
+        }
+    }
+    val overviewVisibleHeight = with(density) { overviewVisibleHeightPx.toDp() }
+    val isEpisodeListAtTop by remember(listState) {
+        derivedStateOf {
+            listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0
+        }
+    }
     val currentJumpTargetIndex by remember(sections, sectionStartIndices, listState) {
         derivedStateOf {
             if (sections.isEmpty()) {
@@ -233,6 +255,43 @@ fun LibraryRoute(
         }
     }
 
+    val overviewCollapseConnection = remember(overviewContainerHeightPx, isEpisodeListAtTop) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) {
+                    return Offset.Zero
+                }
+                if (available.y >= 0f || overviewContainerHeightPx == 0) {
+                    return Offset.Zero
+                }
+                val previousOffset = collapsedOverviewOffsetPx
+                val newOffset = (collapsedOverviewOffsetPx - available.y)
+                    .coerceIn(0f, overviewContainerHeightPx.toFloat())
+                collapsedOverviewOffsetPx = newOffset
+                val consumed = newOffset - previousOffset
+                return Offset(x = 0f, y = -consumed)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (source != NestedScrollSource.UserInput) {
+                    return Offset.Zero
+                }
+                if (available.y <= 0f || !isEpisodeListAtTop || collapsedOverviewOffsetPx <= 0f) {
+                    return Offset.Zero
+                }
+                val previousOffset = collapsedOverviewOffsetPx
+                val newOffset = (collapsedOverviewOffsetPx - available.y)
+                    .coerceIn(0f, overviewContainerHeightPx.toFloat())
+                collapsedOverviewOffsetPx = newOffset
+                val consumedByParent = previousOffset - newOffset
+                return Offset(x = 0f, y = consumedByParent)
+            }
+        }
+    }
     LaunchedEffect(currentJumpTargetIndex, jumpTargets.size) {
         if (jumpTargets.isNotEmpty()) {
             showRailState.animateScrollToItem(currentJumpTargetIndex.coerceAtMost(jumpTargets.lastIndex))
@@ -254,33 +313,45 @@ fun LibraryRoute(
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(paddingValues)
+            .nestedScroll(overviewCollapseConnection),
     ) {
-        LibraryOverviewPanel(
+        Column(
             modifier = Modifier
-                .padding(horizontal = 16.dp),
-            libraryStatusBody = libraryStatusBody,
-            groupingMode = groupingMode,
-            onGroupingModeChanged = { groupingMode = it },
-            sortOption = sortOption,
-            sortMenuExpanded = sortMenuExpanded,
-            onSortMenuExpandedChanged = { sortMenuExpanded = it },
-            onSortOptionChanged = { sortOption = it },
-            seriesFilters = seriesFilters,
-            selectedSeriesFilter = selectedSeriesFilter,
-            onSeriesFilterChanged = { selectedSeriesFilter = it },
-            totalVideoCount = videos.size,
-            filteredVideoCount = filteredVideos.size,
-        )
+                .fillMaxWidth()
+                .offset(y = with(density) { -collapsedOverviewOffsetPx.toDp() })
+                .onSizeChanged { size ->
+                    overviewContainerHeightPx = size.height
+                    collapsedOverviewOffsetPx = collapsedOverviewOffsetPx
+                        .coerceIn(0f, size.height.toFloat())
+                },
+        ) {
+            LibraryOverviewPanel(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp),
+                libraryStatusBody = libraryStatusBody,
+                groupingMode = groupingMode,
+                onGroupingModeChanged = { groupingMode = it },
+                sortOption = sortOption,
+                sortMenuExpanded = sortMenuExpanded,
+                onSortMenuExpandedChanged = { sortMenuExpanded = it },
+                onSortOptionChanged = { sortOption = it },
+                seriesFilters = seriesFilters,
+                selectedSeriesFilter = selectedSeriesFilter,
+                onSeriesFilterChanged = { selectedSeriesFilter = it },
+                totalVideoCount = videos.size,
+                filteredVideoCount = filteredVideos.size,
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+        }
 
         BoxWithConstraints(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
+                .fillMaxSize()
+                .padding(top = overviewVisibleHeight)
                 .padding(horizontal = 16.dp),
         ) {
             val railVerticalPadding = 16.dp

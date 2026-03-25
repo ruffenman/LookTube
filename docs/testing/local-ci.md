@@ -34,6 +34,11 @@ This adds:
 - screenshot baseline verification through Roborazzi
 - optional managed-device smoke tests when `-PskipManagedDevice` is not supplied
 
+Stable-checkpoint policy:
+- after the full local gate passes for a stable slice, commit it immediately
+- push that checkpoint immediately
+- deploy the latest build immediately when a deployable app build exists
+
 ## Managed-device smoke lane
 The app is configured with a `pixel6Api36` managed virtual device. The smoke lane currently passes locally, though AGP still emits an ABI migration warning during setup:
 
