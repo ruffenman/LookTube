@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -285,7 +287,7 @@ private fun ActivePlayerContent(
         item {
             LookTubePageHeader(
                 title = "Player",
-                subtitle = remotePlaybackStatus?.title?.let { "$it. ${remotePlaybackStatus.body}" }
+                subtitle = remotePlaybackStatus?.title?.let { "$it. ${remotePlaybackStatus.detailsBody}" }
                     ?: playbackProgress?.takeIf { it.durationSeconds > 0 }?.let {
                         "Continue watching ${selectedVideo.displaySeriesTitle} from ${formatPlaybackTime(it.positionSeconds)}."
                     }
@@ -319,7 +321,7 @@ private fun ActivePlayerContent(
                     appendLine("Double-tap the video or use the fullscreen button to toggle fullscreen.")
                     remotePlaybackStatus?.let { status ->
                         appendLine()
-                        append(status.body)
+                        append(status.detailsBody)
                     }
                 },
             )
@@ -494,11 +496,12 @@ private fun PlayerSurface(
             },
         )
         remotePlaybackStatus?.let { status ->
-            RemotePlaybackOverlay(
+            RemotePlaybackBadge(
                 status = status,
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(20.dp),
+                    .align(Alignment.TopStart)
+                    .padding(start = castButtonInset, top = castButtonInset)
+                    .widthIn(max = 240.dp),
             )
         }
     }
@@ -541,7 +544,12 @@ private fun Player.toRemotePlaybackStatus(context: Context): RemotePlaybackStatu
     }.getOrNull()
     return RemotePlaybackStatus(
         title = remotePlaybackTitle(deviceName),
-        body = remotePlaybackBody(
+        badgeBody = remotePlaybackBadgeBody(
+            isPlaying = isPlaying,
+            playWhenReady = playWhenReady,
+            playbackState = playbackState,
+        ),
+        detailsBody = remotePlaybackBody(
             isPlaying = isPlaying,
             playWhenReady = playWhenReady,
             playbackState = playbackState,
@@ -550,30 +558,33 @@ private fun Player.toRemotePlaybackStatus(context: Context): RemotePlaybackStatu
 }
 
 @Composable
-private fun RemotePlaybackOverlay(
+private fun RemotePlaybackBadge(
     status: RemotePlaybackStatus,
     modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        tonalElevation = 4.dp,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        tonalElevation = 3.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(
                 text = status.title,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = status.body,
-                style = MaterialTheme.typography.bodyMedium,
+                text = status.badgeBody,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -611,6 +622,16 @@ internal fun isRemotePlayback(deviceInfo: DeviceInfo): Boolean =
 
 internal fun remotePlaybackTitle(deviceName: String?): String =
     deviceName?.takeIf(String::isNotBlank)?.let { "Casting to $it" } ?: "Casting video"
+internal fun remotePlaybackBadgeBody(
+    isPlaying: Boolean,
+    playWhenReady: Boolean,
+    playbackState: Int,
+): String = when {
+    playbackState == Player.STATE_BUFFERING -> "Syncing to your cast device"
+    isPlaying -> "Remote playback is active"
+    playWhenReady -> "Reconnecting to your cast device"
+    else -> "Playback is paused on your cast device"
+}
 
 internal fun remotePlaybackBody(
     isPlaying: Boolean,
@@ -702,7 +723,8 @@ private fun PlayerView.currentControllerVisibility(): Int =
 
 private data class RemotePlaybackStatus(
     val title: String,
-    val body: String,
+    val badgeBody: String,
+    val detailsBody: String,
 )
 
 private val CAST_BUTTON_SIZE = 48.dp

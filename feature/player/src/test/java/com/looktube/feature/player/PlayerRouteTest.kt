@@ -82,6 +82,25 @@ class PlayerRouteTest {
         assertEquals("Casting to Living Room TV", remotePlaybackTitle("Living Room TV"))
         assertEquals("Casting video", remotePlaybackTitle(null))
     }
+    @Test
+    fun remotePlaybackBadgeBodyStaysCompact() {
+        assertEquals(
+            "Syncing to your cast device",
+            remotePlaybackBadgeBody(
+                isPlaying = false,
+                playWhenReady = true,
+                playbackState = Player.STATE_BUFFERING,
+            ),
+        )
+        assertEquals(
+            "Remote playback is active",
+            remotePlaybackBadgeBody(
+                isPlaying = true,
+                playWhenReady = true,
+                playbackState = Player.STATE_READY,
+            ),
+        )
+    }
 
     @Test
     fun remotePlaybackBodyReflectsPlaybackState() {
