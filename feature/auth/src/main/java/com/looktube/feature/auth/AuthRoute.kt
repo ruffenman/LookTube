@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -15,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -90,9 +92,9 @@ fun AuthRoute(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 18.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         LookTubePageHeader(
             title = "Connect your Giant Bomb Premium feed",
@@ -113,45 +115,64 @@ fun AuthRoute(
             statusLabelContainerColor = statusContentColor,
             statusLabelContentColor = statusContainerColor,
         )
-
-        OutlinedTextField(
-            value = feedConfiguration.feedUrl,
-            onValueChange = onFeedUrlChanged,
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Premium feed URL") },
-            supportingText = { Text(feedUrlSupportingText) },
-            singleLine = true,
-        )
-
-        Button(
-            onClick = onSignInRequested,
-            enabled = canSignIn,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+            tonalElevation = 1.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
-            if (isSigningIn) {
-                CircularProgressIndicator(
-                    modifier = Modifier.padding(end = 12.dp),
-                )
-                Text("Syncing…")
-            } else if (accountSession.isSignedIn) {
-                Text("Re-sync Premium library")
-            } else {
-                Text("Sync Premium feed")
-            }
-        }
-
-        if (canClearData) {
-            OutlinedButton(
-                onClick = onClearSyncedDataRequested,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Text("Clear synced data")
+                Text(
+                    text = "Feed access",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                OutlinedTextField(
+                    value = feedConfiguration.feedUrl,
+                    onValueChange = onFeedUrlChanged,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Premium feed URL") },
+                    supportingText = { Text(feedUrlSupportingText) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(18.dp),
+                )
+
+                Button(
+                    onClick = onSignInRequested,
+                    enabled = canSignIn,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    if (isSigningIn) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+                        Text("Syncing…")
+                    } else if (accountSession.isSignedIn) {
+                        Text("Re-sync Premium library")
+                    } else {
+                        Text("Sync Premium feed")
+                    }
+                }
+
+                if (canClearData) {
+                    OutlinedButton(
+                        onClick = onClearSyncedDataRequested,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text("Clear synced data")
+                    }
+                }
+                Text("Sync Premium feed")
             }
         }
     }

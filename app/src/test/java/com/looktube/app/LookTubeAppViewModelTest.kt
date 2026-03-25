@@ -6,6 +6,7 @@ import com.looktube.data.SyncedLibraryStore
 import com.looktube.database.InMemoryPlaybackBookmarkStore
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
+import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
 import com.looktube.model.VideoSummary
 import com.looktube.network.VideoFeedRequest
@@ -91,6 +92,38 @@ class LookTubeAppViewModelTest {
         assertEquals("https://example.com/feed.xml", viewModel.feedConfiguration.value.feedUrl)
         assertEquals("premium-quick-look-1", viewModel.videos.value.first().id)
         assertTrue(viewModel.librarySyncState.value.message.contains("Saved feed URL"))
+    }
+
+    @Test
+    fun selectedPlaybackTargetIncludesStoredResumePointWhenVideoIsChosen() = runTest {
+        val playbackBookmarkStore = InMemoryPlaybackBookmarkStore().apply {
+            write(
+                PlaybackProgress(
+                    videoId = "live-app-1",
+                    positionSeconds = 125L,
+                    durationSeconds = 600L,
+                ),
+            )
+        }
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = playbackBookmarkStore,
+            videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.signInToPremiumFeed()
+        advanceUntilIdle()
+        viewModel.selectVideo("live-app-1")
+        advanceUntilIdle()
+
+        assertEquals("live-app-1", viewModel.selectedPlaybackTarget.value?.video?.id)
+        assertEquals(125L, viewModel.selectedPlaybackTarget.value?.playbackProgress?.positionSeconds)
     }
 }
 

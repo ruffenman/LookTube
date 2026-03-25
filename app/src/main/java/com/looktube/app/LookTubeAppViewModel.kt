@@ -39,6 +39,36 @@ class LookTubeAppViewModel(
         initialValue = null,
     )
 
+    val selectedPlaybackTarget: StateFlow<SelectedPlaybackTarget?> = combine(
+        repository.videos,
+        repository.selectedVideoId,
+        repository.playbackProgress,
+    ) { videos, selectedVideoId, progressMap ->
+        selectedVideoId
+            ?.let { selectedId ->
+                videos.firstOrNull { it.id == selectedId }
+                    ?.let { video ->
+                        SelectedPlaybackTarget(
+                            video = video,
+                            playbackProgress = progressMap[selectedId],
+                        )
+                    }
+            }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = repository.selectedVideoId.value
+            ?.let { selectedId ->
+                repository.videos.value.firstOrNull { it.id == selectedId }
+                    ?.let { video ->
+                        SelectedPlaybackTarget(
+                            video = video,
+                            playbackProgress = repository.playbackProgress.value[selectedId],
+                        )
+                    }
+            },
+    )
+
     val selectedProgress: StateFlow<PlaybackProgress?> = combine(
         repository.playbackProgress,
         repository.selectedVideoId,
@@ -114,3 +144,8 @@ class LookTubeAppViewModel(
             }
     }
 }
+
+data class SelectedPlaybackTarget(
+    val video: VideoSummary,
+    val playbackProgress: PlaybackProgress?,
+)

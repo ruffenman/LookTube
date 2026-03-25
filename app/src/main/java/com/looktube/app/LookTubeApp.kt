@@ -51,6 +51,7 @@ import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.feature.auth.AuthRoute
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.feature.player.PlayerRoute
+import com.looktube.model.VideoSummary
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,8 +66,7 @@ fun LookTubeApp(
     val librarySyncState by viewModel.librarySyncState.collectAsStateWithLifecycle()
     val videos by viewModel.videos.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
-    val selectedVideo by viewModel.selectedVideo.collectAsStateWithLifecycle()
-    val selectedProgress by viewModel.selectedProgress.collectAsStateWithLifecycle()
+    val selectedPlaybackTarget by viewModel.selectedPlaybackTarget.collectAsStateWithLifecycle()
     val requestedPage by viewModel.requestedPage.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
     val scope = rememberCoroutineScope()
@@ -105,37 +105,17 @@ fun LookTubeApp(
         }
     }
 
-    LaunchedEffect(selectedVideo?.id, playbackController) {
+    LaunchedEffect(selectedPlaybackTarget?.video?.id, playbackController) {
         val controller = playbackController ?: return@LaunchedEffect
-        val video = selectedVideo ?: return@LaunchedEffect
-        val playbackUrl = video.playbackUrl ?: return@LaunchedEffect
-        if (controller.currentMediaItem?.mediaId != video.id) {
-            controller.setMediaItem(
-                MediaItem.Builder()
-                    .setMediaId(video.id)
-                    .setUri(playbackUrl)
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(video.title)
-                                    .setDisplayTitle(video.title)
-                            .setArtist(video.displaySeriesTitle)
-                                    .setArtworkUri(video.thumbnailUrl?.let(Uri::parse))
-                            .build(),
-                    )
-                    .build(),
-            )
-            controller.prepare()
-            selectedProgress?.let { progress ->
-                if (progress.positionSeconds > 0) {
-                    controller.seekTo(progress.positionSeconds * 1_000)
-                }
-            }
-            controller.playWhenReady = true
-        }
+        val playbackTarget = selectedPlaybackTarget ?: return@LaunchedEffect
+        handoffSelectedPlaybackTarget(
+            controller = MediaControllerPlaybackHandoffController(controller),
+            playbackTarget = playbackTarget,
+        )
     }
-    LaunchedEffect(pagerState.currentPage, selectedVideo?.id, isLandscape, fullscreenModeName) {
+    LaunchedEffect(pagerState.currentPage, selectedPlaybackTarget?.video?.id, isLandscape, fullscreenModeName) {
         when {
-            pagerState.currentPage != LookTubeLaunchContract.PLAYER_PAGE_INDEX || selectedVideo == null -> {
+            pagerState.currentPage != LookTubeLaunchContract.PLAYER_PAGE_INDEX || selectedPlaybackTarget == null -> {
                 fullscreenModeName = PlayerFullscreenMode.Off.name
             }
             isLandscape && fullscreenMode == PlayerFullscreenMode.Off -> {
@@ -244,8 +224,8 @@ fun LookTubeApp(
 
                     else -> PlayerRoute(
                         paddingValues = paddingValues,
-                        selectedVideo = selectedVideo,
-                        playbackProgress = selectedProgress,
+                        selectedVideo = selectedPlaybackTarget?.video,
+                        playbackProgress = selectedPlaybackTarget?.playbackProgress,
                         player = playbackController,
                         isFullscreen = isPlayerFullscreen,
                         onFullscreenChanged = { enabled ->
@@ -292,6 +272,83 @@ private fun rememberPlaybackController(): MediaController? {
 
     return controller
 }
+
+internal fun handoffSelectedPlaybackTarget(
+    controller: PlaybackHandoffController,
+    playbackTarget: SelectedPlaybackTarget,
+) {
+    val video = playbackTarget.video
+    val playbackUrl = video.playbackUrl ?: return
+    val isSameMediaItem = controller.currentMediaId == video.id
+    val resumePositionMs = playbackTarget.playbackProgress
+        ?.takeIf { progress ->
+            progress.videoId == video.id && progress.positionSeconds > 0
+        }
+        ?.positionSeconds
+        ?.times(1_000L)
+    if (!isSameMediaItem) {
+        controller.setMediaItem(
+            mediaItem = video.toPlaybackMediaItem(playbackUrl),
+            startPositionMs = resumePositionMs,
+        )
+        controller.prepare()
+    } else if (resumePositionMs != null && controller.currentPositionMs <= 0L) {
+        controller.seekTo(resumePositionMs)
+    }
+    controller.playWhenReady = true
+}
+
+internal interface PlaybackHandoffController {
+    val currentMediaId: String?
+    val currentPositionMs: Long
+    var playWhenReady: Boolean
+    fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long?)
+    fun prepare()
+    fun seekTo(positionMs: Long)
+}
+
+private class MediaControllerPlaybackHandoffController(
+    private val controller: MediaController,
+) : PlaybackHandoffController {
+    override val currentMediaId: String?
+        get() = controller.currentMediaItem?.mediaId
+    override val currentPositionMs: Long
+        get() = controller.currentPosition
+    override var playWhenReady: Boolean
+        get() = controller.playWhenReady
+        set(value) {
+            controller.playWhenReady = value
+        }
+    override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long?) {
+        if (startPositionMs != null) {
+            controller.setMediaItem(mediaItem, startPositionMs)
+        } else {
+            controller.setMediaItem(mediaItem)
+        }
+    }
+
+    override fun prepare() {
+        controller.prepare()
+    }
+
+    override fun seekTo(positionMs: Long) {
+        controller.seekTo(positionMs)
+    }
+}
+
+private fun VideoSummary.toPlaybackMediaItem(playbackUrl: String): MediaItem =
+    MediaItem.Builder()
+        .setMediaId(id)
+        .setUri(playbackUrl)
+        .setMediaMetadata(
+            MediaMetadata.Builder()
+                .setTitle(title)
+                .setDisplayTitle(title)
+                .setArtist(displaySeriesTitle)
+                .setArtworkUri(thumbnailUrl?.let(Uri::parse))
+                .build(),
+        )
+        .build()
 
 internal enum class PlayerFullscreenMode {
     Off,

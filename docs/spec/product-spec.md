@@ -47,6 +47,8 @@ Harden the path from copied feed sync to daily repeat use.
 - the chosen sort mode applies consistently to flat episode lists, grouped section ordering, and episode ordering within each visible group
 - the Library status and settings remain in an overview panel above the episode list, the overview panel can scroll off screen, and the jump rail anchors to the episode-list panel rather than overlapping the overview panel
 - library cards expose key per-video metadata and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
+- selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
+- Auth, Library, and Player keep a consistent card/header/panel treatment so the main app surfaces feel visually coherent without changing the existing LookTube design language
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest
 - users can clear synced cache without re-entering the copied feed URL

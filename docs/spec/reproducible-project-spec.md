@@ -74,6 +74,7 @@ An implementation that materially changes these choices can still be valid, but 
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
 - renders grouped section headers, progress-aware video cards, and a right-side jump rail that anchors to the episode-list panel for quick section navigation
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
+- keeps the primary Auth, Library, and Player surfaces visually consistent through shared card, header, and panel treatments
 - opens the selected video in the Player surface
 
 ### Player surface
@@ -110,6 +111,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### Playback and resume
 - Selecting a playable item hands the resolved playback URL directly to Media3.
 - Playback progress persists locally and is restored on later playback attempts.
+- A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 
 ### Feed parsing and sync semantics
