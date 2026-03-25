@@ -1,9 +1,11 @@
-package com.looktube.model
+package com.looktube.heuristics
 
+import com.looktube.model.VideoSummary
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class VideoSummaryHeuristicsTest {
+class GiantBombContentHeuristicsTest {
     @Test
     fun derivesCanonicalShowTitlesFromNumberedEpisodes() {
         assertEquals("Giant Bombcast", "Giant Bombcast 901: Ranking the Best Sandwiches in Games".toHeuristicShowTitleOrNull())
@@ -35,5 +37,22 @@ class VideoSummaryHeuristicsTest {
         assertEquals("Giant Bombcast", video.displaySeriesTitle)
         assertEquals("Jeff Grubb", video.castGroupingTitle)
         assertEquals("Best Sandwiches", video.topicGroupingTitle)
+    }
+
+    @Test
+    fun parserFacingHeuristicsStayCentralized() {
+        assertTrue("Premium".isHeuristicGenericFeedCategory())
+        assertEquals(
+            "Quick Look",
+            inferSeriesTitleFromFeedMetadata(
+                feedCategory = "Premium",
+                pageUrl = null,
+                title = "Quick Look: Future Cop L.A.P.D.",
+            ),
+        )
+        assertEquals(
+            "https://image.example.com/quick-look-1.jpg",
+            """<p>Preview.</p><img src="https://image.example.com/quick-look-1.jpg" />""".extractFirstImageUrlFromHtml(),
+        )
     }
 }

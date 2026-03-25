@@ -26,6 +26,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - copied Premium RSS feed URLs can be configured and synced from the Auth surface
 - copied feed URLs are protected at rest
 - the app persists the last successful synced library and saved playback progress
+- Giant Bomb site-content heuristics now live in one shared library so feed-title, grouping, cast, and topic rule changes have a single update point
 - Library combines grouped browsing, sort/filter controls, a fixed overview panel above the episode list, rich video cards, and jump navigation
 - Player uses a shared Media3 session/service model with fullscreen and resume support
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL

@@ -18,6 +18,7 @@ rootProject.name = "LookTube"
 
 include(
     ":app",
+    ":core:heuristics",
     ":core:model",
     ":core:data",
     ":core:database",

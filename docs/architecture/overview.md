@@ -8,6 +8,9 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
   - navigation host
   - app-level state wiring
   - managed-device instrumentation smoke tests
+- `core:heuristics`
+  - single shared home for Giant Bomb site-content heuristics
+  - show, cast, topic, grouping-key, and feed-metadata inference rules
 - `core:model`
   - auth, video, and playback domain models
 - `core:data`
@@ -31,9 +34,10 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 - `app` depends on `core:*` and `feature:*`
 - `feature:*` depend only on the `core` modules they need
 - `core:model` stays dependency-light
+- `core:heuristics` depends on `core:model`
 - `core:data` depends on `core:model`
 - `core:database` depends on `core:model`
-- `core:network` depends on `core:model`
+- `core:network` depends on `core:model` and `core:heuristics`
 - `core:testing` is shared by test configurations only
 
 ## Current data flow
@@ -41,7 +45,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 2. `LookTubeAppViewModel` bootstraps the repository
 3. the repository loads the copied feed URL from an app-owned encrypted-at-rest store, restores the last synced library snapshot, and exposes persisted playback progress for the feed-first path
 4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen centered on the copied feed URL, a consolidated grouped library surface, and a shared Media3 player route
-5. an explicit sync action fetches the RSS feed directly from the copied URL and replaces the cached library on success; the architecture intentionally stops short of website-login automation
+5. an explicit sync action fetches the RSS feed directly from the copied URL, uses the shared heuristics module for any Giant Bomb content inference, and replaces the cached library on success; the architecture intentionally stops short of website-login automation
 6. while a feed URL is saved, WorkManager keeps a periodic background refresh registration alive and the app posts a library-update notification when a later successful refresh discovers previously unseen video IDs for that same feed URL
 
 ## Why the current spike still keeps a seeded fallback
@@ -52,4 +56,4 @@ The project still needs a short external integration spike to confirm the best G
 - keep tightening repeat-use reliability around periodic refresh and notification visibility on real devices
 - continue hardening Media3 playback and real-device resume behavior
 - improve visual regression coverage for the now-richer library/player surfaces
-- keep refining grouping heuristics and browse affordances as more live feed edge cases appear
+- keep refining grouping heuristics and browse affordances through the shared `core:heuristics` module as more live feed edge cases appear

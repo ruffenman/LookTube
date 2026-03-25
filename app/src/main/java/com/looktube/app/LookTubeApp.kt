@@ -47,10 +47,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.looktube.designsystem.LookTubeTheme
+import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.feature.auth.AuthRoute
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.feature.player.PlayerRoute
-import com.looktube.model.displaySeriesTitle
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -11,6 +11,7 @@ Run after every narrow slice:
 
 Current coverage:
 - required docs presence and basic doc freshness checks
+- `core:heuristics` JVM tests for centralized Giant Bomb site-content inference
 - `core:model` JVM tests
 - `core:data` JVM tests
 - `core:database` JVM tests

@@ -45,6 +45,7 @@ tasks.register("verifyFast") {
     description = "Runs the fast Ralph loop validation lane."
     dependsOn(
         "checkDocs",
+        ":core:heuristics:test",
         ":core:model:test",
         ":core:data:test",
         ":core:database:test",

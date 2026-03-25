@@ -6,6 +6,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
 - copied Giant Bomb Premium RSS URLs are the only supported sync input and persist encrypted at rest
 - persisted synced-library state and playback resume state across app restarts
+- Giant Bomb site-content heuristics are consolidated in one shared library so title/grouping inference rules have a single update point
 - WorkManager-backed background refresh plus device notifications for newly discovered videos
 - app-level Media3 playback service/session with background playback and fullscreen support
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
@@ -53,6 +54,7 @@ Run the managed-device smoke lane when emulator support is ready:
 
 ## Repository layout
 - `app` - Android application shell, navigation, and app-level state wiring
+- `core:heuristics` - the single shared home for Giant Bomb site-content heuristics and inference rules
 - `core:model` - domain models
 - `core:data` - repository contracts and the current in-memory spike implementation
 - `core:database` - playback bookmark storage seam

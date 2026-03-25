@@ -1,8 +1,8 @@
 package com.looktube.network
+import com.looktube.heuristics.extractFirstImageUrlFromHtml
+import com.looktube.heuristics.inferSeriesTitleFromFeedMetadata
 
 import com.looktube.model.VideoSummary
-import com.looktube.model.toHeuristicShowTitleFromUrlOrNull
-import com.looktube.model.toHeuristicShowTitleOrNull
 import java.io.StringReader
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -48,12 +48,13 @@ class RssVideoFeedParser {
                         playbackUrl = item.readAttribute("media:content", "url")
                             ?: item.readAttribute("enclosure", "url")
                             ?: pageUrl,
-                        seriesTitle = feedCategory.takeUnless(String::isGenericFeedCategory)
-                            ?.toHeuristicShowTitleOrNull()
-                            ?: pageUrl.toHeuristicShowTitleFromUrlOrNull()
-                            ?: title.inferSeriesTitle(),
+                        seriesTitle = inferSeriesTitleFromFeedMetadata(
+                            feedCategory = feedCategory,
+                            pageUrl = pageUrl,
+                            title = title,
+                        ),
                         thumbnailUrl = item.readAttribute("media:thumbnail", "url")
-                            ?: description.extractFirstImageUrl(),
+                            ?: description.extractFirstImageUrlFromHtml(),
                         publishedAtEpochMillis = item.readText("pubDate")
                             ?.toEpochMillisOrNull()
                             ?: item.readText("dc:date")?.toEpochMillisOrNull(),
@@ -81,35 +82,6 @@ private fun Element.readAttribute(tagName: String, attributeName: String): Strin
         .takeIf(String::isNotEmpty)
 }
 
-private fun String.isGenericFeedCategory(): Boolean =
-    equals("Premium", ignoreCase = true) ||
-        equals("Latest Premium", ignoreCase = true) ||
-        equals("Video", ignoreCase = true) ||
-        equals("Videos", ignoreCase = true) ||
-        equals("Uncategorized", ignoreCase = true)
-
-private fun String.inferSeriesTitle(): String? {
-    val separators = listOf(": ", " - ", " — ", " #")
-    separators.forEach { separator ->
-        val prefix = substringBefore(separator, missingDelimiterValue = "")
-            .trim()
-            .toHeuristicShowTitleOrNull()
-            ?.takeIf { it.length <= 40 }
-        if (prefix != null) {
-            return prefix
-        }
-    }
-    val episodeIndex = indexOf(" episode ", ignoreCase = true)
-    if (episodeIndex > 0) {
-        return substring(0, episodeIndex).trim().toHeuristicShowTitleOrNull()
-    }
-    return toHeuristicShowTitleOrNull()
-}
-
-private fun String.extractFirstImageUrl(): String? =
-    IMAGE_URL_REGEX.find(this)?.groupValues?.getOrNull(1)
-
-private val IMAGE_URL_REGEX = Regex("""<img[^>]+src=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
 
 private fun String.toEpochMillisOrNull(): Long? =
     runCatching {

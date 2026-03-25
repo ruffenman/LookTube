@@ -44,9 +44,9 @@ import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
+import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
-import com.looktube.model.displaySeriesTitle
 
 @Composable
 fun PlayerRoute(

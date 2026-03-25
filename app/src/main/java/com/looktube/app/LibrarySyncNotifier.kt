@@ -14,8 +14,8 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
+import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.VideoSummary
-import com.looktube.model.displaySeriesTitle
 @UnstableApi
 
 class LibrarySyncNotifier(

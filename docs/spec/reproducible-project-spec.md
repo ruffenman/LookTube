@@ -22,7 +22,7 @@ The app does not depend on browser automation, cookie harvesting, or unsupported
 ## Supported implementation shape
 - platform: Android-first, Kotlin, Jetpack Compose
 - shell: one `app` module that owns app wiring, navigation, background work, and playback service integration
-- shared layers: `core:model`, `core:data`, `core:database`, `core:network`, `core:designsystem`, `core:testing`
+- shared layers: `core:heuristics`, `core:model`, `core:data`, `core:database`, `core:network`, `core:designsystem`, `core:testing`
 - feature layers: `feature:auth`, `feature:library`, `feature:player`
 - background work: WorkManager periodic refresh
 - playback engine: Media3 session/service model
@@ -119,6 +119,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Published time may come from `pubDate` or `dc:date`.
 - Duration may come from `media:content@duration` or `itunes:duration`.
 - Show titles are inferred heuristically from category, page URL slug, and title patterns when the feed category itself is generic.
+- Site-content heuristics used for show, cast, topic, and grouping inference are centralized in one shared heuristics layer rather than duplicated across parsing and UI modules.
 
 ### Persistence semantics
 - feed URL persists separately from synced library data and playback progress
