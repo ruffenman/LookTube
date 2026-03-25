@@ -9,6 +9,12 @@ Premium Giant Bomb subscribers should be able to open an Android app, paste a co
 - Surface new-release notifications reliably enough that repeat users can trust background refresh.
 - Keep development spec-driven, fixture-driven, and easy to validate locally.
 
+## Spec maintenance rule
+- This document is the live product/design contract for the repository.
+- Any change to user-visible behavior, UX flow, interaction model, navigation, supported scope, or validation expectations must update this spec in the same implementation slice.
+- Work is not complete if the code and the current design diverge from this spec.
+- When a change also affects the transferable behavior contract, update `docs/spec/reproducible-project-spec.md` and `docs/spec/agent-spec-package/` in the same slice.
+
 ## Non-goals for the initial Android scope
 - iOS support
 - community/wiki browsing
@@ -51,11 +57,11 @@ Harden the path from copied feed sync to daily repeat use.
 
 ## Ralph loop definition
 1. pick the thinnest user-visible slice from this spec
-2. update or add acceptance criteria first
+2. update or add acceptance criteria first, including any spec changes required by the new design
 3. add the smallest failing automated check that proves the slice is incomplete
 4. implement the smallest change that makes the check pass
 5. run `verifyFast`
-6. update docs and learnings while context is fresh
+6. update docs, transferable specs when applicable, and learnings while context is fresh
 7. run `verifyLocal` before merging the slice
 
 ## Open questions

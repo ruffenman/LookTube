@@ -41,8 +41,8 @@ Run the managed-device smoke lane when emulator support is ready:
 
 ## Documentation map
 - `WARP.md` - short operational instructions for future dev-agent sessions
-- `docs/spec/product-spec.md` - living scope, milestones, and acceptance criteria
-- `docs/spec/reproducible-project-spec.md` - implementation-oriented project spec for future external sharing
+- `docs/spec/product-spec.md` - living scope, milestones, acceptance criteria, and the required source of truth for current design changes
+- `docs/spec/reproducible-project-spec.md` - implementation-oriented project spec that should be updated whenever design changes affect the transferable behavior contract
 - `docs/spec/agent-spec-package/` - transfer-ready `spec.yaml` + `metadata.toml` package aligned to the target agent-spec repository format
 - `docs/architecture/overview.md` - module boundaries and data flow
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks

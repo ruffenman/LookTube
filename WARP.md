@@ -1,5 +1,7 @@
 # LookTube Warp notes
 - Treat `docs/spec/product-spec.md` as the source of truth for what to build next.
+- Any user-visible design change, behavior change, flow change, or scope change must update `docs/spec/product-spec.md` in the same slice before the work is considered done.
+- If a design change affects the transferable project contract, update `docs/spec/reproducible-project-spec.md` and `docs/spec/agent-spec-package/` in the same slice as well.
 - Run `.\gradlew.bat verifyFast` after each thin Ralph loop slice.
 - Run `.\gradlew.bat verifyLocal -PskipManagedDevice=true` before committing unless you also validated the managed-device lane.
 - Never commit live Giant Bomb credentials, cookies, or raw authenticated feed responses.
