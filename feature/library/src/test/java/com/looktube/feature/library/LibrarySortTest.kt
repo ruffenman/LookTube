@@ -118,6 +118,80 @@ class LibrarySortTest {
     }
 
     @Test
+    fun showSectionSortUsesAlphabeticalGroupsAndNewestEpisodesFirstWithinEachGroup() {
+        val alphaNewest = video(
+            id = "alpha-newest",
+            title = "Newest Alpha",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 2_000L,
+        )
+        val alphaOlder = video(
+            id = "alpha-older",
+            title = "Older Alpha",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 1_000L,
+        )
+        val betaEpisode = video(
+            id = "beta-episode",
+            title = "Beta Episode",
+            seriesTitle = "Beta Show",
+            publishedAtEpochMillis = 3_000L,
+        )
+
+        val alphaSection = section(
+            title = "Alpha Show",
+            videos = listOf(alphaOlder, alphaNewest).sortedWith(videoComparator(LibrarySortOption.Show)),
+        )
+        val betaSection = section(
+            title = "Beta Show",
+            videos = listOf(betaEpisode).sortedWith(videoComparator(LibrarySortOption.Show)),
+        )
+
+        val sortedSections = listOf(betaSection, alphaSection)
+            .sortedWith(sectionComparator(LibrarySortOption.Show))
+
+        assertEquals(listOf("Alpha Show", "Beta Show"), sortedSections.map(SeriesSection::title))
+        assertEquals(listOf("alpha-newest", "alpha-older"), sortedSections.first().videos.map(VideoSummary::id))
+    }
+
+    @Test
+    fun latestSectionSortUsesNewestEpisodeAcrossGroupsAndKeepsEpisodesNewestFirst() {
+        val alphaNewest = video(
+            id = "alpha-newest",
+            title = "Alpha New",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 2_000L,
+        )
+        val alphaOlder = video(
+            id = "alpha-older",
+            title = "Alpha Old",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 1_000L,
+        )
+        val betaNewest = video(
+            id = "beta-newest",
+            title = "Beta New",
+            seriesTitle = "Beta Show",
+            publishedAtEpochMillis = 3_000L,
+        )
+
+        val alphaSection = section(
+            title = "Alpha Show",
+            videos = listOf(alphaOlder, alphaNewest).sortedWith(videoComparator(LibrarySortOption.Latest)),
+        )
+        val betaSection = section(
+            title = "Beta Show",
+            videos = listOf(betaNewest).sortedWith(videoComparator(LibrarySortOption.Latest)),
+        )
+
+        val sortedSections = listOf(alphaSection, betaSection)
+            .sortedWith(sectionComparator(LibrarySortOption.Latest))
+
+        assertEquals(listOf("Beta Show", "Alpha Show"), sortedSections.map(SeriesSection::title))
+        assertEquals(listOf("alpha-newest", "alpha-older"), sortedSections[1].videos.map(VideoSummary::id))
+    }
+
+    @Test
     fun oldestSectionSortBreaksTimestampTiesBySectionTitleInsteadOfEpisodeTitle() {
         val zetaSection = section(
             title = "Zeta Show",
@@ -164,10 +238,15 @@ class LibrarySortTest {
     private fun section(
         title: String,
         sortAnchor: VideoSummary,
+    ) = section(title = title, videos = listOf(sortAnchor))
+
+    private fun section(
+        title: String,
+        videos: List<VideoSummary>,
     ) = SeriesSection(
         title = title,
         kindLabel = "Show",
-        videos = listOf(sortAnchor),
-        sortAnchor = sortAnchor,
+        videos = videos,
+        sortAnchor = videos.first(),
     )
 }

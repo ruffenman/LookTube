@@ -26,7 +26,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - copied Premium RSS feed URLs can be configured and synced from the Auth surface
 - copied feed URLs are protected at rest
 - the app persists the last successful synced library and saved playback progress
-- Library combines grouped browsing, sort/filter controls, rich video cards, and jump navigation
+- Library combines grouped browsing, sort/filter controls, a fixed overview panel above the episode list, rich video cards, and jump navigation
 - Player uses a shared Media3 session/service model with fullscreen and resume support
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the product remains explicitly feed-first and avoids unsupported website-login automation
@@ -43,6 +43,8 @@ Harden the path from copied feed sync to daily repeat use.
 - each successful new-release detection posts a user-visible library-update notification instead of silently overwriting the earlier one
 - notification posting remains a best-effort WorkManager flow rather than an exact-time delivery guarantee, but repeated detections must remain observable in testing and in the system notification tray
 - browse ergonomics continue improving from device feedback without regressing the grouped-library model
+- the chosen sort mode applies consistently to flat episode lists, grouped section ordering, and episode ordering within each visible group
+- the Library status and settings remain in a fixed overview panel above the episode list, and the jump rail anchors to the episode-list panel rather than overlapping the overview panel
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest
 - users can clear synced cache without re-entering the copied feed URL

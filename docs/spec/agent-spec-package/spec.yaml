@@ -152,7 +152,7 @@ contract:
         - sync Premium feed
         - clear synced data
     - name: library
-      description: Browse surface for synced videos, status summary, grouping, sorting, filtering, rich cards, and section jumping.
+      description: Browse surface for synced videos with a fixed overview panel, grouping, sorting, filtering, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -489,6 +489,17 @@ scenarios:
         set sort_mode to "latest" or "oldest"
     then:
       - flat-list ordering is determined by chronological sort and tie-break rules, not by implicit show grouping
+  - id: grouped_library_sort_follows_selected_sort_mode_for_sections_and_episodes
+    description: Grouped browsing applies the chosen sort mode both to group ordering and to episode ordering within each visible group.
+    when:
+      surface: library
+      state:
+        grouped_sections_exist: true
+      action:
+        set sort_mode to one of [latest, show, oldest]
+    then:
+      - visible section order follows the selected sort mode
+      - visible episode order within each section follows the selected sort mode
   - id: library_show_filter_can_be_expanded_and_applied
     description: Show filtering stays collapsed by default but can be expanded and used to narrow the visible library.
     when:
@@ -512,6 +523,16 @@ scenarios:
     then:
       - jump rail contains target "Top"
       - jump rail contains at least one section target
+  - id: library_overview_panel_stays_above_scrolling_results
+    description: Library status and browsing controls remain in a fixed overview panel above the scrolling episode list, and the jump rail anchors only to the episode-list panel.
+    when:
+      surface: library
+      state:
+        videos is non-empty array
+        grouped_sections_exist: true
+    then:
+      - library status and browsing controls remain visible above the scrolling results panel
+      - jump rail does not overlap the fixed overview panel
   - id: library_video_cards_show_resume_progress_when_available
     description: Library cards display resume context when saved playback progress exists for a video.
     when:
