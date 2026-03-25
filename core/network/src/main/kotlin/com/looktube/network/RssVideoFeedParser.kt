@@ -88,6 +88,13 @@ private fun String.toEpochMillisOrNull(): Long? =
         ZonedDateTime.parse(this, DateTimeFormatter.RFC_1123_DATE_TIME)
             .toInstant()
             .toEpochMilli()
+    }.recoverCatching {
+        java.time.OffsetDateTime.parse(this)
+            .toInstant()
+            .toEpochMilli()
+    }.recoverCatching {
+        java.time.Instant.parse(this)
+            .toEpochMilli()
     }.getOrNull()
 
 private fun String.toDurationSecondsOrNull(): Long? {

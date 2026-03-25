@@ -73,6 +73,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
 - renders grouped section headers, progress-aware video cards, and a right-side jump rail that anchors to the episode-list panel for quick section navigation
+- exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
 - opens the selected video in the Player surface
 
 ### Player surface

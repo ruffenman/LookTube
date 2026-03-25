@@ -4,6 +4,7 @@ import com.looktube.testing.loadFixture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
 
 class RssVideoFeedParserTest {
     private val parser = RssVideoFeedParser()
@@ -150,5 +151,30 @@ class RssVideoFeedParserTest {
         val videos = parser.parse(fixture)
 
         assertEquals("Unprofessional Fridays", videos.single().seriesTitle)
+    }
+
+    @Test
+    fun parsesIsoDcDateWhenPubDateIsMissing() {
+        val fixture = """
+            <rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+                <channel>
+                    <item>
+                        <guid>dated-1</guid>
+                        <title>Quick Look: Date Coverage</title>
+                        <description>Parser date coverage.</description>
+                        <category>Premium</category>
+                        <dc:date>2026-03-24T19:45:12Z</dc:date>
+                        <enclosure url="https://video.example.com/dated-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals(
+            Instant.parse("2026-03-24T19:45:12Z").toEpochMilli(),
+            videos.single().publishedAtEpochMillis,
+        )
     }
 }

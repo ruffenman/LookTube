@@ -39,6 +39,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -83,6 +84,7 @@ import com.looktube.model.bestDurationSeconds
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -397,6 +399,27 @@ fun LibraryRoute(
             )
         }
     }
+}
+
+private fun formatPublishedDateTime(epochMillis: Long): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
+        .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()))
+
+private fun buildVideoDetailRows(
+    video: VideoSummary,
+    progress: PlaybackProgress?,
+): List<Pair<String, String>> = buildList {
+    add("Video ID" to video.id)
+    add("Show" to video.displaySeriesTitle)
+    add("Feed category" to video.feedCategory)
+    add("Premium" to if (video.isPremium) "Yes" else "No")
+    video.publishedAtEpochMillis?.let { add("Published" to formatPublishedDateTime(it)) }
+    video.durationSeconds?.let { add("Feed duration" to formatDuration(it)) }
+    progress?.takeIf { it.durationSeconds > 0 }?.let {
+        add("Playback progress" to "${formatDuration(it.positionSeconds)} of ${formatDuration(it.durationSeconds)}")
+    }
+    add("Playable URL" to (video.playbackUrl ?: "Unavailable"))
+    add("Thumbnail URL" to (video.thumbnailUrl ?: "Unavailable"))
 }
 
 @Composable
@@ -859,6 +882,7 @@ private fun VideoListCard(
         ?.let { (it.positionSeconds.toFloat() / it.durationSeconds.toFloat()).coerceIn(0f, 1f) }
     var showFullDetails by rememberSaveable(video.id) { mutableStateOf(false) }
     var descriptionTruncated by remember(video.id) { mutableStateOf(false) }
+    val detailRows = remember(video, progress) { buildVideoDetailRows(video, progress) }
 
     LaunchedEffect(dismissDetailsSignal) {
         if (dismissDetailsSignal) {
@@ -934,12 +958,22 @@ private fun VideoListCard(
                         onTextLayout = { descriptionTruncated = it.hasVisualOverflow },
                     )
                 }
-                if (descriptionTruncated) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        text = "More…",
+                        text = if (descriptionTruncated) "More…" else "Info",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable { showFullDetails = true },
+                    )
+                    Text(
+                        text = "ID: ${video.id}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 if (progress != null && progress.durationSeconds > 0) {
@@ -970,17 +1004,25 @@ private fun VideoListCard(
                         text = video.title,
                         style = MaterialTheme.typography.headlineSmall,
                     )
-                    Text(
-                        text = "Show: ${video.displaySeriesTitle}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    buildMetadataLine(video, progress).takeIf(String::isNotBlank)?.let { metadataLine ->
-                        Text(
-                            text = metadataLine,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    detailRows.forEachIndexed { index, (label, value) ->
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = value,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        if (index != detailRows.lastIndex) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            )
+                        }
                     }
                     if (video.description.isNotBlank()) {
                         Text(
