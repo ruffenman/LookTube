@@ -4,6 +4,8 @@ import android.content.Intent
 
 import android.os.Handler
 import android.os.Looper
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.cast.CastPlayer
@@ -50,7 +52,9 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        localPlayer = ExoPlayer.Builder(this).build()
+        localPlayer = ExoPlayer.Builder(this)
+            .build()
+            .also(::configureLocalPlayerForPlayback)
         player = runCatching {
             CastPlayer.Builder(this)
                 .setLocalPlayer(localPlayer)
@@ -105,4 +109,36 @@ class PlaybackService : MediaSessionService() {
     companion object {
         private const val PROGRESS_SAVE_INTERVAL_MS = 5_000L
     }
+}
+
+internal val PLAYBACK_AUDIO_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
+    .setUsage(C.USAGE_MEDIA)
+    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+    .build()
+
+internal const val PLAYBACK_HANDLES_AUDIO_FOCUS = true
+internal const val PLAYBACK_HANDLES_AUDIO_BECOMING_NOISY = true
+
+internal fun configureLocalPlayerForPlayback(player: LocalPlaybackConfigurable) {
+    player.setAudioAttributes(PLAYBACK_AUDIO_ATTRIBUTES, PLAYBACK_HANDLES_AUDIO_FOCUS)
+    player.setHandleAudioBecomingNoisy(PLAYBACK_HANDLES_AUDIO_BECOMING_NOISY)
+}
+
+internal interface LocalPlaybackConfigurable {
+    fun setAudioAttributes(audioAttributes: AudioAttributes, handleAudioFocus: Boolean)
+    fun setHandleAudioBecomingNoisy(handleAudioBecomingNoisy: Boolean)
+}
+
+private fun configureLocalPlayerForPlayback(player: ExoPlayer) {
+    configureLocalPlayerForPlayback(
+        object : LocalPlaybackConfigurable {
+            override fun setAudioAttributes(audioAttributes: AudioAttributes, handleAudioFocus: Boolean) {
+                player.setAudioAttributes(audioAttributes, handleAudioFocus)
+            }
+
+            override fun setHandleAudioBecomingNoisy(handleAudioBecomingNoisy: Boolean) {
+                player.setHandleAudioBecomingNoisy(handleAudioBecomingNoisy)
+            }
+        },
+    )
 }
