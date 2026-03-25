@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.0"
+  version: "0.2.1"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -55,6 +55,7 @@ types:
     sort_mode: string (required, latest | show | oldest)
     selected_show_filter: string (required, may be "All shows")
     show_filters_expanded: boolean (required)
+    collapsed_group_keys: array of string (required, empty when grouping_mode is none)
   FeedRequest:
     feed_url: string (required, absolute URL)
     method: string (required, always GET)
@@ -75,6 +76,9 @@ types:
     is_fullscreen: boolean (required)
     player_ready: boolean (required)
     cast_action_visible: boolean (required)
+    player_frame_pinned_top: boolean (required)
+    remote_playback_active: boolean (required)
+    remote_playback_label: string (optional, user-visible cast or handoff status)
 
 contract:
   functions:
@@ -152,16 +156,17 @@ contract:
         - sync Premium feed
         - clear synced data
     - name: library
-      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, rich cards, and section jumping.
+      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped sections, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
         - expand or collapse show filters
+        - expand or collapse grouped sections, or all groups at once
         - open a details dialog from truncated descriptions
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, and active playback states.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above supporting metadata.
       primary_actions:
         - resume playback
         - toggle fullscreen
@@ -469,6 +474,7 @@ scenarios:
           sort_mode: "latest"
           selected_show_filter: "All shows"
           show_filters_expanded: false
+          collapsed_group_keys: []
     then:
       - visible grouping mode == "Show"
       - visible sort mode == "Latest"
@@ -481,6 +487,40 @@ scenarios:
         set grouping_mode to one of [none, show, cast, topic]
     then:
       - visible library organization changes to reflect the chosen grouping mode
+  - id: grouped_library_headers_toggle_section_visibility
+    description: Grouped browsing lets the user collapse one section without changing the rest of the library state.
+    when:
+      surface: library
+      state:
+        browse_state:
+          grouping_mode: "show"
+          sort_mode: "latest"
+          selected_show_filter: "All shows"
+          show_filters_expanded: false
+          collapsed_group_keys: []
+        grouped_sections_exist: true
+      action:
+        collapse one visible group header
+    then:
+      - the collapsed section's episode cards are hidden
+      - other section headers and their expansion state remain unchanged
+      - jump rail targets continue to reflect the visible section anchors
+  - id: grouped_library_supports_expand_all_and_collapse_all
+    description: Grouped browsing exposes overview controls to expand all groups or collapse all groups in one step.
+    when:
+      surface: library
+      state:
+        browse_state:
+          grouping_mode: "cast"
+          sort_mode: "latest"
+          selected_show_filter: "All shows"
+          show_filters_expanded: false
+          collapsed_group_keys: []
+        grouped_sections_exist: true
+      action:
+        activate the expand-all or collapse-all group control
+    then:
+      - all visible groups share the requested expanded state
   - id: latest_and_oldest_sorts_are_global_not_implicit_show_groups
     description: Latest and oldest sorting behave as global chronological sorts instead of silently regrouping flat lists by show.
     when:
@@ -519,6 +559,7 @@ scenarios:
           sort_mode: "latest"
           selected_show_filter: "All shows"
           show_filters_expanded: false
+          collapsed_group_keys: []
         grouped_sections_exist: true
     then:
       - jump rail contains target "Top"
@@ -607,6 +648,28 @@ scenarios:
         player_ready: false
     then:
       - visible status title == "Preparing player"
+  - id: player_surface_keeps_video_frame_above_details
+    description: When a video is selected, the player frame remains visible above the supporting metadata cards.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-9"
+          title: "Playable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-9.mp4"
+        player_ready: true
+        player_presentation_state:
+          selected_video_id: "video-9"
+          is_fullscreen: false
+          player_ready: true
+          cast_action_visible: true
+          player_frame_pinned_top: true
+          remote_playback_active: false
+    then:
+      - the video frame is visible before the now-playing and playback-detail cards
   - id: player_resume_uses_saved_progress
     description: When saved progress exists, playback seeks near the stored position before auto-playing.
     when:
@@ -625,6 +688,48 @@ scenarios:
           duration_seconds: 4200
     then:
       - playback begins near 1250 seconds
+  - id: player_remote_playback_state_is_explained
+    description: Remote playback shows explicit cast status copy instead of leaving the player surface as an unexplained black frame.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-10"
+          title: "Castable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-10.mp4"
+        player_presentation_state:
+          selected_video_id: "video-10"
+          is_fullscreen: false
+          player_ready: true
+          cast_action_visible: true
+          player_frame_pinned_top: true
+          remote_playback_active: true
+          remote_playback_label: "Casting to Living Room TV"
+    then:
+      - visible player status contains "Casting to Living Room TV"
+      - visible player status explains that standard player controls can pause, resume, or stop casting
+  - id: player_reselection_and_cast_recovery_restore_playback
+    description: Re-selecting the active video or losing a cast session must restore playable local state instead of leaving the player idle on a black screen.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-11"
+          title: "Recoverable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-11.mp4"
+        previous_playback_target_id: "video-11"
+        local_player_state: "idle or ended after cast handoff loss"
+      action:
+        explicitly select the same video again or reopen the app to the same target
+    then:
+      - local playback is reinitialized for the selected video
+      - player does not remain stuck on an unexplained black surface
   - id: player_supports_fullscreen_toggle_and_landscape_behavior
     description: Player supports fullscreen from controls or double tap, and landscape can drive fullscreen behavior while a video is selected.
     when:
@@ -803,3 +908,4 @@ constraints:
     - direct feed requests must use finite network timeouts instead of hanging indefinitely
     - playback progress persistence should be frequent enough that normal resume loss stays within a few seconds
     - local playback must remain available even if cast support initialization fails
+    - if a cast session ends or becomes unavailable, the last known item and position must remain recoverable for local playback

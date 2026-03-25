@@ -2,11 +2,13 @@ package com.looktube.app
 
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.runner.RunWith
 import org.junit.Test
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.media3.common.Player
 import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
@@ -78,6 +80,95 @@ class LookTubeAppPlaybackTest {
         assertTrue(controller.playWhenReady)
     }
 
+    @Test
+    fun handoffReloadsSameMediaItemWhenControllerIsIdle() {
+        val controller = FakePlaybackHandoffController(
+            currentMediaId = "video-1",
+            currentPositionMs = 215_000L,
+            playbackState = Player.STATE_IDLE,
+        )
+
+        handoffSelectedPlaybackTarget(
+            controller = controller,
+            playbackTarget = SelectedPlaybackTarget(
+                video = video(id = "video-1"),
+                playbackProgress = PlaybackProgress(
+                    videoId = "video-1",
+                    positionSeconds = 215L,
+                    durationSeconds = 900L,
+                ),
+            ),
+        )
+
+        assertEquals(listOf("video-1"), controller.setMediaItemIds)
+        assertEquals(listOf(215_000L), controller.setMediaItemStartPositionsMs)
+        assertEquals(1, controller.prepareCount)
+        assertTrue(controller.seekPositionsMs.isEmpty())
+    }
+
+    @Test
+    fun handoffReloadsSameMediaItemWhenSelectionExplicitlyRequestsIt() {
+        val controller = FakePlaybackHandoffController(
+            currentMediaId = "video-1",
+            currentPositionMs = 240_000L,
+            playbackState = Player.STATE_READY,
+        )
+
+        handoffSelectedPlaybackTarget(
+            controller = controller,
+            playbackTarget = SelectedPlaybackTarget(
+                video = video(id = "video-1"),
+                playbackProgress = PlaybackProgress(
+                    videoId = "video-1",
+                    positionSeconds = 215L,
+                    durationSeconds = 900L,
+                ),
+            ),
+            forceReload = true,
+        )
+
+        assertEquals(listOf("video-1"), controller.setMediaItemIds)
+        assertEquals(listOf(215_000L), controller.setMediaItemStartPositionsMs)
+        assertEquals(1, controller.prepareCount)
+        assertTrue(controller.seekPositionsMs.isEmpty())
+    }
+
+    @Test
+    fun replaceDecisionOnlyForcesSameMediaWhenIdleEndedOrExplicit() {
+        assertFalse(
+            shouldReplaceMediaItemForPlaybackTarget(
+                currentMediaId = "video-1",
+                targetMediaId = "video-1",
+                playbackState = Player.STATE_READY,
+                forceReload = false,
+            ),
+        )
+        assertTrue(
+            shouldReplaceMediaItemForPlaybackTarget(
+                currentMediaId = "video-1",
+                targetMediaId = "video-1",
+                playbackState = Player.STATE_IDLE,
+                forceReload = false,
+            ),
+        )
+        assertTrue(
+            shouldReplaceMediaItemForPlaybackTarget(
+                currentMediaId = "video-1",
+                targetMediaId = "video-1",
+                playbackState = Player.STATE_ENDED,
+                forceReload = false,
+            ),
+        )
+        assertTrue(
+            shouldReplaceMediaItemForPlaybackTarget(
+                currentMediaId = "video-1",
+                targetMediaId = "video-1",
+                playbackState = Player.STATE_READY,
+                forceReload = true,
+            ),
+        )
+    }
+
     private fun video(id: String): VideoSummary = VideoSummary(
         id = id,
         title = "Video $id",
@@ -92,6 +183,7 @@ class LookTubeAppPlaybackTest {
 private class FakePlaybackHandoffController(
     override val currentMediaId: String?,
     override val currentPositionMs: Long,
+    override val playbackState: Int = Player.STATE_READY,
 ) : PlaybackHandoffController {
     val setMediaItemIds = mutableListOf<String>()
     val setMediaItemStartPositionsMs = mutableListOf<Long?>()

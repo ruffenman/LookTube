@@ -67,6 +67,7 @@ fun LookTubeApp(
     val videos by viewModel.videos.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val selectedPlaybackTarget by viewModel.selectedPlaybackTarget.collectAsStateWithLifecycle()
+    val playbackSelectionRequest by viewModel.playbackSelectionRequest.collectAsStateWithLifecycle()
     val requestedPage by viewModel.requestedPage.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
     val scope = rememberCoroutineScope()
@@ -74,6 +75,7 @@ fun LookTubeApp(
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var fullscreenModeName by rememberSaveable { mutableStateOf(PlayerFullscreenMode.Off.name) }
     var notificationPermissionPrompted by rememberSaveable { mutableStateOf(false) }
+    var lastHandledPlaybackSelectionRequest by remember { mutableStateOf(0L) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -105,13 +107,18 @@ fun LookTubeApp(
         }
     }
 
-    LaunchedEffect(selectedPlaybackTarget?.video?.id, playbackController) {
+    LaunchedEffect(selectedPlaybackTarget?.video?.id, playbackController, playbackSelectionRequest) {
         val controller = playbackController ?: return@LaunchedEffect
         val playbackTarget = selectedPlaybackTarget ?: return@LaunchedEffect
+        val forceReload = playbackSelectionRequest > lastHandledPlaybackSelectionRequest
         handoffSelectedPlaybackTarget(
             controller = MediaControllerPlaybackHandoffController(controller),
             playbackTarget = playbackTarget,
+            forceReload = forceReload,
         )
+        if (forceReload) {
+            lastHandledPlaybackSelectionRequest = playbackSelectionRequest
+        }
     }
     LaunchedEffect(pagerState.currentPage, selectedPlaybackTarget?.video?.id, isLandscape, fullscreenModeName) {
         when {
@@ -226,6 +233,7 @@ fun LookTubeApp(
                         paddingValues = paddingValues,
                         selectedVideo = selectedPlaybackTarget?.video,
                         playbackProgress = selectedPlaybackTarget?.playbackProgress,
+                        playbackSelectionRequest = playbackSelectionRequest,
                         player = playbackController,
                         isFullscreen = isPlayerFullscreen,
                         onFullscreenChanged = { enabled ->
@@ -276,17 +284,23 @@ private fun rememberPlaybackController(): MediaController? {
 internal fun handoffSelectedPlaybackTarget(
     controller: PlaybackHandoffController,
     playbackTarget: SelectedPlaybackTarget,
+    forceReload: Boolean = false,
 ) {
     val video = playbackTarget.video
     val playbackUrl = video.playbackUrl ?: return
-    val isSameMediaItem = controller.currentMediaId == video.id
     val resumePositionMs = playbackTarget.playbackProgress
         ?.takeIf { progress ->
             progress.videoId == video.id && progress.positionSeconds > 0
         }
         ?.positionSeconds
         ?.times(1_000L)
-    if (!isSameMediaItem) {
+    val shouldReplaceMediaItem = shouldReplaceMediaItemForPlaybackTarget(
+        currentMediaId = controller.currentMediaId,
+        targetMediaId = video.id,
+        playbackState = controller.playbackState,
+        forceReload = forceReload,
+    )
+    if (shouldReplaceMediaItem) {
         controller.setMediaItem(
             mediaItem = video.toPlaybackMediaItem(playbackUrl),
             startPositionMs = resumePositionMs,
@@ -301,6 +315,7 @@ internal fun handoffSelectedPlaybackTarget(
 internal interface PlaybackHandoffController {
     val currentMediaId: String?
     val currentPositionMs: Long
+    val playbackState: Int
     var playWhenReady: Boolean
     fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long?)
     fun prepare()
@@ -314,6 +329,8 @@ private class MediaControllerPlaybackHandoffController(
         get() = controller.currentMediaItem?.mediaId
     override val currentPositionMs: Long
         get() = controller.currentPosition
+    override val playbackState: Int
+        get() = controller.playbackState
     override var playWhenReady: Boolean
         get() = controller.playWhenReady
         set(value) {
@@ -335,6 +352,16 @@ private class MediaControllerPlaybackHandoffController(
         controller.seekTo(positionMs)
     }
 }
+
+internal fun shouldReplaceMediaItemForPlaybackTarget(
+    currentMediaId: String?,
+    targetMediaId: String,
+    playbackState: Int,
+    forceReload: Boolean,
+): Boolean = forceReload ||
+    currentMediaId != targetMediaId ||
+    playbackState == androidx.media3.common.Player.STATE_IDLE ||
+    playbackState == androidx.media3.common.Player.STATE_ENDED
 
 private fun VideoSummary.toPlaybackMediaItem(playbackUrl: String): MediaItem =
     MediaItem.Builder()

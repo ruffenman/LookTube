@@ -71,18 +71,22 @@ An implementation that materially changes these choices can still be valid, but 
 - supports grouping by none, show, cast, or topic
 - supports sorting by latest, show, or oldest
 - supports show filtering with the filter tray collapsed by default
+- supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers, progress-aware video cards, and a right-side jump rail that anchors to the episode-list panel for quick section navigation
+- renders grouped section headers, progress-aware video cards, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
+- keeps active show-filter feedback adjacent to the show-filter controls inside the overview panel
 - keeps the primary Auth, Library, and Player surfaces visually consistent through shared card, header, and panel treatments
 - opens the selected video in the Player surface
 
 ### Player surface
 - shows clear empty, unavailable, preparing, and active playback states
+- keeps the player frame pinned above the supporting metadata when a video is selected from Library or a launch intent
 - resumes playback from saved progress when available
 - supports fullscreen entry from the player control or double tap
 - supports landscape-driven fullscreen behavior
 - exposes a cast route button while player controls are visible
+- explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame
 
 ## Functional targets
 ### Feed configuration and persistence
@@ -96,6 +100,7 @@ An implementation that materially changes these choices can still be valid, but 
 - If no successful feed snapshot is available, the app may use seeded fallback data so the shell remains usable and testable.
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
 - The library overview/status/settings panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
+- Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
 
 ### Background refresh and notifications
 - Saving a non-blank feed URL results in one active periodic background refresh registration.
@@ -112,6 +117,8 @@ An implementation that materially changes these choices can still be valid, but 
 - Selecting a playable item hands the resolved playback URL directly to Media3.
 - Playback progress persists locally and is restored on later playback attempts.
 - A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
+- Explicitly selecting the currently selected video again, or returning from a lost cast session, reinitializes playback when the active controller is stale, idle, or ended so the player does not remain on a black screen.
+- When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 
 ### Feed parsing and sync semantics

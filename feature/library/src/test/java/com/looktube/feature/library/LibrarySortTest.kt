@@ -2,6 +2,8 @@ package com.looktube.feature.library
 
 import com.looktube.model.VideoSummary
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LibrarySortTest {
@@ -339,6 +341,104 @@ class LibrarySortTest {
         assertEquals(listOf("Alpha Show", "Zeta Show"), sortedTitles)
     }
 
+    @Test
+    fun displayedSectionsRespectCollapsedKeys() {
+        val sections = listOf(
+            section(
+                title = "Alpha Show",
+                videos = listOf(
+                    video(
+                        id = "alpha-1",
+                        title = "Alpha 1",
+                        seriesTitle = "Alpha Show",
+                        publishedAtEpochMillis = 1_000L,
+                    ),
+                ),
+            ),
+            section(
+                title = "Beta Show",
+                videos = listOf(
+                    video(
+                        id = "beta-1",
+                        title = "Beta 1",
+                        seriesTitle = "Beta Show",
+                        publishedAtEpochMillis = 2_000L,
+                    ),
+                ),
+            ),
+        )
+
+        val displayedSections = buildDisplayedSections(
+            sections = sections,
+            collapsedSectionKeys = setOf("section-Beta Show"),
+        )
+
+        assertTrue(displayedSections.first().isExpanded)
+        assertFalse(displayedSections.last().isExpanded)
+    }
+
+    @Test
+    fun collapsedSectionsDoNotConsumeEpisodeRowsInJumpRailIndexing() {
+        val displayedSections = listOf(
+            DisplayedSeriesSection(
+                section = section(
+                    title = "Alpha Show",
+                    videos = listOf(
+                        video(
+                            id = "alpha-1",
+                            title = "Alpha 1",
+                            seriesTitle = "Alpha Show",
+                            publishedAtEpochMillis = 1_000L,
+                        ),
+                        video(
+                            id = "alpha-2",
+                            title = "Alpha 2",
+                            seriesTitle = "Alpha Show",
+                            publishedAtEpochMillis = 2_000L,
+                        ),
+                    ),
+                ),
+                isExpanded = true,
+            ),
+            DisplayedSeriesSection(
+                section = section(
+                    title = "Beta Show",
+                    videos = listOf(
+                        video(
+                            id = "beta-1",
+                            title = "Beta 1",
+                            seriesTitle = "Beta Show",
+                            publishedAtEpochMillis = 3_000L,
+                        ),
+                        video(
+                            id = "beta-2",
+                            title = "Beta 2",
+                            seriesTitle = "Beta Show",
+                            publishedAtEpochMillis = 4_000L,
+                        ),
+                    ),
+                ),
+                isExpanded = false,
+            ),
+            DisplayedSeriesSection(
+                section = section(
+                    title = "Gamma Show",
+                    videos = listOf(
+                        video(
+                            id = "gamma-1",
+                            title = "Gamma 1",
+                            seriesTitle = "Gamma Show",
+                            publishedAtEpochMillis = 5_000L,
+                        ),
+                    ),
+                ),
+                isExpanded = true,
+            ),
+        )
+
+        assertEquals(listOf(2, 5, 6), buildSectionStartIndices(displayedSections))
+    }
+
     private fun video(
         id: String,
         title: String,
@@ -364,6 +464,7 @@ class LibrarySortTest {
         title: String,
         videos: List<VideoSummary>,
     ) = SeriesSection(
+        key = "section-$title",
         title = title,
         kindLabel = "Show",
         videos = videos,

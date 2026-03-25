@@ -1,5 +1,6 @@
 package com.looktube.feature.library
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -103,6 +104,7 @@ fun LibraryRoute(
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
+    var collapsedSectionKeys by remember(groupingMode.name) { mutableStateOf(emptySet<String>()) }
     val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
@@ -154,18 +156,11 @@ fun LibraryRoute(
             emptyList()
         } else {
             filteredVideos
-                .groupBy { video ->
-                    when (groupingMode) {
-                        HeuristicGroupingMode.None -> video.id
-                        HeuristicGroupingMode.Show -> video.seriesGroupingKey
-                        HeuristicGroupingMode.Cast -> video.castGroupingKey
-                        HeuristicGroupingMode.Topic -> video.topicGroupingKey
-                    }
-                }
-                .values
-                .map { groupedVideos ->
+                .groupBy { video -> video.groupingKey(groupingMode) }
+                .map { (groupKey, groupedVideos) ->
                     val sortedGroupVideos = groupedVideos.sortedWith(videoComparator(sortOption))
                     SeriesSection(
+                        key = "${groupingMode.name}:$groupKey",
                         title = groupedVideos.resolveGroupTitle(groupingMode),
                         kindLabel = groupingMode.sectionLabel,
                         videos = sortedGroupVideos,
@@ -175,22 +170,29 @@ fun LibraryRoute(
                 .sortedWith(sectionComparator(sortOption))
         }
     }
-    val sectionStartIndices = remember(sections) {
-        buildList {
-            var currentIndex = VIDEO_LIST_START_INDEX
-            sections.forEach { section ->
-                add(currentIndex)
-                currentIndex += 1 + section.videos.size
-            }
-        }
+    LaunchedEffect(sections) {
+        val validSectionKeys = sections.mapTo(mutableSetOf(), SeriesSection::key)
+        collapsedSectionKeys = collapsedSectionKeys.filterTo(mutableSetOf()) { it in validSectionKeys }
     }
-    val jumpTargets = remember(sections, sectionStartIndices) {
+    val displayedSections = remember(sections, collapsedSectionKeys) {
+        buildDisplayedSections(
+            sections = sections,
+            collapsedSectionKeys = collapsedSectionKeys,
+        )
+    }
+    val expandedSectionCount = remember(displayedSections) {
+        displayedSections.count(DisplayedSeriesSection::isExpanded)
+    }
+    val sectionStartIndices = remember(displayedSections) {
+        buildSectionStartIndices(displayedSections)
+    }
+    val jumpTargets = remember(displayedSections, sectionStartIndices) {
         buildList {
             add(JumpRailTarget(title = "Top", itemIndex = 0))
-            sections.forEachIndexed { index, section ->
+            displayedSections.forEachIndexed { index, displayedSection ->
                 add(
                     JumpRailTarget(
-                        title = section.title,
+                        title = displayedSection.section.title,
                         itemIndex = sectionStartIndices[index],
                     ),
                 )
@@ -304,6 +306,15 @@ fun LibraryRoute(
                     sortMenuExpanded = sortMenuExpanded,
                     onSortMenuExpandedChanged = { sortMenuExpanded = it },
                     onSortOptionChanged = { sortOption = it },
+                    isGrouped = isGrouped,
+                    groupSectionCount = displayedSections.size,
+                    expandedGroupCount = expandedSectionCount,
+                    onExpandAllGroups = {
+                        collapsedSectionKeys = emptySet()
+                    },
+                    onCollapseAllGroups = {
+                        collapsedSectionKeys = displayedSections.mapTo(mutableSetOf()) { it.section.key }
+                    },
                     seriesFilters = seriesFilters,
                     selectedSeriesFilter = selectedSeriesFilter,
                     onSeriesFilterChanged = { selectedSeriesFilter = it },
@@ -348,24 +359,30 @@ fun LibraryRoute(
                     )
                 }
             } else {
-                sections.forEach { section ->
-                    item(key = "section-${section.title}") {
+                displayedSections.forEach { displayedSection ->
+                    item(key = "section-${displayedSection.section.key}") {
                         SeriesSectionHeader(
-                            section = section,
+                            section = displayedSection.section,
+                            isExpanded = displayedSection.isExpanded,
+                            onToggleExpanded = {
+                                collapsedSectionKeys = collapsedSectionKeys.toggle(displayedSection.section.key)
+                            },
                             textEndPadding = railTextClearance,
                         )
                     }
-                    items(
-                        items = section.videos,
-                        key = { video -> "${section.title}-${video.id}" },
-                    ) { video ->
-                        VideoListCard(
-                            video = video,
-                            progress = playbackProgress[video.id],
-                            dismissDetailsSignal = listState.isScrollInProgress,
-                            textEndPadding = railTextClearance,
-                            modifier = Modifier.clickable { onVideoSelected(video.id) },
-                        )
+                    if (displayedSection.isExpanded) {
+                        items(
+                            items = displayedSection.section.videos,
+                            key = { video -> "${displayedSection.section.key}-${video.id}" },
+                        ) { video ->
+                            VideoListCard(
+                                video = video,
+                                progress = playbackProgress[video.id],
+                                dismissDetailsSignal = listState.isScrollInProgress,
+                                textEndPadding = railTextClearance,
+                                modifier = Modifier.clickable { onVideoSelected(video.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -450,6 +467,11 @@ private fun BrowseControlsPanel(
     sortMenuExpanded: Boolean,
     onSortMenuExpandedChanged: (Boolean) -> Unit,
     onSortOptionChanged: (LibrarySortOption) -> Unit,
+    isGrouped: Boolean,
+    groupSectionCount: Int,
+    expandedGroupCount: Int,
+    onExpandAllGroups: () -> Unit,
+    onCollapseAllGroups: () -> Unit,
     seriesFilters: List<String>,
     selectedSeriesFilter: String,
     onSeriesFilterChanged: (String) -> Unit,
@@ -470,41 +492,6 @@ private fun BrowseControlsPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            if (isSeriesFilterActive) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text(
-                            text = "Show filter active",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        Text(
-                            text = "Showing $filteredVideoCount of $totalVideoCount videos for $selectedSeriesFilter.",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        BrowseControlChipRow(
-                            contentEndPadding = chipRowEndPadding,
-                        ) {
-                            FilterChip(
-                                selected = true,
-                                onClick = { onSeriesFilterChanged(selectedSeriesFilter) },
-                                label = { Text(selectedSeriesFilter) },
-                            )
-                            FilterChip(
-                                selected = false,
-                                onClick = { onSeriesFilterChanged(ALL_SERIES_FILTER) },
-                                label = { Text("Clear filter") },
-                            )
-                        }
-                    }
-                }
-            }
             BrowseControlSection(
                 label = "Group By",
                 contentEndPadding = chipRowEndPadding,
@@ -518,6 +505,25 @@ private fun BrowseControlsPanel(
                     }
                 },
             )
+            if (isGrouped) {
+                BrowseControlSection(
+                    label = "Group visibility",
+                    contentEndPadding = chipRowEndPadding,
+                    supportingText = "$expandedGroupCount of $groupSectionCount groups expanded.",
+                    content = {
+                        FilterChip(
+                            selected = groupSectionCount > 0 && expandedGroupCount == groupSectionCount,
+                            onClick = onExpandAllGroups,
+                            label = { Text("Expand all groups") },
+                        )
+                        FilterChip(
+                            selected = groupSectionCount > 0 && expandedGroupCount == 0,
+                            onClick = onCollapseAllGroups,
+                            label = { Text("Collapse all groups") },
+                        )
+                    },
+                )
+            }
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -605,6 +611,15 @@ private fun BrowseControlsPanel(
                     },
                 )
             }
+            if (isSeriesFilterActive) {
+                ActiveShowFilterPanel(
+                    selectedSeriesFilter = selectedSeriesFilter,
+                    filteredVideoCount = filteredVideoCount,
+                    totalVideoCount = totalVideoCount,
+                    contentEndPadding = chipRowEndPadding,
+                    onSeriesFilterChanged = onSeriesFilterChanged,
+                )
+            }
         }
     }
 }
@@ -613,6 +628,7 @@ private fun BrowseControlsPanel(
 private fun BrowseControlSection(
     label: String,
     contentEndPadding: Dp = 0.dp,
+    supportingText: String? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     Column(
@@ -623,6 +639,13 @@ private fun BrowseControlSection(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        supportingText?.let { text ->
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         BrowseControlChipRow(
             contentEndPadding = contentEndPadding,
             content = content,
@@ -631,10 +654,16 @@ private fun BrowseControlSection(
 }
 
 internal data class SeriesSection(
+    val key: String,
     val title: String,
     val kindLabel: String,
     val videos: List<VideoSummary>,
     val sortAnchor: VideoSummary,
+)
+
+internal data class DisplayedSeriesSection(
+    val section: SeriesSection,
+    val isExpanded: Boolean,
 )
 
 
@@ -648,6 +677,11 @@ private fun LibraryOverviewPanel(
     sortMenuExpanded: Boolean,
     onSortMenuExpandedChanged: (Boolean) -> Unit,
     onSortOptionChanged: (LibrarySortOption) -> Unit,
+    isGrouped: Boolean,
+    groupSectionCount: Int,
+    expandedGroupCount: Int,
+    onExpandAllGroups: () -> Unit,
+    onCollapseAllGroups: () -> Unit,
     seriesFilters: List<String>,
     selectedSeriesFilter: String,
     onSeriesFilterChanged: (String) -> Unit,
@@ -679,6 +713,11 @@ private fun LibraryOverviewPanel(
                 sortMenuExpanded = sortMenuExpanded,
                 onSortMenuExpandedChanged = onSortMenuExpandedChanged,
                 onSortOptionChanged = onSortOptionChanged,
+                isGrouped = isGrouped,
+                groupSectionCount = groupSectionCount,
+                expandedGroupCount = expandedGroupCount,
+                onExpandAllGroups = onExpandAllGroups,
+                onCollapseAllGroups = onCollapseAllGroups,
                 seriesFilters = seriesFilters,
                 selectedSeriesFilter = selectedSeriesFilter,
                 onSeriesFilterChanged = onSeriesFilterChanged,
@@ -818,12 +857,27 @@ private fun formatDuration(seconds: Long): String {
 @Composable
 private fun SeriesSectionHeader(
     section: SeriesSection,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
     textEndPadding: Dp,
 ) {
+    val supportingText = if (isExpanded) {
+        "Tap to collapse ${section.videos.size} ${if (section.videos.size == 1) "episode" else "episodes"} in this ${section.kindLabel.lowercase()}."
+    } else {
+        "Tap to expand this ${section.kindLabel.lowercase()} and show ${section.videos.size} ${if (section.videos.size == 1) "episode" else "episodes"}."
+    }
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onToggleExpanded)
+            .animateContentSize(),
         shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.46f),
+        color = if (isExpanded) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.52f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
+        },
         tonalElevation = 0.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
@@ -856,16 +910,34 @@ private fun SeriesSectionHeader(
                 Spacer(modifier = Modifier.width(12.dp))
                 Surface(
                     shape = RoundedCornerShape(999.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    color = if (isExpanded) {
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f)
+                    },
+                    contentColor = if (isExpanded) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    },
                 ) {
-                    Text(
-                        text = "${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}",
-                        style = MaterialTheme.typography.labelLarge,
+                    Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (isExpanded) "Collapse" else "Expand",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
                 }
             }
+            Text(
+                text = "$supportingText ${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"} total.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -1239,6 +1311,83 @@ private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): S
         .maxWithOrNull(compareBy<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
         ?.key
         ?: first().displaySeriesTitle
+
+private fun VideoSummary.groupingKey(mode: HeuristicGroupingMode): String =
+    when (mode) {
+        HeuristicGroupingMode.None -> id
+        HeuristicGroupingMode.Show -> seriesGroupingKey
+        HeuristicGroupingMode.Cast -> castGroupingKey
+        HeuristicGroupingMode.Topic -> topicGroupingKey
+    }
+
+internal fun buildDisplayedSections(
+    sections: List<SeriesSection>,
+    collapsedSectionKeys: Set<String>,
+): List<DisplayedSeriesSection> = sections.map { section ->
+    DisplayedSeriesSection(
+        section = section,
+        isExpanded = section.key !in collapsedSectionKeys,
+    )
+}
+
+internal fun buildSectionStartIndices(
+    sections: List<DisplayedSeriesSection>,
+): List<Int> = buildList {
+    var currentIndex = VIDEO_LIST_START_INDEX
+    sections.forEach { section ->
+        add(currentIndex)
+        currentIndex += 1 + if (section.isExpanded) section.section.videos.size else 0
+    }
+}
+
+private fun Set<String>.toggle(key: String): Set<String> = if (key in this) {
+    this - key
+} else {
+    this + key
+}
+
+@Composable
+private fun ActiveShowFilterPanel(
+    selectedSeriesFilter: String,
+    filteredVideoCount: Int,
+    totalVideoCount: Int,
+    contentEndPadding: Dp,
+    onSeriesFilterChanged: (String) -> Unit,
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Show filter active",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = "Showing $filteredVideoCount of $totalVideoCount videos for $selectedSeriesFilter.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            BrowseControlChipRow(
+                contentEndPadding = contentEndPadding,
+            ) {
+                FilterChip(
+                    selected = true,
+                    onClick = { onSeriesFilterChanged(selectedSeriesFilter) },
+                    label = { Text(selectedSeriesFilter) },
+                )
+                FilterChip(
+                    selected = false,
+                    onClick = { onSeriesFilterChanged(ALL_SERIES_FILTER) },
+                    label = { Text("Clear filter") },
+                )
+            }
+        }
+    }
+}
 
 private fun LazyListState.approximateScrollFraction(): Float {
     val layoutInfo = layoutInfo

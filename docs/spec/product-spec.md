@@ -27,8 +27,8 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - copied feed URLs are protected at rest
 - the app persists the last successful synced library and saved playback progress
 - Giant Bomb site-content heuristics now live in one shared library so feed-title, grouping, cast, and topic rule changes have a single update point
-- Library combines grouped browsing, sort/filter controls, a scroll-away overview panel above the episode list, rich video cards, and jump navigation
-- Player uses a shared Media3 session/service model with fullscreen and resume support
+- Library combines grouped browsing, collapsible section headers, expand/collapse-all controls, sort/filter controls, a scroll-away overview panel above the episode list, rich video cards, and jump navigation that respects visible section anchors
+- Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, and a top-pinned player surface that keeps video and playback context together
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
@@ -46,8 +46,13 @@ Harden the path from copied feed sync to daily repeat use.
 - browse ergonomics continue improving from device feedback without regressing the grouped-library model
 - the chosen sort mode applies consistently to flat episode lists, grouped section ordering, and episode ordering within each visible group
 - the Library status and settings remain in an overview panel above the episode list, the overview panel can scroll off screen, and the jump rail anchors to the episode-list panel rather than overlapping the overview panel
+- when grouped browsing is enabled, each section header can collapse or expand its own episodes without resetting scroll state, and overview controls expose explicit expand-all and collapse-all actions
+- active show-filter feedback remains adjacent to the show-filter controls so library state is readable from one part of the overview panel
 - library cards expose key per-video metadata and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
+- the Player tab keeps the player frame visible at the top when a video is opened from Library so the active surface stays in view above the supporting metadata
+- when playback is remote, the Player surface clearly explains that video is casting and keeps normal playback controls available instead of presenting an unexplained black frame
+- explicit same-video selections and recovery from cast-session loss restore or reload local playback when needed instead of leaving the player in an idle black-screen state
 - Auth, Library, and Player keep a consistent card/header/panel treatment so the main app surfaces feel visually coherent without changing the existing LookTube design language
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest

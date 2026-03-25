@@ -3,12 +3,13 @@ package com.looktube.feature.player
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.graphics.drawable.GradientDrawable
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import android.widget.FrameLayout
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,32 +18,36 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import androidx.media3.ui.PlayerView
 import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.gms.cast.framework.CastButtonFactory
+import com.google.android.gms.cast.framework.CastContext
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
@@ -54,6 +59,7 @@ fun PlayerRoute(
     paddingValues: PaddingValues,
     selectedVideo: VideoSummary?,
     playbackProgress: PlaybackProgress?,
+    playbackSelectionRequest: Long,
     player: Player?,
     isFullscreen: Boolean,
     onFullscreenChanged: (Boolean) -> Unit,
@@ -97,6 +103,7 @@ fun PlayerRoute(
             statusBody = "This item does not expose a playable stream right now. Try another video or refresh your library from Auth.",
             frameTitle = "No playable stream",
             frameBody = "LookTube found this video in the feed, but the current item does not include a playable URL.",
+            frameAtTop = true,
         )
 
         player == null -> PlayerStatusContent(
@@ -110,64 +117,23 @@ fun PlayerRoute(
             frameBody = playbackProgress?.takeIf { it.durationSeconds > 0 }?.let {
                 "Resume will pick up near ${formatPlaybackTime(it.positionSeconds)}."
             } ?: "Playback controls will appear here in a moment.",
+            frameAtTop = true,
         )
 
         isFullscreen -> FullscreenPlayerSurface(
             player = player,
+            remotePlaybackStatus = rememberRemotePlaybackStatus(player),
             onFullscreenToggle = onFullscreenChanged,
         )
 
-        else -> LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 18.dp),
-            contentPadding = PaddingValues(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            item {
-                LookTubePageHeader(
-                    title = "Player",
-                    subtitle = playbackProgress?.takeIf { it.durationSeconds > 0 }?.let {
-                        "Continue watching ${selectedVideo.displaySeriesTitle} from ${formatPlaybackTime(it.positionSeconds)}."
-                    } ?: "Watch the selected Premium video and keep playback details close at hand.",
-                )
-            }
-            item {
-                LookTubeCard(
-                    title = "Now playing",
-                    body = buildString {
-                        appendLine(selectedVideo.title)
-                        if (selectedVideo.description.isNotBlank()) {
-                            appendLine()
-                            append(selectedVideo.description)
-                        }
-                    },
-                )
-            }
-            item {
-                EmbeddedPlayerSurface(
-                    player = player,
-                    onFullscreenToggle = onFullscreenChanged,
-                )
-            }
-            item {
-                LookTubeCard(
-                    title = "Playback details",
-                    body = buildString {
-                        appendLine("Show: ${selectedVideo.displaySeriesTitle}")
-                        appendLine("Feed category: ${selectedVideo.feedCategory}")
-                        appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
-                        if (playbackProgress != null) {
-                            appendLine("Resume at ${formatPlaybackTime(playbackProgress.positionSeconds)} of ${formatPlaybackTime(playbackProgress.durationSeconds)}.")
-                        } else {
-                            appendLine("No stored resume point yet.")
-                        }
-                        append("Double-tap the video or use the fullscreen button to toggle fullscreen.")
-                    },
-                )
-            }
-        }
+        else -> ActivePlayerContent(
+            paddingValues = paddingValues,
+            selectedVideo = selectedVideo,
+            playbackProgress = playbackProgress,
+            playbackSelectionRequest = playbackSelectionRequest,
+            player = player,
+            onFullscreenChanged = onFullscreenChanged,
+        )
     }
 }
 
@@ -219,6 +185,7 @@ private fun PlayerStatusContent(
     frameBody: String,
     selectedVideo: VideoSummary? = null,
     playbackProgress: PlaybackProgress? = null,
+    frameAtTop: Boolean = false,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -228,6 +195,14 @@ private fun PlayerStatusContent(
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        if (frameAtTop) {
+            item {
+                PlayerFramePlaceholder(
+                    title = frameTitle,
+                    body = frameBody,
+                )
+            }
+        }
         item {
             LookTubePageHeader(
                 title = "Player",
@@ -238,17 +213,24 @@ private fun PlayerStatusContent(
             item {
                 LookTubeCard(
                     title = video.title,
-                    body = video.description.ifBlank {
-                        "From ${video.displaySeriesTitle}."
+                    body = buildString {
+                        appendLine("Show: ${video.displaySeriesTitle}")
+                        appendLine("Feed category: ${video.feedCategory}")
+                        if (video.description.isNotBlank()) {
+                            appendLine()
+                            append(video.description)
+                        }
                     },
                 )
             }
         }
-        item {
-            PlayerFramePlaceholder(
-                title = frameTitle,
-                body = frameBody,
-            )
+        if (!frameAtTop) {
+            item {
+                PlayerFramePlaceholder(
+                    title = frameTitle,
+                    body = frameBody,
+                )
+            }
         }
         item {
             LookTubeCard(
@@ -269,8 +251,86 @@ private fun PlayerStatusContent(
 }
 
 @Composable
+private fun ActivePlayerContent(
+    paddingValues: PaddingValues,
+    selectedVideo: VideoSummary,
+    playbackProgress: PlaybackProgress?,
+    playbackSelectionRequest: Long,
+    player: Player,
+    onFullscreenChanged: (Boolean) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    val remotePlaybackStatus = rememberRemotePlaybackStatus(player)
+
+    LaunchedEffect(selectedVideo.id, playbackSelectionRequest) {
+        listState.scrollToItem(0)
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .padding(horizontal = 16.dp, vertical = 18.dp),
+        contentPadding = PaddingValues(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+    ) {
+        item {
+            EmbeddedPlayerSurface(
+                player = player,
+                remotePlaybackStatus = remotePlaybackStatus,
+                onFullscreenToggle = onFullscreenChanged,
+            )
+        }
+        item {
+            LookTubePageHeader(
+                title = "Player",
+                subtitle = remotePlaybackStatus?.title?.let { "$it. ${remotePlaybackStatus.body}" }
+                    ?: playbackProgress?.takeIf { it.durationSeconds > 0 }?.let {
+                        "Continue watching ${selectedVideo.displaySeriesTitle} from ${formatPlaybackTime(it.positionSeconds)}."
+                    }
+                    ?: "The player stays pinned at the top so video, controls, and details remain in one place.",
+            )
+        }
+        item {
+            LookTubeCard(
+                title = "Now playing",
+                body = buildString {
+                    appendLine(selectedVideo.title)
+                    appendLine()
+                    appendLine("Show: ${selectedVideo.displaySeriesTitle}")
+                    append("Feed category: ${selectedVideo.feedCategory}")
+                    if (selectedVideo.description.isNotBlank()) {
+                        appendLine()
+                        appendLine()
+                        append(selectedVideo.description)
+                    }
+                },
+            )
+        }
+        item {
+            LookTubeCard(
+                title = if (remotePlaybackStatus != null) "Playback handoff" else "Playback details",
+                body = buildString {
+                    appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
+                    playbackProgress?.let { progress ->
+                        appendLine("Resume at ${formatPlaybackTime(progress.positionSeconds)} of ${formatPlaybackTime(progress.durationSeconds)}.")
+                    } ?: appendLine("No stored resume point yet.")
+                    appendLine("Double-tap the video or use the fullscreen button to toggle fullscreen.")
+                    remotePlaybackStatus?.let { status ->
+                        appendLine()
+                        append(status.body)
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmbeddedPlayerSurface(
     player: Player,
+    remotePlaybackStatus: RemotePlaybackStatus?,
     onFullscreenToggle: (Boolean) -> Unit,
 ) {
     PlayerSurface(
@@ -278,7 +338,8 @@ private fun EmbeddedPlayerSurface(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
-        castButtonPadding = PaddingValues(12.dp),
+        castButtonInset = 12.dp,
+        remotePlaybackStatus = remotePlaybackStatus,
         onFullscreenToggle = onFullscreenToggle,
         onDoubleTapToggle = { onFullscreenToggle(true) },
     )
@@ -287,12 +348,14 @@ private fun EmbeddedPlayerSurface(
 @Composable
 private fun FullscreenPlayerSurface(
     player: Player,
+    remotePlaybackStatus: RemotePlaybackStatus?,
     onFullscreenToggle: (Boolean) -> Unit,
 ) {
     PlayerSurface(
         player = player,
         modifier = Modifier.fillMaxSize(),
-        castButtonPadding = PaddingValues(16.dp),
+        castButtonInset = 16.dp,
+        remotePlaybackStatus = remotePlaybackStatus,
         onFullscreenToggle = onFullscreenToggle,
         onDoubleTapToggle = { onFullscreenToggle(false) },
     )
@@ -302,12 +365,17 @@ private fun FullscreenPlayerSurface(
 private fun PlayerSurface(
     player: Player,
     modifier: Modifier,
-    castButtonPadding: PaddingValues,
+    castButtonInset: Dp,
+    remotePlaybackStatus: RemotePlaybackStatus?,
     onFullscreenToggle: (Boolean) -> Unit,
     onDoubleTapToggle: () -> Unit,
 ) {
     val context = LocalContext.current
-    var controllerVisible by remember { mutableStateOf(true) }
+    val density = LocalDensity.current
+    val castButtonInsetPx = with(density) { castButtonInset.roundToPx() }
+    val castButtonSizePx = with(density) { CAST_BUTTON_SIZE.roundToPx() }
+    val castButtonElevationPx = with(density) { CAST_BUTTON_ELEVATION.toPx() }
+    val castButtonContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f).toArgb()
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
     val doubleTapGestureDetector = remember(context, onDoubleTapToggle) {
         GestureDetector(
@@ -322,6 +390,7 @@ private fun PlayerSurface(
             },
         )
     }
+
     DisposableEffect(player, playerView) {
         val hostPlayerView = playerView
         if (hostPlayerView == null) {
@@ -364,10 +433,22 @@ private fun PlayerSurface(
                         playWhenReady = player.playWhenReady,
                         playbackState = player.playbackState,
                     )
+                    syncCastButtonChrome(
+                        insetPx = castButtonInsetPx,
+                        buttonSizePx = castButtonSizePx,
+                        containerColor = castButtonContainerColor,
+                        shadowElevationPx = castButtonElevationPx,
+                    )
                     setControllerVisibilityListener(
                         PlayerView.ControllerVisibilityListener { visibility ->
-                        controllerVisible = visibility == View.VISIBLE
+                            updateCastButtonChromeVisibility(
+                                shouldShowCastButtonChrome(visibility),
+                            )
                         },
+                    )
+                    updateCastButtonChromeVisibility(
+                        shouldShowCastButtonChrome(currentControllerVisibility()),
+                        animate = false,
                     )
                     setFullscreenButtonClickListener { isFullscreen ->
                         onFullscreenToggle(isFullscreen)
@@ -386,10 +467,22 @@ private fun PlayerSurface(
                     playWhenReady = player.playWhenReady,
                     playbackState = player.playbackState,
                 )
+                hostPlayerView.syncCastButtonChrome(
+                    insetPx = castButtonInsetPx,
+                    buttonSizePx = castButtonSizePx,
+                    containerColor = castButtonContainerColor,
+                    shadowElevationPx = castButtonElevationPx,
+                )
                 hostPlayerView.setControllerVisibilityListener(
                     PlayerView.ControllerVisibilityListener { visibility ->
-                        controllerVisible = visibility == View.VISIBLE
+                        hostPlayerView.updateCastButtonChromeVisibility(
+                            shouldShowCastButtonChrome(visibility),
+                        )
                     },
+                )
+                hostPlayerView.updateCastButtonChromeVisibility(
+                    shouldShowCastButtonChrome(hostPlayerView.currentControllerVisibility()),
+                    animate = false,
                 )
                 hostPlayerView.setFullscreenButtonClickListener { isFullscreen ->
                     onFullscreenToggle(isFullscreen)
@@ -400,42 +493,89 @@ private fun PlayerSurface(
                 }
             },
         )
-        AnimatedVisibility(
-            visible = controllerVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(castButtonPadding),
-        ) {
-            CastRouteButton()
+        remotePlaybackStatus?.let { status ->
+            RemotePlaybackOverlay(
+                status = status,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(20.dp),
+            )
         }
     }
 }
 
 @Composable
-private fun CastRouteButton(
+private fun rememberRemotePlaybackStatus(
+    player: Player,
+): RemotePlaybackStatus? {
+    val context = LocalContext.current
+    var status by remember(player, context) {
+        mutableStateOf(player.toRemotePlaybackStatus(context))
+    }
+
+    DisposableEffect(player, context) {
+        val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                status = player.toRemotePlaybackStatus(context)
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
+
+    return status
+}
+
+private fun Player.toRemotePlaybackStatus(context: Context): RemotePlaybackStatus? {
+    if (!isRemotePlayback(deviceInfo)) {
+        return null
+    }
+    val deviceName = runCatching {
+        CastContext.getSharedInstance(context)
+            .sessionManager
+            .currentCastSession
+            ?.castDevice
+            ?.friendlyName
+    }.getOrNull()
+    return RemotePlaybackStatus(
+        title = remotePlaybackTitle(deviceName),
+        body = remotePlaybackBody(
+            isPlaying = isPlaying,
+            playWhenReady = playWhenReady,
+            playbackState = playbackState,
+        ),
+    )
+}
+
+@Composable
+private fun RemotePlaybackOverlay(
+    status: RemotePlaybackStatus,
     modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
     ) {
-        AndroidView(
-            modifier = Modifier.size(48.dp),
-            factory = { viewContext ->
-                MediaRouteButton(viewContext).apply {
-                    contentDescription = "Cast video"
-                    CastButtonFactory.setUpMediaRouteButton(viewContext, this)
-                }
-            },
-            update = { mediaRouteButton ->
-                CastButtonFactory.setUpMediaRouteButton(mediaRouteButton.context, mediaRouteButton)
-            },
-        )
+        Column(
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = status.title,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = status.body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -462,3 +602,111 @@ internal fun shouldKeepScreenOn(
     playWhenReady: Boolean,
     playbackState: Int,
 ): Boolean = isPlaying || (playWhenReady && playbackState == Player.STATE_BUFFERING)
+
+internal fun shouldShowCastButtonChrome(controllerVisibility: Int): Boolean =
+    controllerVisibility == View.VISIBLE
+
+internal fun isRemotePlayback(deviceInfo: DeviceInfo): Boolean =
+    deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+
+internal fun remotePlaybackTitle(deviceName: String?): String =
+    deviceName?.takeIf(String::isNotBlank)?.let { "Casting to $it" } ?: "Casting video"
+
+internal fun remotePlaybackBody(
+    isPlaying: Boolean,
+    playWhenReady: Boolean,
+    playbackState: Int,
+): String = when {
+    playbackState == Player.STATE_BUFFERING -> "LookTube is syncing playback to your cast device."
+    isPlaying -> "Video is playing on your cast device. Use the standard player controls here to pause, resume, or stop casting."
+    playWhenReady -> "LookTube is reconnecting playback on your cast device."
+    else -> "Playback is paused on your cast device. Use the standard player controls here to resume or stop casting."
+}
+
+private fun PlayerView.syncCastButtonChrome(
+    insetPx: Int,
+    buttonSizePx: Int,
+    containerColor: Int,
+    shadowElevationPx: Float,
+) {
+    val overlay = overlayFrameLayout ?: return
+    val castButtonContainer = overlay.findViewWithTag<FrameLayout>(CAST_BUTTON_CONTAINER_TAG)
+        ?: FrameLayout(context).apply {
+            tag = CAST_BUTTON_CONTAINER_TAG
+            addView(
+                MediaRouteButton(context).apply {
+                    tag = CAST_BUTTON_TAG
+                    contentDescription = "Cast video"
+                    layoutParams = FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        Gravity.CENTER,
+                    )
+                    CastButtonFactory.setUpMediaRouteButton(context, this)
+                },
+            )
+            overlay.addView(this)
+        }
+    castButtonContainer.layoutParams = FrameLayout.LayoutParams(
+        buttonSizePx,
+        buttonSizePx,
+        Gravity.TOP or Gravity.END,
+    ).apply {
+        topMargin = insetPx
+        rightMargin = insetPx
+    }
+    castButtonContainer.background = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(containerColor)
+    }
+    castButtonContainer.elevation = shadowElevationPx
+    castButtonContainer.clipToOutline = true
+    castButtonContainer.findViewWithTag<MediaRouteButton>(CAST_BUTTON_TAG)?.let { mediaRouteButton ->
+        CastButtonFactory.setUpMediaRouteButton(mediaRouteButton.context, mediaRouteButton)
+    }
+}
+
+private fun PlayerView.updateCastButtonChromeVisibility(
+    isVisible: Boolean,
+    animate: Boolean = true,
+) {
+    val castButtonContainer = overlayFrameLayout?.findViewWithTag<FrameLayout>(CAST_BUTTON_CONTAINER_TAG)
+        ?: return
+    castButtonContainer.animate().cancel()
+    if (isVisible) {
+        castButtonContainer.visibility = View.VISIBLE
+        if (animate) {
+            castButtonContainer.animate()
+                .alpha(1f)
+                .setDuration(CAST_BUTTON_CHROME_ANIMATION_MS)
+                .start()
+        } else {
+            castButtonContainer.alpha = 1f
+        }
+    } else if (animate) {
+        castButtonContainer.animate()
+            .alpha(0f)
+            .setDuration(CAST_BUTTON_CHROME_ANIMATION_MS)
+            .withEndAction {
+                castButtonContainer.visibility = View.INVISIBLE
+            }
+            .start()
+    } else {
+        castButtonContainer.alpha = 0f
+        castButtonContainer.visibility = View.INVISIBLE
+    }
+}
+
+private fun PlayerView.currentControllerVisibility(): Int =
+    findViewById<View>(androidx.media3.ui.R.id.exo_controller)?.visibility ?: View.VISIBLE
+
+private data class RemotePlaybackStatus(
+    val title: String,
+    val body: String,
+)
+
+private val CAST_BUTTON_SIZE = 48.dp
+private val CAST_BUTTON_ELEVATION = 4.dp
+private const val CAST_BUTTON_CHROME_ANIMATION_MS = 180L
+private const val CAST_BUTTON_CONTAINER_TAG = "looktube.cast_button_container"
+private const val CAST_BUTTON_TAG = "looktube.cast_button"

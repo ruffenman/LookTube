@@ -6,9 +6,11 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.cast.CastPlayer
+import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -20,6 +22,9 @@ class PlaybackService : MediaSessionService() {
     private lateinit var localPlayer: ExoPlayer
     private lateinit var mediaSession: MediaSession
     private var castPlayer: CastPlayer? = null
+    private var lastKnownMediaItem: MediaItem? = null
+    private var lastKnownPositionMs: Long = 0L
+    private var lastKnownPlayWhenReady: Boolean = false
     private val progressHandler = Handler(Looper.getMainLooper())
     private val progressRunnable = object : Runnable {
         override fun run() {
@@ -32,6 +37,7 @@ class PlaybackService : MediaSessionService() {
 
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            capturePlaybackSnapshot(player)
             if (isPlaying) {
                 progressHandler.removeCallbacks(progressRunnable)
                 progressHandler.post(progressRunnable)
@@ -42,11 +48,27 @@ class PlaybackService : MediaSessionService() {
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            capturePlaybackSnapshot(player)
             persistProgress()
         }
 
         override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            capturePlaybackSnapshot(player)
             persistProgress()
+        }
+
+        override fun onEvents(player: Player, events: Player.Events) {
+            capturePlaybackSnapshot(player)
+        }
+    }
+
+    private val castSessionAvailabilityListener = object : SessionAvailabilityListener {
+        override fun onCastSessionAvailable() {
+            transferPlaybackToRemoteSession()
+        }
+
+        override fun onCastSessionUnavailable() {
+            restoreLocalPlaybackFromSnapshot()
         }
     }
 
@@ -59,10 +81,14 @@ class PlaybackService : MediaSessionService() {
             CastPlayer.Builder(this)
                 .setLocalPlayer(localPlayer)
                 .build()
-                .also { castPlayer = it }
+                .also {
+                    castPlayer = it
+                    it.setSessionAvailabilityListener(castSessionAvailabilityListener)
+                }
         }.getOrElse { localPlayer }.apply {
             addListener(playerListener)
         }
+        capturePlaybackSnapshot(player)
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(createSessionActivity())
             .build()
@@ -75,6 +101,7 @@ class PlaybackService : MediaSessionService() {
         persistProgress()
         player.removeListener(playerListener)
         mediaSession.release()
+        castPlayer?.setSessionAvailabilityListener(null)
         castPlayer?.release()
         localPlayer.release()
         super.onDestroy()
@@ -104,6 +131,30 @@ class PlaybackService : MediaSessionService() {
                     durationSeconds = durationMs / 1_000L,
                 ),
             )
+    }
+
+    private fun capturePlaybackSnapshot(player: Player) {
+        player.currentMediaItem?.let { mediaItem ->
+            lastKnownMediaItem = mediaItem
+        }
+        lastKnownPositionMs = player.currentPosition.coerceAtLeast(0L)
+        lastKnownPlayWhenReady = player.playWhenReady
+    }
+
+    private fun transferPlaybackToRemoteSession() {
+        val remotePlayer = castPlayer ?: return
+        capturePlaybackSnapshot(localPlayer)
+        val mediaItem = lastKnownMediaItem ?: localPlayer.currentMediaItem ?: return
+        remotePlayer.setMediaItem(mediaItem, lastKnownPositionMs)
+        remotePlayer.prepare()
+        remotePlayer.playWhenReady = lastKnownPlayWhenReady
+    }
+
+    private fun restoreLocalPlaybackFromSnapshot() {
+        val mediaItem = lastKnownMediaItem ?: return
+        localPlayer.setMediaItem(mediaItem, lastKnownPositionMs)
+        localPlayer.prepare()
+        localPlayer.playWhenReady = lastKnownPlayWhenReady
     }
 
     companion object {

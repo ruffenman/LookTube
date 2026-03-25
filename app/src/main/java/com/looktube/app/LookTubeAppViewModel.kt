@@ -27,6 +27,8 @@ class LookTubeAppViewModel(
     val playbackProgress = repository.playbackProgress
     private val requestedPageState = MutableStateFlow<Int?>(null)
     val requestedPage: StateFlow<Int?> = requestedPageState.asStateFlow()
+    private val playbackSelectionRequestState = MutableStateFlow(0L)
+    val playbackSelectionRequest: StateFlow<Long> = playbackSelectionRequestState.asStateFlow()
 
     val selectedVideo: StateFlow<VideoSummary?> = combine(
         repository.videos,
@@ -114,6 +116,7 @@ class LookTubeAppViewModel(
             ?.takeIf(String::isNotBlank)
             ?.let { videoId ->
                 repository.selectVideo(videoId)
+                notePlaybackSelectionRequest()
                 requestedPageState.value = LookTubeLaunchContract.PLAYER_PAGE_INDEX
                 return
             }
@@ -132,6 +135,11 @@ class LookTubeAppViewModel(
 
     fun selectVideo(videoId: String) {
         repository.selectVideo(videoId)
+        notePlaybackSelectionRequest()
+    }
+
+    private fun notePlaybackSelectionRequest() {
+        playbackSelectionRequestState.value = playbackSelectionRequestState.value + 1L
     }
 
     companion object {
@@ -144,7 +152,6 @@ class LookTubeAppViewModel(
             }
     }
 }
-
 data class SelectedPlaybackTarget(
     val video: VideoSummary,
     val playbackProgress: PlaybackProgress?,

@@ -22,10 +22,13 @@ Its central promise is deliberately narrow:
 - can clear synced data while preserving the saved feed URL
 ### Library
 - combines status, grouping, sorting, filtering, and jump navigation in one browse surface
+- grouped headers can collapse or expand independently, with overview controls for expanding or collapsing all groups
 - should remain usable and informative even before a successful live sync
 ### Player
 - must handle empty, unavailable, preparing, and active playback states clearly
+- keeps the player frame above the supporting metadata when a video is selected
 - supports resume, fullscreen, and cast routing
+- explains remote playback on the player surface and should recover local playback cleanly after cast-session loss or same-video reselection
 ## External integration stance
 The copied feed URL is the validated access path.
 Future implementations should not assume a browser session, cookies, or a secondary private API unless Giant Bomb exposes an official supported path.
