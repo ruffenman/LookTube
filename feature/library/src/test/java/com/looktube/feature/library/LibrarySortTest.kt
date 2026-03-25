@@ -118,6 +118,66 @@ class LibrarySortTest {
     }
 
     @Test
+    fun latestSortPlacesUndatedVideosAfterDatedVideos() {
+        val videos = listOf(
+            video(
+                id = "undated",
+                title = "Undated Episode",
+                seriesTitle = "Alpha Show",
+                publishedAtEpochMillis = null,
+            ),
+            video(
+                id = "newest",
+                title = "Newest Episode",
+                seriesTitle = "Beta Show",
+                publishedAtEpochMillis = 3_000L,
+            ),
+            video(
+                id = "older",
+                title = "Older Episode",
+                seriesTitle = "Gamma Show",
+                publishedAtEpochMillis = 1_000L,
+            ),
+        )
+
+        val sortedIds = videos.sortedWith(videoComparator(LibrarySortOption.Latest)).map(VideoSummary::id)
+
+        assertEquals(listOf("newest", "older", "undated"), sortedIds)
+    }
+
+    @Test
+    fun latestSectionSortPlacesUndatedGroupsAfterDatedGroups() {
+        val datedSection = section(
+            title = "Dated Show",
+            videos = listOf(
+                video(
+                    id = "dated-newest",
+                    title = "Newest",
+                    seriesTitle = "Dated Show",
+                    publishedAtEpochMillis = 3_000L,
+                ),
+            ),
+        )
+        val undatedSection = section(
+            title = "Undated Show",
+            videos = listOf(
+                video(
+                    id = "undated-only",
+                    title = "Only Episode",
+                    seriesTitle = "Undated Show",
+                    publishedAtEpochMillis = null,
+                ),
+            ),
+        )
+
+        val sortedTitles = listOf(undatedSection, datedSection)
+            .sortedWith(sectionComparator(LibrarySortOption.Latest))
+            .map(SeriesSection::title)
+
+        assertEquals(listOf("Dated Show", "Undated Show"), sortedTitles)
+    }
+
+    @Test
     fun showSectionSortUsesAlphabeticalGroupsAndNewestEpisodesFirstWithinEachGroup() {
         val alphaNewest = video(
             id = "alpha-newest",
@@ -192,6 +252,66 @@ class LibrarySortTest {
     }
 
     @Test
+    fun oldestSortPlacesUndatedVideosAfterDatedVideos() {
+        val videos = listOf(
+            video(
+                id = "undated",
+                title = "Undated Episode",
+                seriesTitle = "Alpha Show",
+                publishedAtEpochMillis = null,
+            ),
+            video(
+                id = "oldest",
+                title = "Oldest Episode",
+                seriesTitle = "Beta Show",
+                publishedAtEpochMillis = 1_000L,
+            ),
+            video(
+                id = "newer",
+                title = "Newer Episode",
+                seriesTitle = "Gamma Show",
+                publishedAtEpochMillis = 3_000L,
+            ),
+        )
+
+        val sortedIds = videos.sortedWith(videoComparator(LibrarySortOption.Oldest)).map(VideoSummary::id)
+
+        assertEquals(listOf("oldest", "newer", "undated"), sortedIds)
+    }
+
+    @Test
+    fun oldestSectionSortPlacesUndatedGroupsAfterDatedGroups() {
+        val datedSection = section(
+            title = "Dated Show",
+            videos = listOf(
+                video(
+                    id = "dated-oldest",
+                    title = "Oldest",
+                    seriesTitle = "Dated Show",
+                    publishedAtEpochMillis = 1_000L,
+                ),
+            ),
+        )
+        val undatedSection = section(
+            title = "Undated Show",
+            videos = listOf(
+                video(
+                    id = "undated-only",
+                    title = "Only Episode",
+                    seriesTitle = "Undated Show",
+                    publishedAtEpochMillis = null,
+                ),
+            ),
+        )
+
+        val sortedTitles = listOf(undatedSection, datedSection)
+            .sortedWith(sectionComparator(LibrarySortOption.Oldest))
+            .map(SeriesSection::title)
+
+        assertEquals(listOf("Dated Show", "Undated Show"), sortedTitles)
+    }
+
+    @Test
     fun oldestSectionSortBreaksTimestampTiesBySectionTitleInsteadOfEpisodeTitle() {
         val zetaSection = section(
             title = "Zeta Show",
@@ -223,7 +343,7 @@ class LibrarySortTest {
         id: String,
         title: String,
         seriesTitle: String,
-        publishedAtEpochMillis: Long,
+        publishedAtEpochMillis: Long?,
     ) = VideoSummary(
         id = id,
         title = title,

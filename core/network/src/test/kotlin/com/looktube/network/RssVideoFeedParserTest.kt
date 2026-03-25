@@ -177,4 +177,31 @@ class RssVideoFeedParserTest {
             videos.single().publishedAtEpochMillis,
         )
     }
+
+    @Test
+    fun parsesPstPubDateFromRealFeedShape() {
+        val fixture = """
+            <rss version="2.0">
+                <channel>
+                    <item>
+                        <guid>pst-1</guid>
+                        <title>Game Mess Mornings 3/23/26</title>
+                        <description>Real-feed timezone regression coverage.</description>
+                        <category>Premium</category>
+                        <pubDate>Mon, 23 Mar 2026 10:24:59 PST</pubDate>
+                        <enclosure url="https://video.example.com/pst-1.mp4" />
+                    </item>
+                </channel>
+            </rss>
+        """.trimIndent()
+
+        val videos = parser.parse(fixture)
+
+        assertEquals(1, videos.size)
+        assertEquals("Game Mess Mornings", videos.single().seriesTitle)
+        assertEquals(
+            Instant.parse("2026-03-23T18:24:59Z").toEpochMilli(),
+            videos.single().publishedAtEpochMillis,
+        )
+    }
 }

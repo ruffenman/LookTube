@@ -230,7 +230,7 @@ private fun String.extractTopicLabel(): String? {
         .joinToString(" ") { part -> part.replaceFirstChar(Char::uppercaseChar) }
 }
 
-private val TITLE_PREFIX_SEPARATORS = listOf(": ", " - ", " — ", " #")
+private val TITLE_PREFIX_SEPARATORS = listOf(": ", " - ", " — ", " | ", " #")
 
 private val KNOWN_SHOW_TITLE_PATTERNS = listOf(
     Regex("""^\d{3,4}\s*:\s+.+$""") to "Giant Bombcast",

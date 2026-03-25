@@ -5,6 +5,7 @@ import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
 import com.looktube.model.VideoSummary
+import com.looktube.network.RssVideoFeedParser
 import com.looktube.network.VideoFeedRequest
 import com.looktube.network.VideoFeedService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -136,6 +137,51 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals("premium-quick-look-1", repository.videos.value.first().id)
         assertTrue(repository.librarySyncState.value.message.contains("Saved feed URL"))
     }
+
+    @Test
+    fun refreshStoresParsedPublishedDatesFromRealFeedShape() = runTest {
+        val store = FakeFeedConfigurationStore()
+        val syncedLibraryStore = FakeSyncedLibraryStore()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = store,
+            syncedLibraryStore = syncedLibraryStore,
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoFeedService = ParserBackedVideoFeedService(
+                """
+                    <rss version="2.0">
+                        <channel>
+                            <item>
+                                <guid>video-newest</guid>
+                                <title>Game Mess Mornings 3/23/26</title>
+                                <description>Newest item.</description>
+                                <category>Premium</category>
+                                <pubDate>Mon, 23 Mar 2026 10:24:59 PST</pubDate>
+                                <enclosure url="https://video.example.com/video-newest.mp4" />
+                            </item>
+                            <item>
+                                <guid>video-older</guid>
+                                <title>Game Mess Mornings 3/20/26</title>
+                                <description>Older item.</description>
+                                <category>Premium</category>
+                                <pubDate>Fri, 20 Mar 2026 08:00:00 PST</pubDate>
+                                <enclosure url="https://video.example.com/video-older.mp4" />
+                            </item>
+                        </channel>
+                    </rss>
+                """.trimIndent(),
+            ),
+        )
+
+        repository.bootstrap()
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.signInToPremiumFeed()
+
+        val savedSnapshot = syncedLibraryStore.persistedSnapshot.value
+
+        assertEquals(SyncPhase.Success, repository.librarySyncState.value.phase)
+        assertEquals(2, savedSnapshot?.videos?.size)
+        assertTrue(savedSnapshot?.videos?.all { it.publishedAtEpochMillis != null } == true)
+    }
 }
 
 private class FakeLibraryRefreshScheduler : LibraryRefreshScheduler {
@@ -201,4 +247,12 @@ private class RecordingVideoFeedService : VideoFeedService {
         lastRequest = request
         return FakeVideoFeedService().loadVideos(request)
     }
+}
+
+private class ParserBackedVideoFeedService(
+    private val xml: String,
+) : VideoFeedService {
+    private val parser = RssVideoFeedParser()
+
+    override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> = parser.parse(xml)
 }

@@ -10,6 +10,7 @@ class GiantBombContentHeuristicsTest {
     fun derivesCanonicalShowTitlesFromNumberedEpisodes() {
         assertEquals("Giant Bombcast", "Giant Bombcast 901: Ranking the Best Sandwiches in Games".toHeuristicShowTitleOrNull())
         assertEquals("Game Mess Mornings", "Game Mess Mornings 3/15/2026".toHeuristicShowTitleOrNull())
+        assertEquals("9 Lives of Mister Mistofelees", "9 Lives of Mister Mistofelees | 04".toHeuristicShowTitleOrNull())
         assertEquals("Voicemail Dump Truck", "183 BONUS DUMP".toHeuristicShowTitleOrNull())
         assertEquals("Voicemail Dump Truck", "177 | Shot O'Clock.mp3".toHeuristicShowTitleOrNull())
         assertEquals("Unprofessional Fridays", "UPF 03/15/2026".toHeuristicShowTitleOrNull())

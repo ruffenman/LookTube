@@ -4,8 +4,12 @@ import com.looktube.heuristics.inferSeriesTitleFromFeedMetadata
 
 import com.looktube.model.VideoSummary
 import java.io.StringReader
+import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
 import org.xml.sax.InputSource
@@ -84,18 +88,29 @@ private fun Element.readAttribute(tagName: String, attributeName: String): Strin
 
 
 private fun String.toEpochMillisOrNull(): Long? =
-    runCatching {
-        ZonedDateTime.parse(this, DateTimeFormatter.RFC_1123_DATE_TIME)
-            .toInstant()
-            .toEpochMilli()
-    }.recoverCatching {
-        java.time.OffsetDateTime.parse(this)
-            .toInstant()
-            .toEpochMilli()
-    }.recoverCatching {
-        java.time.Instant.parse(this)
-            .toEpochMilli()
-    }.getOrNull()
+    RSS_DATE_FORMATTERS.firstNotNullOfOrNull { formatter ->
+        runCatching {
+            ZonedDateTime.parse(this, formatter)
+                .toInstant()
+                .toEpochMilli()
+        }.getOrNull()
+    }
+        ?: RSS_DATE_PATTERNS.firstNotNullOfOrNull { pattern ->
+            runCatching {
+                SimpleDateFormat(pattern, Locale.US)
+                    .parse(this)
+                    ?.time
+            }.getOrNull()
+        }
+        ?: runCatching {
+            OffsetDateTime.parse(this)
+                .toInstant()
+                .toEpochMilli()
+        }.getOrNull()
+        ?: runCatching {
+            Instant.parse(this)
+                .toEpochMilli()
+        }.getOrNull()
 
 private fun String.toDurationSecondsOrNull(): Long? {
     val trimmed = trim()
@@ -111,3 +126,12 @@ private fun String.toDurationSecondsOrNull(): Long? {
     }
     return parts.fold(0L) { total, part -> total * 60 + part }
 }
+
+private val RSS_DATE_FORMATTERS = listOf(
+    DateTimeFormatter.RFC_1123_DATE_TIME,
+)
+
+private val RSS_DATE_PATTERNS = listOf(
+    "EEE, dd MMM yyyy HH:mm:ss z",
+    "EEE, d MMM yyyy HH:mm:ss z",
+)
