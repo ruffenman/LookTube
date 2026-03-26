@@ -4,11 +4,14 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.drawable.GradientDrawable
+import android.text.TextUtils
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +21,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -46,9 +47,8 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
+import androidx.media3.cast.MediaRouteButtonViewProvider
 import androidx.media3.ui.PlayerView
-import androidx.mediarouter.app.MediaRouteButton
-import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.cast.framework.CastContext
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
@@ -314,11 +314,10 @@ private fun ActivePlayerContent(
             LookTubeCard(
                 title = if (remotePlaybackStatus != null) "Playback handoff" else "Playback details",
                 body = buildString {
-                    appendLine("Premium: ${if (selectedVideo.isPremium) "Yes" else "No"}")
                     playbackProgress?.let { progress ->
                         appendLine("Resume at ${formatPlaybackTime(progress.positionSeconds)} of ${formatPlaybackTime(progress.durationSeconds)}.")
                     } ?: appendLine("No stored resume point yet.")
-                    appendLine("Double-tap the video or use the fullscreen button to toggle fullscreen.")
+                    appendLine("Double-tap the left or right side of the video to skip backward or forward 10 seconds.")
                     remotePlaybackStatus?.let { status ->
                         appendLine()
                         append(status.detailsBody)
@@ -340,10 +339,9 @@ private fun EmbeddedPlayerSurface(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
-        castButtonInset = 12.dp,
+        overlayInset = 12.dp,
         remotePlaybackStatus = remotePlaybackStatus,
         onFullscreenToggle = onFullscreenToggle,
-        onDoubleTapToggle = { onFullscreenToggle(true) },
     )
 }
 
@@ -356,10 +354,9 @@ private fun FullscreenPlayerSurface(
     PlayerSurface(
         player = player,
         modifier = Modifier.fillMaxSize(),
-        castButtonInset = 16.dp,
+        overlayInset = 16.dp,
         remotePlaybackStatus = remotePlaybackStatus,
         onFullscreenToggle = onFullscreenToggle,
-        onDoubleTapToggle = { onFullscreenToggle(false) },
     )
 }
 
@@ -367,27 +364,41 @@ private fun FullscreenPlayerSurface(
 private fun PlayerSurface(
     player: Player,
     modifier: Modifier,
-    castButtonInset: Dp,
+    overlayInset: Dp,
     remotePlaybackStatus: RemotePlaybackStatus?,
     onFullscreenToggle: (Boolean) -> Unit,
-    onDoubleTapToggle: () -> Unit,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val castButtonInsetPx = with(density) { castButtonInset.roundToPx() }
-    val castButtonSizePx = with(density) { CAST_BUTTON_SIZE.roundToPx() }
-    val castButtonElevationPx = with(density) { CAST_BUTTON_ELEVATION.toPx() }
-    val castButtonContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f).toArgb()
+    val overlayInsetPx = with(density) { overlayInset.roundToPx() }
+    val remoteBadgeCornerRadiusPx = with(density) { REMOTE_PLAYBACK_BADGE_CORNER_RADIUS.toPx() }
+    val remoteBadgeStrokeWidthPx = with(density) { REMOTE_PLAYBACK_BADGE_STROKE_WIDTH.roundToPx() }
+    val remoteBadgePaddingHorizontalPx = with(density) { REMOTE_PLAYBACK_BADGE_HORIZONTAL_PADDING.roundToPx() }
+    val remoteBadgePaddingVerticalPx = with(density) { REMOTE_PLAYBACK_BADGE_VERTICAL_PADDING.roundToPx() }
+    val remoteBadgeMaxWidthPx = with(density) { REMOTE_PLAYBACK_BADGE_MAX_WIDTH.roundToPx() }
+    val remoteBadgeBackgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f).toArgb()
+    val remoteBadgeOutlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f).toArgb()
+    val remoteBadgeTitleColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    val remoteBadgeBodyColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
-    val doubleTapGestureDetector = remember(context, onDoubleTapToggle) {
+    val doubleTapGestureDetector = remember(context, player) {
         GestureDetector(
             context,
             object : GestureDetector.SimpleOnGestureListener() {
                 override fun onDown(event: MotionEvent): Boolean = true
 
                 override fun onDoubleTap(event: MotionEvent): Boolean {
-                    onDoubleTapToggle()
-                    return true
+                    return when (doubleTapSeekDirection(event.x, playerView?.width ?: 0)) {
+                        DoubleTapSeekDirection.Backward -> {
+                            player.seekBack()
+                            true
+                        }
+                        DoubleTapSeekDirection.Forward -> {
+                            player.seekForward()
+                            true
+                        }
+                        null -> false
+                    }
                 }
             },
         )
@@ -419,92 +430,74 @@ private fun PlayerSurface(
             }
         }
     }
-
-    Box(modifier = modifier) {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    playerView = this
-                    useController = true
-                    setControllerAutoShow(true)
-                    setControllerHideOnTouch(true)
-                    this.player = player
-                    keepScreenOn = shouldKeepScreenOn(
-                        isPlaying = player.isPlaying,
-                        playWhenReady = player.playWhenReady,
-                        playbackState = player.playbackState,
-                    )
-                    syncCastButtonChrome(
-                        insetPx = castButtonInsetPx,
-                        buttonSizePx = castButtonSizePx,
-                        containerColor = castButtonContainerColor,
-                        shadowElevationPx = castButtonElevationPx,
-                    )
-                    setControllerVisibilityListener(
-                        PlayerView.ControllerVisibilityListener { visibility ->
-                            updateCastButtonChromeVisibility(
-                                shouldShowCastButtonChrome(visibility),
-                            )
-                        },
-                    )
-                    updateCastButtonChromeVisibility(
-                        shouldShowCastButtonChrome(currentControllerVisibility()),
-                        animate = false,
-                    )
-                    setFullscreenButtonClickListener { isFullscreen ->
-                        onFullscreenToggle(isFullscreen)
-                    }
-                    setOnTouchListener { _, motionEvent ->
-                        doubleTapGestureDetector.onTouchEvent(motionEvent)
-                        false
-                    }
-                }
-            },
-            update = { hostPlayerView ->
-                playerView = hostPlayerView
-                hostPlayerView.player = player
-                hostPlayerView.keepScreenOn = shouldKeepScreenOn(
+    AndroidView(
+        modifier = modifier,
+        factory = { viewContext ->
+            PlayerView(viewContext).apply {
+                playerView = this
+                useController = true
+                setControllerAutoShow(true)
+                setControllerHideOnTouch(true)
+                setMediaRouteButtonViewProvider(MediaRouteButtonViewProvider())
+                this.player = player
+                keepScreenOn = shouldKeepScreenOn(
                     isPlaying = player.isPlaying,
                     playWhenReady = player.playWhenReady,
                     playbackState = player.playbackState,
                 )
-                hostPlayerView.syncCastButtonChrome(
-                    insetPx = castButtonInsetPx,
-                    buttonSizePx = castButtonSizePx,
-                    containerColor = castButtonContainerColor,
-                    shadowElevationPx = castButtonElevationPx,
+                syncRemotePlaybackBadge(
+                    status = remotePlaybackStatus,
+                    insetPx = overlayInsetPx,
+                    maxWidthPx = remoteBadgeMaxWidthPx,
+                    backgroundColor = remoteBadgeBackgroundColor,
+                    outlineColor = remoteBadgeOutlineColor,
+                    titleColor = remoteBadgeTitleColor,
+                    bodyColor = remoteBadgeBodyColor,
+                    cornerRadiusPx = remoteBadgeCornerRadiusPx,
+                    strokeWidthPx = remoteBadgeStrokeWidthPx,
+                    horizontalPaddingPx = remoteBadgePaddingHorizontalPx,
+                    verticalPaddingPx = remoteBadgePaddingVerticalPx,
                 )
-                hostPlayerView.setControllerVisibilityListener(
-                    PlayerView.ControllerVisibilityListener { visibility ->
-                        hostPlayerView.updateCastButtonChromeVisibility(
-                            shouldShowCastButtonChrome(visibility),
-                        )
-                    },
-                )
-                hostPlayerView.updateCastButtonChromeVisibility(
-                    shouldShowCastButtonChrome(hostPlayerView.currentControllerVisibility()),
-                    animate = false,
-                )
-                hostPlayerView.setFullscreenButtonClickListener { isFullscreen ->
+                setFullscreenButtonClickListener { isFullscreen ->
                     onFullscreenToggle(isFullscreen)
                 }
-                hostPlayerView.setOnTouchListener { _, motionEvent ->
+                setOnTouchListener { _, motionEvent ->
                     doubleTapGestureDetector.onTouchEvent(motionEvent)
                     false
                 }
-            },
-        )
-        remotePlaybackStatus?.let { status ->
-            RemotePlaybackBadge(
-                status = status,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = castButtonInset, top = castButtonInset)
-                    .widthIn(max = 240.dp),
+            }
+        },
+        update = { hostPlayerView ->
+            playerView = hostPlayerView
+            hostPlayerView.player = player
+            hostPlayerView.keepScreenOn = shouldKeepScreenOn(
+                isPlaying = player.isPlaying,
+                playWhenReady = player.playWhenReady,
+                playbackState = player.playbackState,
             )
-        }
-    }
+            hostPlayerView.setMediaRouteButtonViewProvider(MediaRouteButtonViewProvider())
+            hostPlayerView.syncRemotePlaybackBadge(
+                status = remotePlaybackStatus,
+                insetPx = overlayInsetPx,
+                maxWidthPx = remoteBadgeMaxWidthPx,
+                backgroundColor = remoteBadgeBackgroundColor,
+                outlineColor = remoteBadgeOutlineColor,
+                titleColor = remoteBadgeTitleColor,
+                bodyColor = remoteBadgeBodyColor,
+                cornerRadiusPx = remoteBadgeCornerRadiusPx,
+                strokeWidthPx = remoteBadgeStrokeWidthPx,
+                horizontalPaddingPx = remoteBadgePaddingHorizontalPx,
+                verticalPaddingPx = remoteBadgePaddingVerticalPx,
+            )
+            hostPlayerView.setFullscreenButtonClickListener { isFullscreen ->
+                onFullscreenToggle(isFullscreen)
+            }
+            hostPlayerView.setOnTouchListener { _, motionEvent ->
+                doubleTapGestureDetector.onTouchEvent(motionEvent)
+                false
+            }
+        },
+    )
 }
 
 @Composable
@@ -557,38 +550,6 @@ private fun Player.toRemotePlaybackStatus(context: Context): RemotePlaybackStatu
     )
 }
 
-@Composable
-private fun RemotePlaybackBadge(
-    status: RemotePlaybackStatus,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        tonalElevation = 3.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            Text(
-                text = status.title,
-                style = MaterialTheme.typography.labelLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = status.badgeBody,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
 
 @Composable
 private fun rememberActivity(context: Context): Activity? = when (context) {
@@ -614,11 +575,23 @@ internal fun shouldKeepScreenOn(
     playbackState: Int,
 ): Boolean = isPlaying || (playWhenReady && playbackState == Player.STATE_BUFFERING)
 
-internal fun shouldShowCastButtonChrome(controllerVisibility: Int): Boolean =
-    controllerVisibility == View.VISIBLE
 
 internal fun isRemotePlayback(deviceInfo: DeviceInfo): Boolean =
     deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+
+internal enum class DoubleTapSeekDirection {
+    Backward,
+    Forward,
+}
+
+internal fun doubleTapSeekDirection(
+    tapX: Float,
+    surfaceWidthPx: Int,
+): DoubleTapSeekDirection? = when {
+    surfaceWidthPx <= 0 -> null
+    tapX < surfaceWidthPx / 2f -> DoubleTapSeekDirection.Backward
+    else -> DoubleTapSeekDirection.Forward
+}
 
 internal fun remotePlaybackTitle(deviceName: String?): String =
     deviceName?.takeIf(String::isNotBlank)?.let { "Casting to $it" } ?: "Casting video"
@@ -644,82 +617,84 @@ internal fun remotePlaybackBody(
     else -> "Playback is paused on your cast device. Use the standard player controls here to resume or stop casting."
 }
 
-private fun PlayerView.syncCastButtonChrome(
+private fun PlayerView.syncRemotePlaybackBadge(
+    status: RemotePlaybackStatus?,
     insetPx: Int,
-    buttonSizePx: Int,
-    containerColor: Int,
-    shadowElevationPx: Float,
+    maxWidthPx: Int,
+    backgroundColor: Int,
+    outlineColor: Int,
+    titleColor: Int,
+    bodyColor: Int,
+    cornerRadiusPx: Float,
+    strokeWidthPx: Int,
+    horizontalPaddingPx: Int,
+    verticalPaddingPx: Int,
 ) {
     val overlay = overlayFrameLayout ?: return
-    val castButtonContainer = overlay.findViewWithTag<FrameLayout>(CAST_BUTTON_CONTAINER_TAG)
-        ?: FrameLayout(context).apply {
-            tag = CAST_BUTTON_CONTAINER_TAG
+    val badgeContainer = overlay.findViewWithTag<LinearLayout>(REMOTE_PLAYBACK_BADGE_CONTAINER_TAG)
+        ?: LinearLayout(context).apply {
+            tag = REMOTE_PLAYBACK_BADGE_CONTAINER_TAG
+            orientation = LinearLayout.VERTICAL
+            isClickable = false
+            isFocusable = false
+            isEnabled = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            setOnTouchListener { _, _ -> false }
             addView(
-                MediaRouteButton(context).apply {
-                    tag = CAST_BUTTON_TAG
-                    contentDescription = "Cast video"
-                    layoutParams = FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        Gravity.CENTER,
-                    )
-                    CastButtonFactory.setUpMediaRouteButton(context, this)
+                TextView(context).apply {
+                    tag = REMOTE_PLAYBACK_BADGE_TITLE_TAG
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    textSize = 13f
+                },
+            )
+            addView(
+                TextView(context).apply {
+                    tag = REMOTE_PLAYBACK_BADGE_BODY_TAG
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    textSize = 12f
                 },
             )
             overlay.addView(this)
         }
-    castButtonContainer.layoutParams = FrameLayout.LayoutParams(
-        buttonSizePx,
-        buttonSizePx,
-        Gravity.TOP or Gravity.END,
+    if (status == null) {
+        badgeContainer.visibility = View.GONE
+        return
+    }
+    badgeContainer.layoutParams = FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.WRAP_CONTENT,
+        FrameLayout.LayoutParams.WRAP_CONTENT,
+        Gravity.TOP or Gravity.START,
     ).apply {
         topMargin = insetPx
-        rightMargin = insetPx
+        leftMargin = insetPx
     }
-    castButtonContainer.background = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
-        setColor(containerColor)
+    badgeContainer.setPadding(
+        horizontalPaddingPx,
+        verticalPaddingPx,
+        horizontalPaddingPx,
+        verticalPaddingPx,
+    )
+    badgeContainer.background = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = cornerRadiusPx
+        setColor(backgroundColor)
+        setStroke(strokeWidthPx, outlineColor)
     }
-    castButtonContainer.elevation = shadowElevationPx
-    castButtonContainer.clipToOutline = true
-    castButtonContainer.findViewWithTag<MediaRouteButton>(CAST_BUTTON_TAG)?.let { mediaRouteButton ->
-        CastButtonFactory.setUpMediaRouteButton(mediaRouteButton.context, mediaRouteButton)
+    badgeContainer.visibility = View.VISIBLE
+    badgeContainer.alpha = 1f
+    badgeContainer.findViewWithTag<TextView>(REMOTE_PLAYBACK_BADGE_TITLE_TAG)?.apply {
+        text = status.title
+        setTextColor(titleColor)
+        maxWidth = maxWidthPx
     }
-}
-
-private fun PlayerView.updateCastButtonChromeVisibility(
-    isVisible: Boolean,
-    animate: Boolean = true,
-) {
-    val castButtonContainer = overlayFrameLayout?.findViewWithTag<FrameLayout>(CAST_BUTTON_CONTAINER_TAG)
-        ?: return
-    castButtonContainer.animate().cancel()
-    if (isVisible) {
-        castButtonContainer.visibility = View.VISIBLE
-        if (animate) {
-            castButtonContainer.animate()
-                .alpha(1f)
-                .setDuration(CAST_BUTTON_CHROME_ANIMATION_MS)
-                .start()
-        } else {
-            castButtonContainer.alpha = 1f
-        }
-    } else if (animate) {
-        castButtonContainer.animate()
-            .alpha(0f)
-            .setDuration(CAST_BUTTON_CHROME_ANIMATION_MS)
-            .withEndAction {
-                castButtonContainer.visibility = View.INVISIBLE
-            }
-            .start()
-    } else {
-        castButtonContainer.alpha = 0f
-        castButtonContainer.visibility = View.INVISIBLE
+    badgeContainer.findViewWithTag<TextView>(REMOTE_PLAYBACK_BADGE_BODY_TAG)?.apply {
+        text = status.badgeBody
+        setTextColor(bodyColor)
+        maxWidth = maxWidthPx
     }
 }
-
-private fun PlayerView.currentControllerVisibility(): Int =
-    findViewById<View>(androidx.media3.ui.R.id.exo_controller)?.visibility ?: View.VISIBLE
 
 private data class RemotePlaybackStatus(
     val title: String,
@@ -727,8 +702,11 @@ private data class RemotePlaybackStatus(
     val detailsBody: String,
 )
 
-private val CAST_BUTTON_SIZE = 48.dp
-private val CAST_BUTTON_ELEVATION = 4.dp
-private const val CAST_BUTTON_CHROME_ANIMATION_MS = 180L
-private const val CAST_BUTTON_CONTAINER_TAG = "looktube.cast_button_container"
-private const val CAST_BUTTON_TAG = "looktube.cast_button"
+private val REMOTE_PLAYBACK_BADGE_CORNER_RADIUS = 18.dp
+private val REMOTE_PLAYBACK_BADGE_STROKE_WIDTH = 1.dp
+private val REMOTE_PLAYBACK_BADGE_HORIZONTAL_PADDING = 14.dp
+private val REMOTE_PLAYBACK_BADGE_VERTICAL_PADDING = 10.dp
+private val REMOTE_PLAYBACK_BADGE_MAX_WIDTH = 240.dp
+private const val REMOTE_PLAYBACK_BADGE_CONTAINER_TAG = "looktube.remote_playback_badge"
+private const val REMOTE_PLAYBACK_BADGE_TITLE_TAG = "looktube.remote_playback_badge_title"
+private const val REMOTE_PLAYBACK_BADGE_BODY_TAG = "looktube.remote_playback_badge_body"

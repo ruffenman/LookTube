@@ -46,6 +46,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.google.android.gms.cast.framework.CastContext
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.feature.auth.AuthRoute
@@ -112,7 +113,10 @@ fun LookTubeApp(
         val playbackTarget = selectedPlaybackTarget ?: return@LaunchedEffect
         val forceReload = playbackSelectionRequest > lastHandledPlaybackSelectionRequest
         handoffSelectedPlaybackTarget(
-            controller = MediaControllerPlaybackHandoffController(controller),
+            controller = MediaControllerPlaybackHandoffController(
+                controller = controller,
+                context = context,
+            ),
             playbackTarget = playbackTarget,
             forceReload = forceReload,
         )
@@ -299,6 +303,8 @@ internal fun handoffSelectedPlaybackTarget(
         targetMediaId = video.id,
         playbackState = controller.playbackState,
         forceReload = forceReload,
+        isPlaybackRouteRemote = controller.isPlaybackRouteRemote,
+        hasConnectedCastSession = controller.hasConnectedCastSession,
     )
     if (shouldReplaceMediaItem) {
         controller.setMediaItem(
@@ -316,6 +322,8 @@ internal interface PlaybackHandoffController {
     val currentMediaId: String?
     val currentPositionMs: Long
     val playbackState: Int
+    val isPlaybackRouteRemote: Boolean
+    val hasConnectedCastSession: Boolean
     var playWhenReady: Boolean
     fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long?)
     fun prepare()
@@ -324,6 +332,7 @@ internal interface PlaybackHandoffController {
 
 private class MediaControllerPlaybackHandoffController(
     private val controller: MediaController,
+    private val context: android.content.Context,
 ) : PlaybackHandoffController {
     override val currentMediaId: String?
         get() = controller.currentMediaItem?.mediaId
@@ -331,6 +340,10 @@ private class MediaControllerPlaybackHandoffController(
         get() = controller.currentPosition
     override val playbackState: Int
         get() = controller.playbackState
+    override val isPlaybackRouteRemote: Boolean
+        get() = controller.deviceInfo.playbackType == androidx.media3.common.DeviceInfo.PLAYBACK_TYPE_REMOTE
+    override val hasConnectedCastSession: Boolean
+        get() = hasConnectedCastSession(context)
     override var playWhenReady: Boolean
         get() = controller.playWhenReady
         set(value) {
@@ -358,10 +371,20 @@ internal fun shouldReplaceMediaItemForPlaybackTarget(
     targetMediaId: String,
     playbackState: Int,
     forceReload: Boolean,
+    isPlaybackRouteRemote: Boolean = false,
+    hasConnectedCastSession: Boolean = false,
 ): Boolean = forceReload ||
     currentMediaId != targetMediaId ||
     playbackState == androidx.media3.common.Player.STATE_IDLE ||
-    playbackState == androidx.media3.common.Player.STATE_ENDED
+    playbackState == androidx.media3.common.Player.STATE_ENDED ||
+    (isPlaybackRouteRemote && !hasConnectedCastSession)
+
+internal fun hasConnectedCastSession(context: android.content.Context): Boolean = runCatching {
+    CastContext.getSharedInstance(context)
+        .sessionManager
+        .currentCastSession
+        ?.isConnected == true
+}.getOrDefault(false)
 
 private fun VideoSummary.toPlaybackMediaItem(playbackUrl: String): MediaItem =
     MediaItem.Builder()

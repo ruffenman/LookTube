@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.1"
+  version: "0.2.2"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -166,10 +166,11 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above supporting metadata.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above supporting metadata and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
-        - toggle fullscreen
+        - seek backward or forward by double tapping the left or right side of the player
+        - toggle fullscreen from the player controls
         - cast playback
   processes:
     - name: library_refresh
@@ -711,8 +712,9 @@ scenarios:
     then:
       - visible player status contains "Casting to Living Room TV"
       - visible player status explains that standard player controls can pause, resume, or stop casting
+      - remote playback indicator is visual-only and does not block interaction with the player surface
   - id: player_reselection_and_cast_recovery_restore_playback
-    description: Re-selecting the active video or losing a cast session must restore playable local state instead of leaving the player idle on a black screen.
+    description: Re-selecting the active video, reconnecting to an already-active cast session, or losing a cast session must keep playback recoverable without black screens or unnecessary cast restarts.
     when:
       surface: player
       state:
@@ -729,15 +731,18 @@ scenarios:
         explicitly select the same video again or reopen the app to the same target
     then:
       - local playback is reinitialized for the selected video
+      - reconnecting to an already-active cast session does not needlessly reload the same remote item
       - player does not remain stuck on an unexplained black surface
   - id: player_supports_fullscreen_toggle_and_landscape_behavior
-    description: Player supports fullscreen from controls or double tap, and landscape can drive fullscreen behavior while a video is selected.
+    description: Player supports fullscreen from controls and landscape, while double taps on the left or right side seek backward or forward during playback.
     when:
       surface: player
       action:
-        toggle fullscreen or rotate device to landscape during active playback
+        use the fullscreen control, rotate device to landscape, or double tap the left or right side of the player during active playback
     then:
       - player enters fullscreen presentation
+      - double tapping the left side seeks backward
+      - double tapping the right side seeks forward
       - leaving fullscreen restores the standard shell presentation
   - id: player_fullscreen_hides_shell_navigation
     description: Fullscreen playback hides normal shell chrome until fullscreen is exited.
@@ -756,7 +761,7 @@ scenarios:
       - top app bar is hidden
       - bottom navigation is hidden
   - id: cast_button_is_available_with_player_controls
-    description: Player surface exposes a cast route control while playback controls are visible.
+    description: Player surface exposes the cast route control as part of the player controls.
     when:
       surface: player
       state:

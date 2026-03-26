@@ -52,7 +52,10 @@ Harden the path from copied feed sync to daily repeat use.
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
 - the Player tab keeps the player frame visible at the top when a video is opened from Library so the active surface stays in view above the supporting metadata
 - when playback is remote, the Player surface clearly explains that video is casting and keeps normal playback controls available instead of presenting an unexplained black frame
-- explicit same-video selections and recovery from cast-session loss restore or reload local playback when needed instead of leaving the player in an idle black-screen state
+- the compact remote-playback indicator is purely visual, does not intercept player input, and the cast route control stays visually in step with the standard player controls when remote playback is not active
+- explicit same-video selections, cast-session reconnects after app resume or screen lock, and recovery from cast-session loss restore or reload playback without spuriously restarting an already-active cast session or leaving the player in an idle black-screen state
+- player interactions follow a YouTube-like model where double taps on the left or right half of the video seek backward or forward 10 seconds, while fullscreen remains available from the fullscreen control or device rotation
+- Playback Details show resume and handoff information only; unreliable per-item Premium yes/no presentation is not part of the user-facing player contract unless a stable feed signal is validated later
 - Auth, Library, and Player keep a consistent card/header/panel treatment so the main app surfaces feel visually coherent without changing the existing LookTube design language
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest

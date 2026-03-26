@@ -169,6 +169,20 @@ class LookTubeAppPlaybackTest {
         )
     }
 
+    @Test
+    fun replaceDecisionForcesReloadWhenControllerIsStillMarkedRemoteWithoutCastSession() {
+        assertTrue(
+            shouldReplaceMediaItemForPlaybackTarget(
+                currentMediaId = "video-1",
+                targetMediaId = "video-1",
+                playbackState = Player.STATE_READY,
+                forceReload = false,
+                isPlaybackRouteRemote = true,
+                hasConnectedCastSession = false,
+            ),
+        )
+    }
+
     private fun video(id: String): VideoSummary = VideoSummary(
         id = id,
         title = "Video $id",
@@ -184,6 +198,8 @@ private class FakePlaybackHandoffController(
     override val currentMediaId: String?,
     override val currentPositionMs: Long,
     override val playbackState: Int = Player.STATE_READY,
+    override val isPlaybackRouteRemote: Boolean = false,
+    override val hasConnectedCastSession: Boolean = false,
 ) : PlaybackHandoffController {
     val setMediaItemIds = mutableListOf<String>()
     val setMediaItemStartPositionsMs = mutableListOf<Long?>()

@@ -27,8 +27,8 @@ Its central promise is deliberately narrow:
 ### Player
 - must handle empty, unavailable, preparing, and active playback states clearly
 - keeps the player frame above the supporting metadata when a video is selected
-- supports resume, fullscreen, and cast routing
-- explains remote playback on the player surface and should recover local playback cleanly after cast-session loss or same-video reselection
+- supports resume, cast routing, fullscreen from controls/rotation, and left/right double-tap seek behavior
+- explains remote playback on the player surface with a non-blocking visual indicator and should recover local playback cleanly after cast-session loss, reconnect, or same-video reselection
 ## External integration stance
 The copied feed URL is the validated access path.
 Future implementations should not assume a browser session, cookies, or a secondary private API unless Giant Bomb exposes an official supported path.

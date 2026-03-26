@@ -1,6 +1,5 @@
 package com.looktube.feature.player
 
-import android.view.View
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import org.junit.Assert.assertEquals
@@ -54,13 +53,30 @@ class PlayerRouteTest {
     }
 
     @Test
-    fun showsCastChromeWhenControllerIsVisible() {
-        assertTrue(shouldShowCastButtonChrome(View.VISIBLE))
+    fun doubleTapOnLeftHalfSeeksBackward() {
+        assertEquals(
+            DoubleTapSeekDirection.Backward,
+            doubleTapSeekDirection(
+                tapX = 40f,
+                surfaceWidthPx = 200,
+            ),
+        )
     }
 
     @Test
-    fun hidesCastChromeWhenControllerIsNotVisible() {
-        assertFalse(shouldShowCastButtonChrome(View.GONE))
+    fun doubleTapOnRightHalfSeeksForward() {
+        assertEquals(
+            DoubleTapSeekDirection.Forward,
+            doubleTapSeekDirection(
+                tapX = 160f,
+                surfaceWidthPx = 200,
+            ),
+        )
+    }
+
+    @Test
+    fun doubleTapDirectionIsUnknownWithoutSurfaceWidth() {
+        assertEquals(null, doubleTapSeekDirection(tapX = 50f, surfaceWidthPx = 0))
     }
 
     @Test

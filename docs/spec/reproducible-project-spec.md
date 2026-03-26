@@ -83,10 +83,11 @@ An implementation that materially changes these choices can still be valid, but 
 - shows clear empty, unavailable, preparing, and active playback states
 - keeps the player frame pinned above the supporting metadata when a video is selected from Library or a launch intent
 - resumes playback from saved progress when available
-- supports fullscreen entry from the player control or double tap
+- supports fullscreen entry from the player control and landscape-driven presentation
+- uses left-side and right-side double taps to seek backward or forward 10 seconds during playback
 - supports landscape-driven fullscreen behavior
-- exposes a cast route button while player controls are visible
-- explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame
+- exposes the cast route control as part of the player controls
+- explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets
 ### Feed configuration and persistence
@@ -117,7 +118,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Selecting a playable item hands the resolved playback URL directly to Media3.
 - Playback progress persists locally and is restored on later playback attempts.
 - A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
-- Explicitly selecting the currently selected video again, or returning from a lost cast session, reinitializes playback when the active controller is stale, idle, or ended so the player does not remain on a black screen.
+- Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
 - When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 
