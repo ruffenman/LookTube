@@ -53,7 +53,8 @@ Harden the path from copied feed sync to daily repeat use.
 - watched-state actions use explicit `Mark as Watched` and `Mark as Unwatched` phrasing throughout the app
 - the Library overview exposes a compact Look Points summary based only on watched videos, while show completion remains a visual progress signal rather than a score bonus
 - any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment
-- grouped section headers avoid redundant tap-instruction copy, use icon-only expand/collapse affordances, surface watched-versus-total completion status, and expose a single explicit group-level watched-state toggle action so fully watched shows are easy to spot and update in the browse flow without duplicated opposing buttons
+- grouped section headers avoid redundant tap-instruction copy, keep their controls cleanly anchored within the header layout, use icon-only expand/collapse affordances, surface watched-versus-total completion status, and expose a single explicit group-level watched-state toggle action so fully watched shows are easy to spot and update in the browse flow without duplicated opposing buttons
+- expanded grouped sections visually nest their episode cards beneath the header so the header and its videos read as one collapsible element
 - any manual watched-state control in the app exposes only the next valid toggle action for its current state rather than parallel watched and unwatched buttons for the same item or group
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
 - the Player tab keeps the player frame visible at the top when a video is opened from Library so the active surface stays in view above the supporting metadata

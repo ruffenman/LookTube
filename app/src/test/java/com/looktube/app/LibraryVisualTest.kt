@@ -59,6 +59,16 @@ class LibraryVisualTest {
                 seriesTitle = "Voicemail Dump Truck",
                 durationSeconds = 3_000,
             ),
+            VideoSummary(
+                id = "bombcast-2",
+                title = "Giant Bombcast 902: Portable Follow-Up",
+                description = "A second Bombcast episode to validate grouped section nesting in the browse surface.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/bombcast-2.m3u8",
+                seriesTitle = "Giant Bombcast",
+                durationSeconds = 4_050,
+            ),
         )
         val playbackProgress = mapOf(
             "bombcast-1" to PlaybackProgress(
@@ -77,7 +87,7 @@ class LibraryVisualTest {
         val lookPointsSummary = LookPointsSummary(
             totalPoints = 10,
             watchedVideoCount = 1,
-            totalVideoCount = 2,
+            totalVideoCount = 3,
             completedShowCount = 1,
             totalShowCount = 2,
             videoPoints = 10,
@@ -86,7 +96,7 @@ class LibraryVisualTest {
             "Giant Bombcast" to SeriesCompletionSummary(
                 seriesTitle = "Giant Bombcast",
                 watchedVideoCount = 1,
-                totalVideoCount = 1,
+                totalVideoCount = 2,
             ),
             "Voicemail Dump Truck" to SeriesCompletionSummary(
                 seriesTitle = "Voicemail Dump Truck",

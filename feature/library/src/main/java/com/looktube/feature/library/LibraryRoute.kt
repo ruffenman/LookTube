@@ -374,6 +374,14 @@ fun LibraryRoute(
                 }
             } else {
                 displayedSections.forEach { displayedSection ->
+                    val groupedHeaderEndPadding = cappedGroupedContentEndPadding(
+                        textEndPadding = railTextClearance,
+                        maxPadding = GROUPED_HEADER_MAX_END_PADDING,
+                    )
+                    val groupedVideoEndPadding = cappedGroupedContentEndPadding(
+                        textEndPadding = railTextClearance,
+                        maxPadding = GROUPED_VIDEO_MAX_END_PADDING,
+                    )
                     item(key = "section-${displayedSection.section.key}") {
                         SeriesSectionHeader(
                             section = displayedSection.section,
@@ -395,23 +403,25 @@ fun LibraryRoute(
                             onMarkSectionUnwatched = {
                                 onMarkVideosUnwatched(displayedSection.section.videos.map(VideoSummary::id))
                             },
-                            textEndPadding = railTextClearance,
+                            textEndPadding = groupedHeaderEndPadding,
                         )
                     }
                     if (displayedSection.isExpanded) {
-                        items(
+                        itemsIndexed(
                             items = displayedSection.section.videos,
-                            key = { video -> "${displayedSection.section.key}-${video.id}" },
-                        ) { video ->
-                            VideoListCard(
+                            key = { _, video -> "${displayedSection.section.key}-${video.id}" },
+                        ) { index, video ->
+                            GroupedSectionVideoCard(
                                 video = video,
                                 progress = playbackProgress[video.id],
                                 engagementRecord = videoEngagement[video.id],
                                 dismissDetailsSignal = listState.isScrollInProgress,
-                                textEndPadding = railTextClearance,
+                                textEndPadding = groupedVideoEndPadding,
+                                isFirstInSection = index == 0,
+                                isLastInSection = index == displayedSection.section.videos.lastIndex,
                                 onMarkVideoWatched = onMarkVideoWatched,
                                 onMarkVideoUnwatched = onMarkVideoUnwatched,
-                                modifier = Modifier.clickable { onVideoSelected(video.id) },
+                                onVideoSelected = onVideoSelected,
                             )
                         }
                     }
@@ -956,6 +966,13 @@ private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_E
 private val TOP_ONLY_RAIL_TEXT_CLEARANCE = TOP_ONLY_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING + 8.dp
 private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
+private val GROUPED_HEADER_MAX_END_PADDING = 64.dp
+private val GROUPED_VIDEO_MAX_END_PADDING = 72.dp
+private val GROUPED_SECTION_CONNECTOR_GUTTER = 18.dp
+private val GROUPED_SECTION_CONNECTOR_WIDTH = 2.dp
+private val GROUPED_SECTION_BRANCH_OFFSET = 26.dp
+private val GROUPED_SECTION_CONNECTOR_TOP_TRIM = 8.dp
+private val GROUPED_SECTION_CONNECTOR_BOTTOM_TRIM = 14.dp
 
 internal fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
     when (sortOption) {
@@ -1059,6 +1076,11 @@ private fun libraryWatchStatusLabel(
 internal fun watchToggleActionLabel(isWatched: Boolean): String =
     if (isWatched) "Mark as Unwatched" else "Mark as Watched"
 
+private fun cappedGroupedContentEndPadding(
+    textEndPadding: Dp,
+    maxPadding: Dp,
+): Dp = if (textEndPadding > maxPadding) maxPadding else textEndPadding
+
 @Composable
 private fun SeriesSectionHeader(
     section: SeriesSection,
@@ -1098,78 +1120,150 @@ private fun SeriesSectionHeader(
                 .fillMaxWidth()
                 .padding(
                     start = 16.dp,
-                    top = 14.dp,
+                    top = 16.dp,
                     end = 16.dp + textEndPadding,
-                    bottom = 14.dp,
+                    bottom = 16.dp,
                 ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = section.kindLabel.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Surface(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(onClick = onToggleExpanded),
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isExpanded) {
-                        MaterialTheme.colorScheme.primaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    },
-                    contentColor = if (isExpanded) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = if (isExpanded) "−" else "+",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
             Text(
-                text = section.title,
-                style = MaterialTheme.typography.titleMedium,
+                text = section.kindLabel.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
-                Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Column(
                     modifier = Modifier.weight(1f),
-                )
-                FilterChip(
-                    selected = sectionIsFullyWatched,
-                    onClick = {
-                        if (sectionIsFullyWatched) {
-                            onMarkSectionUnwatched()
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = section.title,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = supportingText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilterChip(
+                        selected = sectionIsFullyWatched,
+                        onClick = {
+                            if (sectionIsFullyWatched) {
+                                onMarkSectionUnwatched()
+                            } else {
+                                onMarkSectionWatched()
+                            }
+                        },
+                        label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+                    )
+                    Surface(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(onClick = onToggleExpanded),
+                        shape = RoundedCornerShape(14.dp),
+                        color = if (isExpanded) {
+                            MaterialTheme.colorScheme.primaryContainer
                         } else {
-                            onMarkSectionWatched()
+                            MaterialTheme.colorScheme.surface
+                        },
+                        contentColor = if (isExpanded) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        tonalElevation = 0.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (isExpanded) "−" else "+",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
                         }
-                    },
-                    label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroupedSectionVideoCard(
+    video: VideoSummary,
+    progress: PlaybackProgress?,
+    engagementRecord: VideoEngagementRecord?,
+    dismissDetailsSignal: Boolean = false,
+    textEndPadding: Dp = 0.dp,
+    isFirstInSection: Boolean,
+    isLastInSection: Boolean,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
+    onVideoSelected: (String) -> Unit,
+) {
+    val connectorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(GROUPED_SECTION_CONNECTOR_GUTTER)
+                .fillMaxHeight(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(
+                        top = if (isFirstInSection) GROUPED_SECTION_CONNECTOR_TOP_TRIM else 0.dp,
+                        bottom = if (isLastInSection) GROUPED_SECTION_CONNECTOR_BOTTOM_TRIM else 0.dp,
+                    )
+                    .width(GROUPED_SECTION_CONNECTOR_WIDTH)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(connectorColor),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = GROUPED_SECTION_BRANCH_OFFSET)
+                    .width(GROUPED_SECTION_CONNECTOR_GUTTER)
+                    .height(GROUPED_SECTION_CONNECTOR_WIDTH)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(connectorColor),
+            )
+        }
+        Surface(
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(26.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
+            tonalElevation = 0.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        ) {
+            Box(modifier = Modifier.padding(6.dp)) {
+                VideoListCard(
+                    video = video,
+                    progress = progress,
+                    engagementRecord = engagementRecord,
+                    dismissDetailsSignal = dismissDetailsSignal,
+                    textEndPadding = textEndPadding,
+                    onMarkVideoWatched = onMarkVideoWatched,
+                    onMarkVideoUnwatched = onMarkVideoUnwatched,
+                    modifier = Modifier.clickable { onVideoSelected(video.id) },
                 )
             }
         }

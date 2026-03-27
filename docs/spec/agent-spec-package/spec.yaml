@@ -654,7 +654,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact controls, a single whole-group watched-state toggle, and icon-only expand or collapse affordances.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, and visually nested episode cards when expanded.
     when:
       surface: library
       state:
@@ -664,6 +664,7 @@ scenarios:
       - visible grouped header does not rely on tap-instruction copy to explain expand or collapse
       - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
       - visible grouped header uses iconography rather than text labels for expand/collapse
+      - expanded videos appear visually nested under the grouped header they belong to
   - id: look_points_surfaces_use_accent_outline
     description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
     when:
