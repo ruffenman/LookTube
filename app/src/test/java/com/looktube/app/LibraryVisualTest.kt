@@ -14,8 +14,11 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LookPointsSummary
 import com.looktube.model.PlaybackProgress
+import com.looktube.model.SeriesCompletionSummary
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
 import org.junit.Rule
 import org.junit.Test
@@ -64,6 +67,33 @@ class LibraryVisualTest {
                 durationSeconds = 4_200,
             ),
         )
+        val videoEngagement = mapOf(
+            "bombcast-1" to VideoEngagementRecord(
+                videoId = "bombcast-1",
+                lastPlayedAtEpochMillis = 1_000L,
+                completedAtEpochMillis = 2_000L,
+            ),
+        )
+        val lookPointsSummary = LookPointsSummary(
+            totalPoints = 10,
+            watchedVideoCount = 1,
+            totalVideoCount = 2,
+            completedShowCount = 1,
+            totalShowCount = 2,
+            videoPoints = 10,
+        )
+        val seriesCompletionSummaries = mapOf(
+            "Giant Bombcast" to SeriesCompletionSummary(
+                seriesTitle = "Giant Bombcast",
+                watchedVideoCount = 1,
+                totalVideoCount = 1,
+            ),
+            "Voicemail Dump Truck" to SeriesCompletionSummary(
+                seriesTitle = "Voicemail Dump Truck",
+                watchedVideoCount = 0,
+                totalVideoCount = 1,
+            ),
+        )
 
         composeRule.setContent {
             LookTubeTheme {
@@ -81,7 +111,12 @@ class LibraryVisualTest {
                         ),
                         videos = videos,
                         playbackProgress = playbackProgress,
+                        videoEngagement = videoEngagement,
+                        lookPointsSummary = lookPointsSummary,
+                        seriesCompletionSummaries = seriesCompletionSummaries,
                         onVideoSelected = {},
+                        onMarkVideoWatched = {},
+                        onMarkVideoUnwatched = {},
                     )
                 }
             }

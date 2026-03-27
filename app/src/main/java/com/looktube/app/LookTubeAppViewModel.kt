@@ -5,10 +5,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.looktube.data.LookTubeRepository
+import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LookPointsSummary
+import com.looktube.model.ManualWatchState
 import com.looktube.model.PlaybackProgress
+import com.looktube.model.RecentPlaybackVideo
+import com.looktube.model.SeriesCompletionSummary
 import com.looktube.model.VideoSummary
+import com.looktube.model.buildLookPointsSummary
+import com.looktube.model.buildRecentPlaybackVideos
+import com.looktube.model.isWatched
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,6 +33,7 @@ class LookTubeAppViewModel(
     val librarySyncState = repository.librarySyncState
     val videos = repository.videos
     val playbackProgress = repository.playbackProgress
+    val videoEngagement = repository.videoEngagement
     private val requestedPageState = MutableStateFlow<Int?>(null)
     val requestedPage: StateFlow<Int?> = requestedPageState.asStateFlow()
     private val playbackSelectionRequestState = MutableStateFlow(0L)
@@ -82,6 +91,59 @@ class LookTubeAppViewModel(
         initialValue = null,
     )
 
+    val recentPlaybackVideos: StateFlow<List<RecentPlaybackVideo>> = combine(
+        repository.videos,
+        repository.playbackProgress,
+        repository.videoEngagement,
+    ) { videos, progressMap, engagementRecords ->
+        buildRecentPlaybackVideos(
+            videos = videos,
+            playbackProgress = progressMap,
+            engagementRecords = engagementRecords,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyList(),
+    )
+
+    val lookPointsSummary: StateFlow<LookPointsSummary> = combine(
+        repository.videos,
+        repository.playbackProgress,
+        repository.videoEngagement,
+    ) { videos, progressMap, engagementRecords ->
+        buildLookPointsSummary(
+            videos = videos,
+            playbackProgress = progressMap,
+            engagementRecords = engagementRecords,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = LookPointsSummary.Empty,
+    )
+
+    val seriesCompletionSummaries: StateFlow<Map<String, SeriesCompletionSummary>> = combine(
+        repository.videos,
+        repository.playbackProgress,
+        repository.videoEngagement,
+    ) { videos, progressMap, engagementRecords ->
+        videos.groupBy(VideoSummary::displaySeriesTitle)
+            .mapValues { (seriesTitle, seriesVideos) ->
+                SeriesCompletionSummary(
+                    seriesTitle = seriesTitle,
+                    watchedVideoCount = seriesVideos.count { video ->
+                        engagementRecords[video.id].isWatched(progressMap[video.id])
+                    },
+                    totalVideoCount = seriesVideos.size,
+                )
+            }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = emptyMap(),
+    )
+
     init {
         viewModelScope.launch {
             repository.bootstrap()
@@ -136,6 +198,14 @@ class LookTubeAppViewModel(
     fun selectVideo(videoId: String) {
         repository.selectVideo(videoId)
         notePlaybackSelectionRequest()
+    }
+
+    fun markVideoWatched(videoId: String) {
+        repository.setManualWatchState(videoId, ManualWatchState.Watched)
+    }
+
+    fun markVideoUnwatched(videoId: String) {
+        repository.setManualWatchState(videoId, ManualWatchState.Unwatched)
     }
 
     private fun notePlaybackSelectionRequest() {

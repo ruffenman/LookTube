@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.player.PlayerRoute
+import com.looktube.model.LookPointsSummary
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import org.junit.Rule
@@ -35,8 +36,14 @@ class PlayerVisualTest {
                     selectedVideo = null,
                     playbackProgress = null,
                     playbackSelectionRequest = 0L,
+                    selectedVideoEngagement = null,
+                    recentPlaybackVideos = emptyList(),
+                    lookPointsSummary = LookPointsSummary.Empty,
                     player = null,
                     isFullscreen = false,
+                    onRecentVideoSelected = {},
+                    onMarkVideoWatched = {},
+                    onMarkVideoUnwatched = {},
                     onFullscreenChanged = {},
                 )
             }
@@ -67,8 +74,14 @@ class PlayerVisualTest {
                         durationSeconds = 4_200,
                     ),
                     playbackSelectionRequest = 1L,
+                    selectedVideoEngagement = null,
+                    recentPlaybackVideos = emptyList(),
+                    lookPointsSummary = LookPointsSummary.Empty,
                     player = null,
                     isFullscreen = false,
+                    onRecentVideoSelected = {},
+                    onMarkVideoWatched = {},
+                    onMarkVideoUnwatched = {},
                     onFullscreenChanged = {},
                 )
             }

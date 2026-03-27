@@ -1,6 +1,6 @@
 [spec]
 id = "looktube-feed-first-android-client"
-version = "0.2.2"
+version = "0.2.3"
 title = "LookTube Feed-First Android Client"
 description = "Feed-first mobile client for Giant Bomb Premium videos with direct RSS sync, playback resume, and local new-release notifications"
 tier = "service"

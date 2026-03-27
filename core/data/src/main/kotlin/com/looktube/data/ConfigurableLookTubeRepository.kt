@@ -1,14 +1,17 @@
 package com.looktube.data
 
 import com.looktube.database.PlaybackBookmarkStore
+import com.looktube.database.VideoEngagementStore
 
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.ManualWatchState
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
 import com.looktube.model.toRuntime
 import com.looktube.network.FeedSyncException
@@ -25,6 +28,7 @@ class ConfigurableLookTubeRepository(
     private val feedConfigurationStore: FeedConfigurationStore,
     private val syncedLibraryStore: SyncedLibraryStore,
     private val playbackBookmarkStore: PlaybackBookmarkStore,
+    private val videoEngagementStore: VideoEngagementStore,
     private val videoFeedService: VideoFeedService,
     private val libraryRefreshScheduler: LibraryRefreshScheduler = NoOpLibraryRefreshScheduler,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -57,6 +61,7 @@ class ConfigurableLookTubeRepository(
     override val videos: StateFlow<List<VideoSummary>> = videosState.asStateFlow()
     override val selectedVideoId: StateFlow<String?> = selectedVideoIdState.asStateFlow()
     override val playbackProgress: StateFlow<Map<String, PlaybackProgress>> = playbackBookmarkStore.progressSnapshots
+    override val videoEngagement: StateFlow<Map<String, VideoEngagementRecord>> = videoEngagementStore.engagementRecords
 
     override suspend fun bootstrap() {
         if (videosState.value.isNotEmpty()) {
@@ -117,6 +122,7 @@ class ConfigurableLookTubeRepository(
         hasSuccessfulFeedSync = false
         syncedLibraryStore.clear()
         playbackBookmarkStore.clear()
+        videoEngagementStore.clear()
         videosState.value = seededVideos
         selectedVideoIdState.value = null
         publishStatus(
@@ -203,6 +209,14 @@ class ConfigurableLookTubeRepository(
 
     override fun selectVideo(videoId: String) {
         selectedVideoIdState.value = videoId
+        videoEngagementStore.recordPlayback(videoId)
+    }
+
+    override fun setManualWatchState(videoId: String, manualWatchState: ManualWatchState) {
+        videoEngagementStore.setManualWatchState(
+            videoId = videoId,
+            manualWatchState = manualWatchState,
+        )
     }
 
     private fun publishStatus(status: LibrarySyncState) {

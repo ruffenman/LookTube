@@ -79,9 +79,13 @@ import com.looktube.heuristics.seriesGroupingKey
 import com.looktube.heuristics.topicGroupingKey
 import com.looktube.heuristics.topicGroupingTitle
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LookPointsSummary
 import com.looktube.model.PlaybackProgress
+import com.looktube.model.SeriesCompletionSummary
+import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
 import com.looktube.model.bestDurationSeconds
+import com.looktube.model.isWatched
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -95,7 +99,12 @@ fun LibraryRoute(
     syncState: LibrarySyncState,
     videos: List<VideoSummary>,
     playbackProgress: Map<String, PlaybackProgress>,
+    videoEngagement: Map<String, VideoEngagementRecord>,
+    lookPointsSummary: LookPointsSummary,
+    seriesCompletionSummaries: Map<String, SeriesCompletionSummary>,
     onVideoSelected: (String) -> Unit,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val listTopContentPaddingPx = with(density) { LIST_TOP_CONTENT_PADDING.roundToPx() }
@@ -300,6 +309,7 @@ fun LibraryRoute(
             item(key = "library-overview-panel") {
                 LibraryOverviewPanel(
                     libraryStatusBody = libraryStatusBody,
+                    lookPointsSummary = lookPointsSummary,
                     groupingMode = groupingMode,
                     onGroupingModeChanged = { groupingMode = it },
                     sortOption = sortOption,
@@ -353,8 +363,11 @@ fun LibraryRoute(
                     VideoListCard(
                         video = video,
                         progress = playbackProgress[video.id],
+                        engagementRecord = videoEngagement[video.id],
                         dismissDetailsSignal = listState.isScrollInProgress,
                         textEndPadding = railTextClearance,
+                        onMarkVideoWatched = onMarkVideoWatched,
+                        onMarkVideoUnwatched = onMarkVideoUnwatched,
                         modifier = Modifier.clickable { onVideoSelected(video.id) },
                     )
                 }
@@ -363,6 +376,11 @@ fun LibraryRoute(
                     item(key = "section-${displayedSection.section.key}") {
                         SeriesSectionHeader(
                             section = displayedSection.section,
+                            completionSummary = if (groupingMode == HeuristicGroupingMode.Show) {
+                                seriesCompletionSummaries[displayedSection.section.title]
+                            } else {
+                                null
+                            },
                             isExpanded = displayedSection.isExpanded,
                             onToggleExpanded = {
                                 collapsedSectionKeys = collapsedSectionKeys.toggle(displayedSection.section.key)
@@ -378,8 +396,11 @@ fun LibraryRoute(
                             VideoListCard(
                                 video = video,
                                 progress = playbackProgress[video.id],
+                                engagementRecord = videoEngagement[video.id],
                                 dismissDetailsSignal = listState.isScrollInProgress,
                                 textEndPadding = railTextClearance,
+                                onMarkVideoWatched = onMarkVideoWatched,
+                                onMarkVideoUnwatched = onMarkVideoUnwatched,
                                 modifier = Modifier.clickable { onVideoSelected(video.id) },
                             )
                         }
@@ -418,6 +439,58 @@ fun LibraryRoute(
     }
 }
 
+@Composable
+private fun LookPointsPanel(
+    lookPointsSummary: LookPointsSummary,
+    isExpanded: Boolean,
+    onExpandedChanged: (Boolean) -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onExpandedChanged(!isExpanded) },
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Look Points",
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = lookPointsSummary.totalPoints.toString(),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Text(
+                text = "${lookPointsSummary.watchedVideoCount}/${lookPointsSummary.totalVideoCount} videos watched • " +
+                    "${lookPointsSummary.completedShowCount}/${lookPointsSummary.totalShowCount} shows complete",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (isExpanded) {
+                Text(
+                    text = "${lookPointsSummary.videoPoints} points from watched videos. " +
+                        "Show completion is visual only and does not add score.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
 private fun formatPublishedDateTime(epochMillis: Long): String =
     DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)
         .format(Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()))
@@ -425,11 +498,12 @@ private fun formatPublishedDateTime(epochMillis: Long): String =
 private fun buildVideoDetailRows(
     video: VideoSummary,
     progress: PlaybackProgress?,
+    engagementRecord: VideoEngagementRecord?,
 ): List<Pair<String, String>> = buildList {
     add("Video ID" to video.id)
     add("Show" to video.displaySeriesTitle)
     add("Feed category" to video.feedCategory)
-    add("Premium" to if (video.isPremium) "Yes" else "No")
+    add("Watch status" to libraryWatchStatusLabel(engagementRecord.isWatched(progress), progress))
     video.publishedAtEpochMillis?.let { add("Published" to formatPublishedDateTime(it)) }
     video.durationSeconds?.let { add("Feed duration" to formatDuration(it)) }
     progress?.takeIf { it.durationSeconds > 0 }?.let {
@@ -671,6 +745,7 @@ internal data class DisplayedSeriesSection(
 private fun LibraryOverviewPanel(
     modifier: Modifier = Modifier,
     libraryStatusBody: String,
+    lookPointsSummary: LookPointsSummary,
     groupingMode: HeuristicGroupingMode,
     onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
     sortOption: LibrarySortOption,
@@ -688,6 +763,7 @@ private fun LibraryOverviewPanel(
     totalVideoCount: Int,
     filteredVideoCount: Int,
 ) {
+    var showLookPointsDetails by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -705,6 +781,11 @@ private fun LibraryOverviewPanel(
             LookTubeCard(
                 title = "Library status",
                 body = libraryStatusBody,
+            )
+            LookPointsPanel(
+                lookPointsSummary = lookPointsSummary,
+                isExpanded = showLookPointsDetails,
+                onExpandedChanged = { showLookPointsDetails = it },
             )
             BrowseControlsPanel(
                 groupingMode = groupingMode,
@@ -854,18 +935,31 @@ private fun formatDuration(seconds: Long): String {
     }
 }
 
+private fun libraryWatchStatusLabel(
+    isWatched: Boolean,
+    progress: PlaybackProgress?,
+): String = when {
+    isWatched -> "Watched"
+    progress?.positionSeconds?.let { it > 0 } == true -> "In progress"
+    else -> "Not started"
+}
+
 @Composable
 private fun SeriesSectionHeader(
     section: SeriesSection,
+    completionSummary: SeriesCompletionSummary?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
     textEndPadding: Dp,
 ) {
-    val supportingText = if (isExpanded) {
+    val baseSupportingText = if (isExpanded) {
         "Tap to collapse ${section.videos.size} ${if (section.videos.size == 1) "episode" else "episodes"} in this ${section.kindLabel.lowercase()}."
     } else {
         "Tap to expand this ${section.kindLabel.lowercase()} and show ${section.videos.size} ${if (section.videos.size == 1) "episode" else "episodes"}."
     }
+    val supportingText = completionSummary?.let { summary ->
+        "$baseSupportingText ${summary.watchedVideoCount}/${summary.totalVideoCount} watched."
+    } ?: baseSupportingText
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -946,15 +1040,21 @@ private fun SeriesSectionHeader(
 private fun VideoListCard(
     video: VideoSummary,
     progress: PlaybackProgress?,
+    engagementRecord: VideoEngagementRecord?,
     dismissDetailsSignal: Boolean = false,
     textEndPadding: Dp = 0.dp,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val progressFraction = progress?.takeIf { it.durationSeconds > 0 }
         ?.let { (it.positionSeconds.toFloat() / it.durationSeconds.toFloat()).coerceIn(0f, 1f) }
+    val isWatched = engagementRecord.isWatched(progress)
     var showFullDetails by rememberSaveable(video.id) { mutableStateOf(false) }
     var descriptionTruncated by remember(video.id) { mutableStateOf(false) }
-    val detailRows = remember(video, progress) { buildVideoDetailRows(video, progress) }
+    val detailRows = remember(video, progress, engagementRecord) {
+        buildVideoDetailRows(video, progress, engagementRecord)
+    }
 
     LaunchedEffect(dismissDetailsSignal) {
         if (dismissDetailsSignal) {
@@ -1052,9 +1152,30 @@ private fun VideoListCard(
                 }
                 if (progress != null && progress.durationSeconds > 0) {
                     Text(
-                        text = "Resume at ${formatDuration(progress.positionSeconds)} of ${formatDuration(progress.durationSeconds)}",
+                        text = "Resume • ${formatDuration(progress.positionSeconds)} / ${formatDuration(progress.durationSeconds)}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = libraryWatchStatusLabel(isWatched, progress),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FilterChip(
+                        selected = isWatched,
+                        onClick = {
+                            if (isWatched) {
+                                onMarkVideoUnwatched(video.id)
+                            } else {
+                                onMarkVideoWatched(video.id)
+                            }
+                        },
+                        label = { Text(if (isWatched) "Reset unwatched" else "Mark watched") },
                     )
                 }
             }

@@ -6,6 +6,7 @@ import com.looktube.data.FeedConfigurationStore
 import com.looktube.data.LookTubeRepository
 import com.looktube.data.SyncedLibraryStore
 import com.looktube.database.PlaybackBookmarkStore
+import com.looktube.database.VideoEngagementStore
 import androidx.media3.common.util.UnstableApi
 import com.looktube.network.HttpRssVideoFeedService
 import com.looktube.network.VideoFeedService
@@ -17,6 +18,7 @@ class LookTubeApplication : Application() {
         val feedConfigurationStore = SharedPreferencesFeedConfigurationStore(this)
         val syncedLibraryStore = SharedPreferencesSyncedLibraryStore(this)
         val playbackBookmarkStore = SharedPreferencesPlaybackBookmarkStore(this)
+        val videoEngagementStore = SharedPreferencesVideoEngagementStore(this)
         val videoFeedService = HttpRssVideoFeedService(
             parser = RssVideoFeedParser(),
         )
@@ -25,12 +27,14 @@ class LookTubeApplication : Application() {
             feedConfigurationStore = feedConfigurationStore,
             syncedLibraryStore = syncedLibraryStore,
             playbackBookmarkStore = playbackBookmarkStore,
+            videoEngagementStore = videoEngagementStore,
             videoFeedService = videoFeedService,
             librarySyncNotifier = librarySyncNotifier,
             repository = ConfigurableLookTubeRepository(
                 feedConfigurationStore = feedConfigurationStore,
                 syncedLibraryStore = syncedLibraryStore,
                 playbackBookmarkStore = playbackBookmarkStore,
+                videoEngagementStore = videoEngagementStore,
                 videoFeedService = videoFeedService,
                 libraryRefreshScheduler = WorkManagerLibraryRefreshScheduler(this),
             ),
@@ -48,6 +52,7 @@ data class AppContainer(
     val feedConfigurationStore: FeedConfigurationStore,
     val syncedLibraryStore: SyncedLibraryStore,
     val playbackBookmarkStore: PlaybackBookmarkStore,
+    val videoEngagementStore: VideoEngagementStore,
     val videoFeedService: VideoFeedService,
     val librarySyncNotifier: LibrarySyncNotifier,
     val repository: LookTubeRepository,

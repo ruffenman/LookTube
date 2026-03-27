@@ -183,6 +183,26 @@ class LookTubeAppPlaybackTest {
         )
     }
 
+    @Test
+    fun handledPlaybackSelectionRequestIsNotRetreatedAsExplicitAfterRecreation() {
+        assertFalse(
+            isExplicitPlaybackSelectionRequest(
+                playbackSelectionRequest = 4L,
+                lastHandledPlaybackSelectionRequest = 4L,
+            ),
+        )
+    }
+
+    @Test
+    fun newerPlaybackSelectionRequestStillForcesExplicitReload() {
+        assertTrue(
+            isExplicitPlaybackSelectionRequest(
+                playbackSelectionRequest = 5L,
+                lastHandledPlaybackSelectionRequest = 4L,
+            ),
+        )
+    }
+
     private fun video(id: String): VideoSummary = VideoSummary(
         id = id,
         title = "Video $id",

@@ -129,16 +129,17 @@ class PlaybackService : MediaSessionService() {
         val currentMediaItem = player.currentMediaItem ?: return
         val mediaId = currentMediaItem.mediaId.takeIf(String::isNotBlank) ?: return
         val durationMs = player.duration.takeIf { it > 0 } ?: return
+        val progress = PlaybackProgress(
+            videoId = mediaId,
+            positionSeconds = (player.currentPosition.coerceAtLeast(0L) / 1_000L),
+            durationSeconds = durationMs / 1_000L,
+        )
         (application as? LookTubeApplication)
             ?.appContainer
-            ?.playbackBookmarkStore
-            ?.write(
-                PlaybackProgress(
-                    videoId = mediaId,
-                    positionSeconds = (player.currentPosition.coerceAtLeast(0L) / 1_000L),
-                    durationSeconds = durationMs / 1_000L,
-                ),
-            )
+            ?.let { container ->
+                container.playbackBookmarkStore.write(progress)
+                container.videoEngagementStore.recordPlaybackProgress(progress)
+            }
     }
 
     private fun capturePlaybackSnapshot(player: Player) {

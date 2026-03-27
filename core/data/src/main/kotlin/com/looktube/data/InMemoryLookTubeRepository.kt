@@ -3,8 +3,10 @@ package com.looktube.data
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.ManualWatchState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     private val videosState = MutableStateFlow(emptyList<VideoSummary>())
     private val selectedVideoIdState = MutableStateFlow<String?>(null)
     private val playbackProgressState = MutableStateFlow(emptyMap<String, PlaybackProgress>())
+    private val videoEngagementState = MutableStateFlow(emptyMap<String, VideoEngagementRecord>())
 
     override val accountSession: StateFlow<AccountSession> = accountSessionState.asStateFlow()
     override val feedConfiguration: StateFlow<FeedConfiguration> = feedConfigurationState.asStateFlow()
@@ -39,6 +42,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override val videos: StateFlow<List<VideoSummary>> = videosState.asStateFlow()
     override val selectedVideoId: StateFlow<String?> = selectedVideoIdState.asStateFlow()
     override val playbackProgress: StateFlow<Map<String, PlaybackProgress>> = playbackProgressState.asStateFlow()
+    override val videoEngagement: StateFlow<Map<String, VideoEngagementRecord>> = videoEngagementState.asStateFlow()
 
     override suspend fun bootstrap() {
         if (videosState.value.isNotEmpty()) {
@@ -50,6 +54,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         videosState.value = seededVideos
         selectedVideoIdState.value = null
         playbackProgressState.value = emptyMap()
+        videoEngagementState.value = emptyMap()
     }
 
     override suspend fun updateFeedUrl(feedUrl: String) {
@@ -75,6 +80,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         videosState.value = ConfigurableLookTubeRepository.seededVideos
         selectedVideoIdState.value = null
         playbackProgressState.value = emptyMap()
+        videoEngagementState.value = emptyMap()
     }
 
     override suspend fun refreshLibrary() {
@@ -87,5 +93,26 @@ class InMemoryLookTubeRepository : LookTubeRepository {
 
     override fun selectVideo(videoId: String) {
         selectedVideoIdState.value = videoId
+        videoEngagementState.value = videoEngagementState.value.toMutableMap().apply {
+            val existingRecord = get(videoId) ?: VideoEngagementRecord(videoId = videoId)
+            put(videoId, existingRecord.copy(lastPlayedAtEpochMillis = System.currentTimeMillis()))
+        }
+    }
+
+    override fun setManualWatchState(videoId: String, manualWatchState: ManualWatchState) {
+        videoEngagementState.value = videoEngagementState.value.toMutableMap().apply {
+            val existingRecord = get(videoId) ?: VideoEngagementRecord(videoId = videoId)
+            put(
+                videoId,
+                existingRecord.copy(
+                    completedAtEpochMillis = if (manualWatchState == ManualWatchState.Watched) {
+                        existingRecord.completedAtEpochMillis ?: System.currentTimeMillis()
+                    } else {
+                        null
+                    },
+                    manualWatchState = manualWatchState,
+                ),
+            )
+        }
     }
 }

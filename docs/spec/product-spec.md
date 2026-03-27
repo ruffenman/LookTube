@@ -25,10 +25,10 @@ Premium Giant Bomb subscribers should be able to open an Android app, paste a co
 The current app already covers a substantial first-use slice for a Premium subscriber:
 - copied Premium RSS feed URLs can be configured and synced from the Auth surface
 - copied feed URLs are protected at rest
-- the app persists the last successful synced library and saved playback progress
+- the app persists the last successful synced library, saved playback progress, recent playback history, and watched/unwatched engagement state
 - Giant Bomb site-content heuristics now live in one shared library so feed-title, grouping, cast, and topic rule changes have a single update point
-- Library combines grouped browsing, collapsible section headers, expand/collapse-all controls, sort/filter controls, a scroll-away overview panel above the episode list, rich video cards, and jump navigation that respects visible section anchors
-- Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, and a top-pinned player surface that keeps video and playback context together
+- Library combines grouped browsing, collapsible section headers, expand/collapse-all controls, sort/filter controls, a scroll-away overview panel above the episode list, rich video cards, watched-state controls, show-completion visualization, and jump navigation that respects visible section anchors
+- Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, recent-play history, compact supporting copy, and a top-pinned player surface that keeps video and playback context together
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
@@ -48,18 +48,21 @@ Harden the path from copied feed sync to daily repeat use.
 - the Library status and settings remain in an overview panel above the episode list, the overview panel can scroll off screen, and the jump rail anchors to the episode-list panel rather than overlapping the overview panel
 - when grouped browsing is enabled, each section header can collapse or expand its own episodes without resetting scroll state, and overview controls expose explicit expand-all and collapse-all actions
 - active show-filter feedback remains adjacent to the show-filter controls so library state is readable from one part of the overview panel
-- library cards expose key per-video metadata and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
+- library cards expose key per-video metadata, watched-state actions, and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
+- the Library overview exposes a compact Look Points summary based only on watched videos, while show completion remains a visual progress signal rather than a score bonus
+- grouped show headers surface watched-versus-total completion status so fully watched shows are easy to spot in the browse flow
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
 - the Player tab keeps the player frame visible at the top when a video is opened from Library so the active surface stays in view above the supporting metadata
+- rotating into and out of fullscreen keeps the same active video and playback session instead of pausing, restarting, or reverting to a previously played item
 - when playback is remote, the Player surface clearly explains that video is casting and keeps normal playback controls available instead of presenting an unexplained black frame
-- the compact remote-playback indicator is purely visual, does not intercept player input, and the cast route control stays visually in step with the standard player controls when remote playback is not active
+- the compact remote-playback indicator is purely visual, does not intercept player input, and the player shows a single cast route control that stays visually in step with the standard controls
 - explicit same-video selections, cast-session reconnects after app resume or screen lock, and recovery from cast-session loss restore or reload playback without spuriously restarting an already-active cast session or leaving the player in an idle black-screen state
-- player interactions follow a YouTube-like model where double taps on the left or right half of the video seek backward or forward 10 seconds, while fullscreen remains available from the fullscreen control or device rotation
-- Playback Details show resume and handoff information only; unreliable per-item Premium yes/no presentation is not part of the user-facing player contract unless a stable feed signal is validated later
+- player interactions follow a YouTube-like model where double taps on the left or right half of the video seek backward or forward 10 seconds, fullscreen remains available from the fullscreen control or device rotation, and next/previous controls are omitted because the app does not define an implicit queue
+- the active Player surface uses compact supporting text beneath the frame instead of a redundant Playback Details card, shows a recent-plays affordance, and keeps unreliable per-item Premium yes/no presentation out of the user-facing contract unless a stable feed signal is validated later
 - Auth, Library, and Player keep a consistent card/header/panel treatment so the main app surfaces feel visually coherent without changing the existing LookTube design language
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest
-- users can clear synced cache without re-entering the copied feed URL
+- users can clear synced cache without re-entering the copied feed URL, while local playback progress/history/watch state tied to the synced library is cleared with that cache reset
 - docs reflect the validated product shape instead of the earlier scaffold-only phases
 
 ## Notification functional targets

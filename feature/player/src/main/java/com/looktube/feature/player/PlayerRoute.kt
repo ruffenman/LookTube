@@ -17,14 +17,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,8 +61,12 @@ import com.google.android.gms.cast.framework.CastContext
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
+import com.looktube.model.LookPointsSummary
+import com.looktube.model.RecentPlaybackVideo
+import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
+import com.looktube.model.isWatched
 
 @Composable
 fun PlayerRoute(
@@ -62,8 +74,14 @@ fun PlayerRoute(
     selectedVideo: VideoSummary?,
     playbackProgress: PlaybackProgress?,
     playbackSelectionRequest: Long,
+    selectedVideoEngagement: VideoEngagementRecord?,
+    recentPlaybackVideos: List<RecentPlaybackVideo>,
+    lookPointsSummary: LookPointsSummary,
     player: Player?,
     isFullscreen: Boolean,
+    onRecentVideoSelected: (String) -> Unit,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val activity = rememberActivity(LocalContext.current)
@@ -133,7 +151,13 @@ fun PlayerRoute(
             selectedVideo = selectedVideo,
             playbackProgress = playbackProgress,
             playbackSelectionRequest = playbackSelectionRequest,
+            selectedVideoEngagement = selectedVideoEngagement,
+            recentPlaybackVideos = recentPlaybackVideos,
+            lookPointsSummary = lookPointsSummary,
             player = player,
+            onRecentVideoSelected = onRecentVideoSelected,
+            onMarkVideoWatched = onMarkVideoWatched,
+            onMarkVideoUnwatched = onMarkVideoUnwatched,
             onFullscreenChanged = onFullscreenChanged,
         )
     }
@@ -172,6 +196,127 @@ private fun PlayerFramePlaceholder(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerSupportingCopy(
+    playbackProgress: PlaybackProgress?,
+    remotePlaybackStatus: RemotePlaybackStatus?,
+    isWatched: Boolean,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = remotePlaybackStatus?.title?.let { "$it • ${remotePlaybackStatus.detailsBody}" }
+                ?: compactResumeSummary(playbackProgress),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = "${currentWatchStatusLabel(isWatched, playbackProgress)} • Double-tap left or right to skip 10 seconds.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun PlayerQuickActions(
+    selectedVideo: VideoSummary,
+    isWatched: Boolean,
+    recentPlaybackVideos: List<RecentPlaybackVideo>,
+    lookPointsSummary: LookPointsSummary,
+    lookPointsExpanded: Boolean,
+    recentPlaybackMenuExpanded: Boolean,
+    onLookPointsExpandedChanged: (Boolean) -> Unit,
+    onRecentPlaybackMenuExpandedChanged: (Boolean) -> Unit,
+    onRecentVideoSelected: (String) -> Unit,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(
+                    selected = isWatched,
+                    onClick = {
+                        if (isWatched) {
+                            onMarkVideoUnwatched(selectedVideo.id)
+                        } else {
+                            onMarkVideoWatched(selectedVideo.id)
+                        }
+                    },
+                    label = { Text(if (isWatched) "Reset unwatched" else "Mark watched") },
+                )
+                Box {
+                    FilterChip(
+                        selected = lookPointsExpanded,
+                        onClick = { onLookPointsExpandedChanged(!lookPointsExpanded) },
+                        label = { Text("Look Points ${lookPointsSummary.totalPoints}") },
+                    )
+                }
+                if (recentPlaybackVideos.isNotEmpty()) {
+                    Box {
+                        FilterChip(
+                            selected = recentPlaybackMenuExpanded,
+                            onClick = { onRecentPlaybackMenuExpandedChanged(!recentPlaybackMenuExpanded) },
+                            label = { Text("Recent plays") },
+                        )
+                        DropdownMenu(
+                            expanded = recentPlaybackMenuExpanded,
+                            onDismissRequest = { onRecentPlaybackMenuExpandedChanged(false) },
+                        ) {
+                            recentPlaybackVideos.forEach { recentPlaybackVideo ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        ) {
+                                            Text(recentPlaybackVideo.video.title)
+                                            Text(
+                                                text = recentPlaybackMenuSubtitle(recentPlaybackVideo),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        onRecentPlaybackMenuExpandedChanged(false)
+                                        onRecentVideoSelected(recentPlaybackVideo.video.id)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (lookPointsExpanded) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    HorizontalDivider()
+                    Text(
+                        text = lookPointsBreakdown(lookPointsSummary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -258,11 +403,23 @@ private fun ActivePlayerContent(
     selectedVideo: VideoSummary,
     playbackProgress: PlaybackProgress?,
     playbackSelectionRequest: Long,
+    selectedVideoEngagement: VideoEngagementRecord?,
+    recentPlaybackVideos: List<RecentPlaybackVideo>,
+    lookPointsSummary: LookPointsSummary,
     player: Player,
+    onRecentVideoSelected: (String) -> Unit,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val listState = rememberLazyListState()
     val remotePlaybackStatus = rememberRemotePlaybackStatus(player)
+    val isWatched = selectedVideoEngagement.isWatched(playbackProgress)
+    val otherRecentPlaybackVideos = remember(recentPlaybackVideos, selectedVideo.id) {
+        recentPlaybackVideos.filter { recentPlaybackVideo -> recentPlaybackVideo.video.id != selectedVideo.id }
+    }
+    var recentPlaybackMenuExpanded by rememberSaveable(selectedVideo.id) { mutableStateOf(false) }
+    var lookPointsExpanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(selectedVideo.id, playbackSelectionRequest) {
         listState.scrollToItem(0)
@@ -285,42 +442,37 @@ private fun ActivePlayerContent(
             )
         }
         item {
-            LookTubePageHeader(
-                title = "Player",
-                subtitle = remotePlaybackStatus?.title?.let { "$it. ${remotePlaybackStatus.detailsBody}" }
-                    ?: playbackProgress?.takeIf { it.durationSeconds > 0 }?.let {
-                        "Continue watching ${selectedVideo.displaySeriesTitle} from ${formatPlaybackTime(it.positionSeconds)}."
-                    }
-                    ?: "The player stays pinned at the top so video, controls, and details remain in one place.",
+            PlayerSupportingCopy(
+                playbackProgress = playbackProgress,
+                remotePlaybackStatus = remotePlaybackStatus,
+                isWatched = isWatched,
+            )
+        }
+        item {
+            PlayerQuickActions(
+                selectedVideo = selectedVideo,
+                isWatched = isWatched,
+                recentPlaybackVideos = otherRecentPlaybackVideos,
+                lookPointsSummary = lookPointsSummary,
+                lookPointsExpanded = lookPointsExpanded,
+                recentPlaybackMenuExpanded = recentPlaybackMenuExpanded,
+                onLookPointsExpandedChanged = { lookPointsExpanded = it },
+                onRecentPlaybackMenuExpandedChanged = { recentPlaybackMenuExpanded = it },
+                onRecentVideoSelected = onRecentVideoSelected,
+                onMarkVideoWatched = onMarkVideoWatched,
+                onMarkVideoUnwatched = onMarkVideoUnwatched,
             )
         }
         item {
             LookTubeCard(
-                title = "Now playing",
+                title = selectedVideo.title,
                 body = buildString {
-                    appendLine(selectedVideo.title)
-                    appendLine()
                     appendLine("Show: ${selectedVideo.displaySeriesTitle}")
                     append("Feed category: ${selectedVideo.feedCategory}")
                     if (selectedVideo.description.isNotBlank()) {
                         appendLine()
                         appendLine()
                         append(selectedVideo.description)
-                    }
-                },
-            )
-        }
-        item {
-            LookTubeCard(
-                title = if (remotePlaybackStatus != null) "Playback handoff" else "Playback details",
-                body = buildString {
-                    playbackProgress?.let { progress ->
-                        appendLine("Resume at ${formatPlaybackTime(progress.positionSeconds)} of ${formatPlaybackTime(progress.durationSeconds)}.")
-                    } ?: appendLine("No stored resume point yet.")
-                    appendLine("Double-tap the left or right side of the video to skip backward or forward 10 seconds.")
-                    remotePlaybackStatus?.let { status ->
-                        appendLine()
-                        append(status.detailsBody)
                     }
                 },
             )
@@ -370,6 +522,7 @@ private fun PlayerSurface(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val mediaRouteButtonViewProvider = remember { MediaRouteButtonViewProvider() }
     val overlayInsetPx = with(density) { overlayInset.roundToPx() }
     val remoteBadgeCornerRadiusPx = with(density) { REMOTE_PLAYBACK_BADGE_CORNER_RADIUS.toPx() }
     val remoteBadgeStrokeWidthPx = with(density) { REMOTE_PLAYBACK_BADGE_STROKE_WIDTH.roundToPx() }
@@ -438,7 +591,9 @@ private fun PlayerSurface(
                 useController = true
                 setControllerAutoShow(true)
                 setControllerHideOnTouch(true)
-                setMediaRouteButtonViewProvider(MediaRouteButtonViewProvider())
+                setShowPreviousButton(false)
+                setShowNextButton(false)
+                setMediaRouteButtonViewProvider(mediaRouteButtonViewProvider)
                 this.player = player
                 keepScreenOn = shouldKeepScreenOn(
                     isPlaying = player.isPlaying,
@@ -475,7 +630,8 @@ private fun PlayerSurface(
                 playWhenReady = player.playWhenReady,
                 playbackState = player.playbackState,
             )
-            hostPlayerView.setMediaRouteButtonViewProvider(MediaRouteButtonViewProvider())
+            hostPlayerView.setShowPreviousButton(false)
+            hostPlayerView.setShowNextButton(false)
             hostPlayerView.syncRemotePlaybackBadge(
                 status = remotePlaybackStatus,
                 insetPx = overlayInsetPx,
@@ -569,6 +725,34 @@ private fun formatPlaybackTime(seconds: Long): String {
     }
 }
 
+internal fun compactResumeSummary(playbackProgress: PlaybackProgress?): String =
+    playbackProgress?.takeIf { it.durationSeconds > 0 }?.let { progress ->
+        "Resume • ${formatPlaybackTime(progress.positionSeconds)} / ${formatPlaybackTime(progress.durationSeconds)}"
+    } ?: "Ready to play from the beginning."
+
+internal fun currentWatchStatusLabel(
+    isWatched: Boolean,
+    playbackProgress: PlaybackProgress?,
+): String = when {
+    isWatched -> "Watched"
+    playbackProgress?.positionSeconds?.let { it > 0 } == true -> "In progress"
+    else -> "Not started"
+}
+
+internal fun recentPlaybackMenuSubtitle(recentPlaybackVideo: RecentPlaybackVideo): String = buildList {
+    add(recentPlaybackVideo.video.displaySeriesTitle)
+    recentPlaybackVideo.playbackProgress?.takeIf { progress -> progress.durationSeconds > 0 }?.let { progress ->
+        add("Resume ${formatPlaybackTime(progress.positionSeconds)}")
+    }
+    if (recentPlaybackVideo.isWatched) {
+        add("Watched")
+    }
+}.joinToString(" • ")
+
+internal fun lookPointsBreakdown(summary: LookPointsSummary): String =
+    "${summary.watchedVideoCount}/${summary.totalVideoCount} videos watched • " +
+        "${summary.completedShowCount}/${summary.totalShowCount} shows complete • " +
+        "${summary.videoPoints} points from watched videos."
 internal fun shouldKeepScreenOn(
     isPlaying: Boolean,
     playWhenReady: Boolean,

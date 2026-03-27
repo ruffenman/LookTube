@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.2"
+  version: "0.2.3"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -41,6 +41,20 @@ types:
     video_id: string (required)
     position_seconds: integer (required, >= 0)
     duration_seconds: integer (required, >= 0)
+  ManualWatchState:
+    value: string (required, Watched | Unwatched)
+  VideoEngagementRecord:
+    video_id: string (required)
+    last_played_at_epoch_millis: integer (optional)
+    completed_at_epoch_millis: integer (optional)
+    manual_watch_state: ManualWatchState (optional)
+  LookPointsSummary:
+    total_points: integer (required, >= 0)
+    watched_video_count: integer (required, >= 0)
+    total_video_count: integer (required, >= 0)
+    completed_show_count: integer (required, >= 0)
+    total_show_count: integer (required, >= 0)
+    video_points: integer (required, >= 0)
   LaunchIntent:
     open_video_id: string (optional)
     target_page: integer (optional, 0 | 1 | 2)
@@ -83,11 +97,12 @@ types:
 contract:
   functions:
     - name: bootstrap_app
-      description: Restore the saved feed configuration, cached library snapshot, and playback progress on app start.
+      description: Restore the saved feed configuration, cached library snapshot, playback progress, and local engagement state on app start.
       parameters:
         persisted_feed_configuration: PersistedFeedConfiguration (optional)
         persisted_library_snapshot: PersistedLibrarySnapshot (optional)
         persisted_playback_progress: array of PlaybackProgress (optional)
+        persisted_video_engagement: array of VideoEngagementRecord (optional)
       returns:
         account_session: AccountSession
         feed_configuration: FeedConfiguration
@@ -109,7 +124,7 @@ contract:
         videos: array of VideoSummary
         persisted_library_snapshot: PersistedLibrarySnapshot
     - name: clear_synced_data
-      description: Remove the cached library snapshot and playback progress while keeping the saved feed URL.
+      description: Remove the cached library snapshot, playback progress, and local engagement state while keeping the saved feed URL.
       parameters: {}
       returns:
         feed_configuration: FeedConfiguration
@@ -142,6 +157,13 @@ contract:
         duration_seconds: integer (required, >= 0)
       returns:
         playback_progress: PlaybackProgress
+    - name: set_manual_watch_state
+      description: Explicitly mark a video watched or unwatched for local completion tracking.
+      parameters:
+        video_id: string (required)
+        manual_watch_state: ManualWatchState (required)
+      returns:
+        video_engagement: VideoEngagementRecord
   surfaces:
     - name: auth
       description: Setup and repeat-use surface for feed URL entry, sync status, sync action, and clearing synced data.
@@ -156,22 +178,25 @@ contract:
         - sync Premium feed
         - clear synced data
     - name: library
-      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped sections, rich cards, and section jumping.
+      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped sections, watched-state controls, show-completion visualization, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
         - expand or collapse show filters
         - expand or collapse grouped sections, or all groups at once
+        - manually mark a video watched or unwatched
         - open a details dialog from truncated descriptions
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above supporting metadata and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
         - toggle fullscreen from the player controls
         - cast playback
+        - reopen a recently played video
+        - manually mark the current video watched or unwatched
   processes:
     - name: library_refresh
       description: Periodic refresh that stays registered while a non-blank saved feed URL exists.
@@ -321,7 +346,7 @@ scenarios:
       - returns.library_sync_state.phase == "Error"
       - returns.library_sync_state.message contains "returned no video items"
   - id: clear_synced_data_preserves_saved_feed_url
-    description: Clearing synced data removes cached library and progress but keeps the saved feed URL for later re-sync.
+    description: Clearing synced data removes cached library, progress, and engagement state but keeps the saved feed URL for later re-sync.
     when:
       call: clear_synced_data
       args: {}
@@ -595,6 +620,37 @@ scenarios:
     then:
       - visible card copy contains "Resume"
       - visible card shows a progress indicator
+  - id: library_completion_and_points_are_visible_without_show_score_bonus
+    description: Library overview and show-group browsing expose watched/completion progress, but only watched videos affect the numeric Look Points score.
+    when:
+      surface: library
+      state:
+        look_points_summary:
+          total_points: 30
+          watched_video_count: 3
+          total_video_count: 10
+          completed_show_count: 1
+          total_show_count: 4
+          video_points: 30
+        grouped_by_show: true
+    then:
+      - visible library summary contains "Look Points"
+      - visible grouped show copy can indicate a show is complete
+      - no visible score copy implies an extra show-completion bonus
+  - id: library_video_cards_allow_manual_watch_updates
+    description: Library cards expose explicit watched or unwatched actions in addition to passive progress display.
+    when:
+      surface: library
+      state:
+        videos:
+          - id: "video-12"
+            title: "Playable item"
+            description: "Long description"
+            is_premium: true
+            feed_category: "Premium"
+            playback_url: "https://video.example.com/video-12.mp4"
+    then:
+      - visible card copy contains either "Mark watched" or "Reset unwatched"
   - id: library_truncated_descriptions_can_expand_to_dialog
     description: Truncated library descriptions expose a details affordance and a dismissible dialog.
     when:
@@ -650,7 +706,7 @@ scenarios:
     then:
       - visible status title == "Preparing player"
   - id: player_surface_keeps_video_frame_above_details
-    description: When a video is selected, the player frame remains visible above the supporting metadata cards.
+    description: When a video is selected, the player frame remains visible above the compact supporting copy and metadata.
     when:
       surface: player
       state:
@@ -670,7 +726,7 @@ scenarios:
           player_frame_pinned_top: true
           remote_playback_active: false
     then:
-      - the video frame is visible before the now-playing and playback-detail cards
+      - the video frame is visible before the supporting copy and metadata card
   - id: player_resume_uses_saved_progress
     description: When saved progress exists, playback seeks near the stored position before auto-playing.
     when:
@@ -744,6 +800,23 @@ scenarios:
       - double tapping the left side seeks backward
       - double tapping the right side seeks forward
       - leaving fullscreen restores the standard shell presentation
+  - id: player_fullscreen_rotation_keeps_active_item
+    description: Entering or leaving fullscreen by rotation keeps the current video active and does not rewind or switch back to a previously played item.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-15"
+          title: "Stable fullscreen item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-15.mp4"
+      action:
+        rotate into fullscreen and back out after selecting another playable video
+    then:
+      - the same current video remains selected through the fullscreen transition
+      - playback does not restart from the beginning solely because of the rotation
   - id: player_fullscreen_hides_shell_navigation
     description: Fullscreen playback hides normal shell chrome until fullscreen is exited.
     when:
@@ -761,7 +834,7 @@ scenarios:
       - top app bar is hidden
       - bottom navigation is hidden
   - id: cast_button_is_available_with_player_controls
-    description: Player surface exposes the cast route control as part of the player controls.
+    description: Player surface exposes exactly one cast route control as part of the player controls.
     when:
       surface: player
       state:
@@ -774,7 +847,31 @@ scenarios:
           playback_url: "https://video.example.com/video-10.mp4"
         player_controls_visible: true
     then:
-      - visible cast action exists
+      - exactly one visible cast action exists
+  - id: player_recent_history_and_watch_actions_are_available
+    description: Active player UI exposes recent-play history and a manual watched/unwatched action without a redundant playback-details card.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-16"
+          title: "History item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-16.mp4"
+        player_ready: true
+        look_points_summary:
+          total_points: 20
+          watched_video_count: 2
+          total_video_count: 10
+          completed_show_count: 0
+          total_show_count: 4
+          video_points: 20
+    then:
+      - visible player copy contains "Recent plays"
+      - visible player copy contains either "Mark watched" or "Reset unwatched"
+      - active player surface does not rely on a separate playback-details card for resume/help text
   - id: cast_support_failure_does_not_block_local_playback
     description: Failure to initialize cast support does not prevent local playback from being available.
     when:

@@ -4,6 +4,7 @@ import com.looktube.data.ConfigurableLookTubeRepository
 import com.looktube.data.FeedConfigurationStore
 import com.looktube.data.SyncedLibraryStore
 import com.looktube.database.InMemoryPlaybackBookmarkStore
+import com.looktube.database.InMemoryVideoEngagementStore
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.PlaybackProgress
@@ -36,6 +37,7 @@ class LookTubeAppViewModelTest {
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
@@ -53,6 +55,7 @@ class LookTubeAppViewModelTest {
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
@@ -74,6 +77,7 @@ class LookTubeAppViewModelTest {
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
@@ -109,6 +113,7 @@ class LookTubeAppViewModelTest {
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = playbackBookmarkStore,
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
             ioDispatcher = StandardTestDispatcher(testScheduler),
         )
@@ -124,6 +129,31 @@ class LookTubeAppViewModelTest {
 
         assertEquals("live-app-1", viewModel.selectedPlaybackTarget.value?.video?.id)
         assertEquals(125L, viewModel.selectedPlaybackTarget.value?.playbackProgress?.positionSeconds)
+    }
+
+    @Test
+    fun lookPointsAndRecentPlaybackReflectManualWatchUpdates() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.signInToPremiumFeed()
+        advanceUntilIdle()
+        viewModel.selectVideo("live-app-1")
+        viewModel.markVideoWatched("live-app-1")
+        advanceUntilIdle()
+
+        assertEquals(10, viewModel.lookPointsSummary.value.totalPoints)
+        assertEquals("live-app-1", viewModel.recentPlaybackVideos.value.firstOrNull()?.video?.id)
     }
 }
 

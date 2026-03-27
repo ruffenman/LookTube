@@ -1,6 +1,8 @@
 package com.looktube.data
 
 import com.looktube.database.InMemoryPlaybackBookmarkStore
+import com.looktube.database.InMemoryVideoEngagementStore
+import com.looktube.model.ManualWatchState
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
@@ -29,6 +31,7 @@ class ConfigurableLookTubeRepositoryTest {
             ),
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
             libraryRefreshScheduler = scheduler,
         )
@@ -49,6 +52,7 @@ class ConfigurableLookTubeRepositoryTest {
             feedConfigurationStore = store,
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
         )
 
@@ -66,6 +70,7 @@ class ConfigurableLookTubeRepositoryTest {
             feedConfigurationStore = store,
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
         )
 
@@ -88,6 +93,7 @@ class ConfigurableLookTubeRepositoryTest {
             feedConfigurationStore = store,
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = recordingService,
         )
 
@@ -105,6 +111,7 @@ class ConfigurableLookTubeRepositoryTest {
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
             libraryRefreshScheduler = scheduler,
         )
@@ -124,6 +131,7 @@ class ConfigurableLookTubeRepositoryTest {
             feedConfigurationStore = store,
             syncedLibraryStore = FakeSyncedLibraryStore(),
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = FakeVideoFeedService(),
         )
 
@@ -146,6 +154,7 @@ class ConfigurableLookTubeRepositoryTest {
             feedConfigurationStore = store,
             syncedLibraryStore = syncedLibraryStore,
             playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
             videoFeedService = ParserBackedVideoFeedService(
                 """
                     <rss version="2.0">
@@ -181,6 +190,31 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals(SyncPhase.Success, repository.librarySyncState.value.phase)
         assertEquals(2, savedSnapshot?.videos?.size)
         assertTrue(savedSnapshot?.videos?.all { it.publishedAtEpochMillis != null } == true)
+    }
+
+    @Test
+    fun selectionAndManualWatchStateUpdateEngagementAndClearWithSyncedData() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+        )
+
+        repository.bootstrap()
+        repository.selectVideo("premium-quick-look-1")
+        repository.setManualWatchState("premium-quick-look-1", ManualWatchState.Watched)
+
+        assertEquals(
+            ManualWatchState.Watched,
+            repository.videoEngagement.value["premium-quick-look-1"]?.manualWatchState,
+        )
+        assertTrue(repository.videoEngagement.value["premium-quick-look-1"]?.lastPlayedAtEpochMillis != null)
+
+        repository.clearSyncedData()
+
+        assertTrue(repository.videoEngagement.value.isEmpty())
     }
 }
 

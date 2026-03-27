@@ -67,16 +67,20 @@ fun LookTubeApp(
     val librarySyncState by viewModel.librarySyncState.collectAsStateWithLifecycle()
     val videos by viewModel.videos.collectAsStateWithLifecycle()
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
+    val videoEngagement by viewModel.videoEngagement.collectAsStateWithLifecycle()
     val selectedPlaybackTarget by viewModel.selectedPlaybackTarget.collectAsStateWithLifecycle()
     val playbackSelectionRequest by viewModel.playbackSelectionRequest.collectAsStateWithLifecycle()
     val requestedPage by viewModel.requestedPage.collectAsStateWithLifecycle()
+    val recentPlaybackVideos by viewModel.recentPlaybackVideos.collectAsStateWithLifecycle()
+    val lookPointsSummary by viewModel.lookPointsSummary.collectAsStateWithLifecycle()
+    val seriesCompletionSummaries by viewModel.seriesCompletionSummaries.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     var fullscreenModeName by rememberSaveable { mutableStateOf(PlayerFullscreenMode.Off.name) }
     var notificationPermissionPrompted by rememberSaveable { mutableStateOf(false) }
-    var lastHandledPlaybackSelectionRequest by remember { mutableStateOf(0L) }
+    var lastHandledPlaybackSelectionRequest by rememberSaveable { mutableStateOf(0L) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -111,7 +115,10 @@ fun LookTubeApp(
     LaunchedEffect(selectedPlaybackTarget?.video?.id, playbackController, playbackSelectionRequest) {
         val controller = playbackController ?: return@LaunchedEffect
         val playbackTarget = selectedPlaybackTarget ?: return@LaunchedEffect
-        val forceReload = playbackSelectionRequest > lastHandledPlaybackSelectionRequest
+        val forceReload = isExplicitPlaybackSelectionRequest(
+            playbackSelectionRequest = playbackSelectionRequest,
+            lastHandledPlaybackSelectionRequest = lastHandledPlaybackSelectionRequest,
+        )
         handoffSelectedPlaybackTarget(
             controller = MediaControllerPlaybackHandoffController(
                 controller = controller,
@@ -225,12 +232,17 @@ fun LookTubeApp(
                         syncState = librarySyncState,
                         videos = videos,
                         playbackProgress = playbackProgress,
+                        videoEngagement = videoEngagement,
+                        lookPointsSummary = lookPointsSummary,
+                        seriesCompletionSummaries = seriesCompletionSummaries,
                         onVideoSelected = { videoId ->
                             viewModel.selectVideo(videoId)
                             scope.launch {
                                 pagerState.animateScrollToPage(LookTubeLaunchContract.PLAYER_PAGE_INDEX)
                             }
                         },
+                        onMarkVideoWatched = viewModel::markVideoWatched,
+                        onMarkVideoUnwatched = viewModel::markVideoUnwatched,
                     )
 
                     else -> PlayerRoute(
@@ -238,8 +250,14 @@ fun LookTubeApp(
                         selectedVideo = selectedPlaybackTarget?.video,
                         playbackProgress = selectedPlaybackTarget?.playbackProgress,
                         playbackSelectionRequest = playbackSelectionRequest,
+                        selectedVideoEngagement = selectedPlaybackTarget?.video?.id?.let(videoEngagement::get),
+                        recentPlaybackVideos = recentPlaybackVideos,
+                        lookPointsSummary = lookPointsSummary,
                         player = playbackController,
                         isFullscreen = isPlayerFullscreen,
+                        onRecentVideoSelected = viewModel::selectVideo,
+                        onMarkVideoWatched = viewModel::markVideoWatched,
+                        onMarkVideoUnwatched = viewModel::markVideoUnwatched,
                         onFullscreenChanged = { enabled ->
                             fullscreenModeName = when {
                                 enabled -> PlayerFullscreenMode.Manual.name
@@ -378,6 +396,11 @@ internal fun shouldReplaceMediaItemForPlaybackTarget(
     playbackState == androidx.media3.common.Player.STATE_IDLE ||
     playbackState == androidx.media3.common.Player.STATE_ENDED ||
     (isPlaybackRouteRemote && !hasConnectedCastSession)
+
+internal fun isExplicitPlaybackSelectionRequest(
+    playbackSelectionRequest: Long,
+    lastHandledPlaybackSelectionRequest: Long,
+): Boolean = playbackSelectionRequest > lastHandledPlaybackSelectionRequest
 
 internal fun hasConnectedCastSession(context: android.content.Context): Boolean = runCatching {
     CastContext.getSharedInstance(context)

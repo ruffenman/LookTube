@@ -2,6 +2,10 @@ package com.looktube.feature.player
 
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
+import com.looktube.model.LookPointsSummary
+import com.looktube.model.PlaybackProgress
+import com.looktube.model.RecentPlaybackVideo
+import com.looktube.model.VideoSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -134,6 +138,64 @@ class PlayerRouteTest {
                 isPlaying = true,
                 playWhenReady = true,
                 playbackState = Player.STATE_READY,
+            ),
+        )
+    }
+
+    @Test
+    fun compactResumeSummaryStaysShort() {
+        assertEquals(
+            "Resume • 20:50 / 1:10:00",
+            compactResumeSummary(
+                PlaybackProgress(
+                    videoId = "video-1",
+                    positionSeconds = 1_250,
+                    durationSeconds = 4_200,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun recentPlaybackMenuSubtitleIncludesResumeAndWatchState() {
+        assertEquals(
+            "Quick Look • Resume 20:50 • Watched",
+            recentPlaybackMenuSubtitle(
+                RecentPlaybackVideo(
+                    video = VideoSummary(
+                        id = "video-1",
+                        title = "Quick Look Test",
+                        description = "",
+                        isPremium = true,
+                        feedCategory = "Premium",
+                        playbackUrl = "https://video.example.com/video-1.mp4",
+                        seriesTitle = "Quick Look",
+                    ),
+                    playbackProgress = PlaybackProgress(
+                        videoId = "video-1",
+                        positionSeconds = 1_250,
+                        durationSeconds = 4_200,
+                    ),
+                    isWatched = true,
+                    lastPlayedAtEpochMillis = 1_000L,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun lookPointsBreakdownExplainsScoreSource() {
+        assertEquals(
+            "3/10 videos watched • 1/4 shows complete • 30 points from watched videos.",
+            lookPointsBreakdown(
+                LookPointsSummary(
+                    totalPoints = 30,
+                    watchedVideoCount = 3,
+                    totalVideoCount = 10,
+                    completedShowCount = 1,
+                    totalShowCount = 4,
+                    videoPoints = 30,
+                ),
             ),
         )
     }

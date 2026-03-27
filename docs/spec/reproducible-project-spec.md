@@ -44,14 +44,14 @@ An implementation that materially changes these choices can still be valid, but 
 5. App loads feed items into the library and exposes them for browsing and playback.
 
 ### Daily repeat use
-1. App restores the saved feed URL, cached library snapshot, and playback progress.
+1. App restores the saved feed URL, cached library snapshot, playback progress, and local engagement state for recent history and watched/unwatched tracking.
 2. User can browse and resume without re-entering the feed URL.
 3. WorkManager keeps periodic background refresh active while a non-blank feed URL remains saved.
 4. If a later successful refresh finds previously unseen video IDs for the same feed URL, the app posts a local notification that opens the newest discovered video.
 
 ### Clear synced data
 1. User clears synced data.
-2. App removes cached library snapshot and playback progress.
+2. App removes cached library snapshot, playback progress, and local engagement state.
 3. App preserves the saved feed URL so the next sync stays cheap.
 ## Surface inventory
 ### App shell
@@ -68,12 +68,14 @@ An implementation that materially changes these choices can still be valid, but 
 
 ### Library surface
 - renders an overview panel above the scrolling episode list using the current sync state and last successful summary
+- surfaces a compact Look Points summary based on watched videos, while show completion stays visual rather than score-bearing
 - supports grouping by none, show, cast, or topic
 - supports sorting by latest, show, or oldest
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers, progress-aware video cards, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
+- renders grouped section headers, progress-aware video cards, watched-state controls, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
+- shows watched-versus-total completion on grouped show headers when browsing by show
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
 - keeps active show-filter feedback adjacent to the show-filter controls inside the overview panel
 - keeps the primary Auth, Library, and Player surfaces visually consistent through shared card, header, and panel treatments
@@ -85,8 +87,10 @@ An implementation that materially changes these choices can still be valid, but 
 - resumes playback from saved progress when available
 - supports fullscreen entry from the player control and landscape-driven presentation
 - uses left-side and right-side double taps to seek backward or forward 10 seconds during playback
-- supports landscape-driven fullscreen behavior
-- exposes the cast route control as part of the player controls
+- keeps playback on the same active item when entering or leaving fullscreen, including activity recreation from rotation
+- omits next/previous transport controls because there is no implicit app-owned queue
+- exposes exactly one cast route control as part of the player controls
+- exposes recent-play history and manual watched/unwatched actions below the player in a compact supporting area
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets
@@ -118,9 +122,15 @@ An implementation that materially changes these choices can still be valid, but 
 - Selecting a playable item hands the resolved playback URL directly to Media3.
 - Playback progress persists locally and is restored on later playback attempts.
 - A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
+- Entering or leaving fullscreen must not restart playback, swap back to a previously played item, or lose the current selection request boundary.
 - Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
 - When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
+
+### Engagement, history, and completion
+- The app persists a recent-play history and manual watched/unwatched overrides per video alongside playback progress.
+- Look Points are derived only from watched videos; completing every video in a show is visualized in browse UI but does not grant extra score.
+- A video can become watched either through playback completion heuristics or an explicit manual watched action, and a manual unwatched action overrides that status until the user watches or marks it watched again.
 
 ### Feed parsing and sync semantics
 - Feed sync performs a direct GET against the copied feed URL.
@@ -137,10 +147,11 @@ An implementation that materially changes these choices can still be valid, but 
 - secure storage is preferred for the feed URL, with migration from legacy plaintext when available
 - cached library snapshot persists feed URL, videos, and last successful summary
 - playback progress persists per video and updates during playback
+- engagement state persists recent-play timestamps, completion timestamps, and manual watched/unwatched overrides per video
 
 ## Security and privacy constraints
 - Do not commit live Giant Bomb feed URLs, cookies, or authenticated XML payloads.
-- Persist only the minimum local state needed for repeat use: feed URL, cached library snapshot, and playback progress.
+- Persist only the minimum local state needed for repeat use: feed URL, cached library snapshot, playback progress, and local engagement state for history/completion.
 - Avoid browser-login automation, scraping, or credential capture unless Giant Bomb publishes an official supported path.
 
 ## Validation contract
