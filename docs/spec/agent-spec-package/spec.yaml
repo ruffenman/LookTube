@@ -650,7 +650,21 @@ scenarios:
             feed_category: "Premium"
             playback_url: "https://video.example.com/video-12.mp4"
     then:
-      - visible card copy contains either "Mark watched" or "Reset unwatched"
+      - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
+  - id: look_points_surfaces_use_accent_outline
+    description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
+    when:
+      surface: library or player
+      state:
+        look_points_summary:
+          total_points: 20
+          watched_video_count: 2
+          total_video_count: 10
+          completed_show_count: 0
+          total_show_count: 4
+          video_points: 20
+    then:
+      - visible Look Points surface uses the gold/yellow accent outline
   - id: library_truncated_descriptions_can_expand_to_dialog
     description: Truncated library descriptions expose a details affordance and a dismissible dialog.
     when:
@@ -870,7 +884,7 @@ scenarios:
           video_points: 20
     then:
       - visible player copy contains "Recent plays"
-      - visible player copy contains either "Mark watched" or "Reset unwatched"
+      - visible player copy contains either "Mark as Watched" or "Mark as Unwatched"
       - active player surface does not rely on a separate playback-details card for resume/help text
   - id: cast_support_failure_does_not_block_local_playback
     description: Failure to initialize cast support does not prevent local playback from being available.

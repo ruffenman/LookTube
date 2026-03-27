@@ -76,6 +76,7 @@ An implementation that materially changes these choices can still be valid, but 
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
 - renders grouped section headers, progress-aware video cards, watched-state controls, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
 - shows watched-versus-total completion on grouped show headers when browsing by show
+- uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
 - keeps active show-filter feedback adjacent to the show-filter controls inside the overview panel
 - keeps the primary Auth, Library, and Player surfaces visually consistent through shared card, header, and panel treatments
@@ -91,6 +92,7 @@ An implementation that materially changes these choices can still be valid, but 
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
 - exposes recent-play history and manual watched/unwatched actions below the player in a compact supporting area
+- applies a gold/yellow accent outline to any Look Points surface or chip in Library or Player
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets

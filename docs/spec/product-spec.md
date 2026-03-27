@@ -49,7 +49,9 @@ Harden the path from copied feed sync to daily repeat use.
 - when grouped browsing is enabled, each section header can collapse or expand its own episodes without resetting scroll state, and overview controls expose explicit expand-all and collapse-all actions
 - active show-filter feedback remains adjacent to the show-filter controls so library state is readable from one part of the overview panel
 - library cards expose key per-video metadata, watched-state actions, and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
+- watched-state actions use explicit `Mark as Watched` and `Mark as Unwatched` phrasing throughout the app
 - the Library overview exposes a compact Look Points summary based only on watched videos, while show completion remains a visual progress signal rather than a score bonus
+- any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment
 - grouped show headers surface watched-versus-total completion status so fully watched shows are easy to spot in the browse flow
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
 - the Player tab keeps the player frame visible at the top when a video is opened from Library so the active surface stays in view above the supporting metadata

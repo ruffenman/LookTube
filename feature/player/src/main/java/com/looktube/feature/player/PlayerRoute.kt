@@ -262,12 +262,13 @@ private fun PlayerQuickActions(
                             onMarkVideoWatched(selectedVideo.id)
                         }
                     },
-                    label = { Text(if (isWatched) "Reset unwatched" else "Mark watched") },
+                    label = { Text(if (isWatched) "Mark as Unwatched" else "Mark as Watched") },
                 )
                 Box {
                     FilterChip(
                         selected = lookPointsExpanded,
                         onClick = { onLookPointsExpandedChanged(!lookPointsExpanded) },
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                         label = { Text("Look Points ${lookPointsSummary.totalPoints}") },
                     )
                 }

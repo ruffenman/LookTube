@@ -452,7 +452,7 @@ private fun LookPointsPanel(
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -1175,7 +1175,7 @@ private fun VideoListCard(
                                 onMarkVideoWatched(video.id)
                             }
                         },
-                        label = { Text(if (isWatched) "Reset unwatched" else "Mark watched") },
+                        label = { Text(if (isWatched) "Mark as Unwatched" else "Mark as Watched") },
                     )
                 }
             }

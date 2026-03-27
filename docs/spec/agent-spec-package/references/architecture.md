@@ -24,11 +24,13 @@ Its central promise is deliberately narrow:
 - combines status, grouping, sorting, filtering, and jump navigation in one browse surface
 - grouped headers can collapse or expand independently, with overview controls for expanding or collapsing all groups
 - shows watched-versus-total progress for shows and a compact Look Points summary that scores watched videos only
+- uses explicit `Mark as Watched` and `Mark as Unwatched` wording for manual watch-state actions
 - should remain usable and informative even before a successful live sync
 ### Player
 - must handle empty, unavailable, preparing, and active playback states clearly
 - keeps the player frame above the supporting metadata when a video is selected
 - supports resume, cast routing, fullscreen from controls/rotation, left/right double-tap seek behavior, recent-play history, and manual watched/unwatched actions
+- outlines Look Points UI with the gold/yellow accent treatment used by the app theme
 - explains remote playback on the player surface with a non-blocking visual indicator and should recover local playback cleanly after cast-session loss, reconnect, or same-video reselection
 ## External integration stance
 The copied feed URL is the validated access path.
