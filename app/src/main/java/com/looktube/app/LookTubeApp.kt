@@ -243,6 +243,8 @@ fun LookTubeApp(
                         },
                         onMarkVideoWatched = viewModel::markVideoWatched,
                         onMarkVideoUnwatched = viewModel::markVideoUnwatched,
+                        onMarkVideosWatched = viewModel::markVideosWatched,
+                        onMarkVideosUnwatched = viewModel::markVideosUnwatched,
                     )
 
                     else -> PlayerRoute(

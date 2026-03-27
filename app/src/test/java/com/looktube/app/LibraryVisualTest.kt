@@ -117,6 +117,8 @@ class LibraryVisualTest {
                         onVideoSelected = {},
                         onMarkVideoWatched = {},
                         onMarkVideoUnwatched = {},
+                        onMarkVideosWatched = {},
+                        onMarkVideosUnwatched = {},
                     )
                 }
             }

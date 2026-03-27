@@ -68,13 +68,14 @@ An implementation that materially changes these choices can still be valid, but 
 
 ### Library surface
 - renders an overview panel above the scrolling episode list using the current sync state and last successful summary
-- surfaces a compact Look Points summary based on watched videos, while show completion stays visual rather than score-bearing
+- places a compact Look Points summary directly below the page header and outside the default-collapsed Library Config section, while show completion stays visual rather than score-bearing
 - supports grouping by none, show, cast, or topic
 - supports sorting by latest, show, or oldest
+- supports a default-collapsed Library Config section that wraps library status, grouping, group visibility, sorting, and show filtering
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers, progress-aware video cards, watched-state controls, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
+- renders grouped section headers, progress-aware video cards, per-video watched-state controls, group-level watched/unwatched actions, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -106,7 +107,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Successful sync replaces the active library with feed-backed items.
 - If no successful feed snapshot is available, the app may use seeded fallback data so the shell remains usable and testable.
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
-- The library overview/status/settings panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
+- The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, keeps the Look Points summary above a default-collapsed Library Config element, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
 
 ### Background refresh and notifications

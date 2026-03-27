@@ -208,6 +208,14 @@ class LookTubeAppViewModel(
         repository.setManualWatchState(videoId, ManualWatchState.Unwatched)
     }
 
+    fun markVideosWatched(videoIds: List<String>) {
+        videoIds.forEach(::markVideoWatched)
+    }
+
+    fun markVideosUnwatched(videoIds: List<String>) {
+        videoIds.forEach(::markVideoUnwatched)
+    }
+
     private fun notePlaybackSelectionRequest() {
         playbackSelectionRequestState.value = playbackSelectionRequestState.value + 1L
     }

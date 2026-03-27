@@ -21,8 +21,9 @@ Its central promise is deliberately narrow:
 - communicates setup, ready, syncing, synced, and error-adjacent states
 - can clear synced data while preserving the saved feed URL
 ### Library
-- combines status, grouping, sorting, filtering, and jump navigation in one browse surface
-- grouped headers can collapse or expand independently, with overview controls for expanding or collapsing all groups
+- combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
+- keeps Look Points near the top of the surface and wraps status plus browse controls inside a default-collapsed Library Config element
+- grouped headers can collapse or expand independently, expose whole-group watched/unwatched actions, and keep overview controls for expanding or collapsing all groups
 - shows watched-versus-total progress for shows and a compact Look Points summary that scores watched videos only
 - uses explicit `Mark as Watched` and `Mark as Unwatched` wording for manual watch-state actions
 - should remain usable and informative even before a successful live sync

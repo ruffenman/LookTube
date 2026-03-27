@@ -155,6 +155,33 @@ class LookTubeAppViewModelTest {
         assertEquals(10, viewModel.lookPointsSummary.value.totalPoints)
         assertEquals("live-app-1", viewModel.recentPlaybackVideos.value.firstOrNull()?.video?.id)
     }
+
+    @Test
+    fun groupWatchUpdatesCanMarkMultipleVideosAtOnce() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = MultiVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+        )
+
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+
+        viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.signInToPremiumFeed()
+        advanceUntilIdle()
+        viewModel.markVideosWatched(listOf("live-app-1", "live-app-2"))
+        advanceUntilIdle()
+
+        assertEquals(20, viewModel.lookPointsSummary.value.totalPoints)
+        assertEquals(
+            2,
+            viewModel.seriesCompletionSummaries.value["Live Show"]?.watchedVideoCount,
+        )
+    }
 }
 
 private class FakeFeedConfigurationStore : FeedConfigurationStore {
@@ -195,6 +222,31 @@ private class FakeVideoFeedService : VideoFeedService {
                 isPremium = true,
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/live-app-1.m3u8",
+            ),
+        )
+    }
+}
+
+private class MultiVideoFeedService : VideoFeedService {
+    override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> {
+        return listOf(
+            VideoSummary(
+                id = "live-app-1",
+                title = "App-level sync result",
+                description = "Loaded via the fake app test service.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/live-app-1.m3u8",
+                seriesTitle = "Live Show",
+            ),
+            VideoSummary(
+                id = "live-app-2",
+                title = "App-level sync result two",
+                description = "Loaded via the fake app test service.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/live-app-2.m3u8",
+                seriesTitle = "Live Show",
             ),
         )
     }

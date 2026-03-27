@@ -591,13 +591,15 @@ scenarios:
       - jump rail contains target "Top"
       - jump rail contains at least one section target
   - id: library_overview_panel_stays_above_scrolling_results
-    description: Library status and browsing controls remain in an overview panel above the scrolling episode list, can scroll away before the results take over the viewport, and the jump rail anchors only to the episode-list panel.
+    description: Library Look Points and the default-collapsed Library Config remain above the scrolling episode list, can scroll away before the results take over the viewport, and the jump rail anchors only to the episode-list panel.
     when:
       surface: library
       state:
         videos is non-empty array
         grouped_sections_exist: true
     then:
+      - Look Points remains visible above Library Config in the overview area
+      - Library Config is collapsed before the user expands it
       - library status and browsing controls remain above the scrolling results panel until scrolled away
       - jump rail does not overlap the fixed overview panel
   - id: library_video_cards_show_resume_progress_when_available
@@ -651,6 +653,17 @@ scenarios:
             playback_url: "https://video.example.com/video-12.mp4"
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
+  - id: library_group_headers_allow_batch_watch_updates
+    description: Grouped library headers expose concise status copy and whole-group watched or unwatched actions.
+    when:
+      surface: library
+      state:
+        grouped_sections_exist: true
+        grouped_by_show: true
+    then:
+      - visible grouped header does not rely on tap-instruction copy to explain expand or collapse
+      - visible grouped header contains "Mark as Watched"
+      - visible grouped header contains "Mark as Unwatched"
   - id: look_points_surfaces_use_accent_outline
     description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
     when:

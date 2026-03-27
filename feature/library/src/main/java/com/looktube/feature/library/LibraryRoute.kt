@@ -105,6 +105,8 @@ fun LibraryRoute(
     onVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
+    onMarkVideosWatched: (List<String>) -> Unit,
+    onMarkVideosUnwatched: (List<String>) -> Unit,
 ) {
     val density = LocalDensity.current
     val listTopContentPaddingPx = with(density) { LIST_TOP_CONTENT_PADDING.roundToPx() }
@@ -376,6 +378,9 @@ fun LibraryRoute(
                     item(key = "section-${displayedSection.section.key}") {
                         SeriesSectionHeader(
                             section = displayedSection.section,
+                            watchedVideoCount = displayedSection.section.videos.count { video ->
+                                videoEngagement[video.id].isWatched(playbackProgress[video.id])
+                            },
                             completionSummary = if (groupingMode == HeuristicGroupingMode.Show) {
                                 seriesCompletionSummaries[displayedSection.section.title]
                             } else {
@@ -384,6 +389,12 @@ fun LibraryRoute(
                             isExpanded = displayedSection.isExpanded,
                             onToggleExpanded = {
                                 collapsedSectionKeys = collapsedSectionKeys.toggle(displayedSection.section.key)
+                            },
+                            onMarkSectionWatched = {
+                                onMarkVideosWatched(displayedSection.section.videos.map(VideoSummary::id))
+                            },
+                            onMarkSectionUnwatched = {
+                                onMarkVideosUnwatched(displayedSection.section.videos.map(VideoSummary::id))
                             },
                             textEndPadding = railTextClearance,
                         )
@@ -764,6 +775,7 @@ private fun LibraryOverviewPanel(
     filteredVideoCount: Int,
 ) {
     var showLookPointsDetails by rememberSaveable { mutableStateOf(false) }
+    var showLibraryConfig by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -778,34 +790,135 @@ private fun LibraryOverviewPanel(
                 title = "Library",
                 subtitle = "Browse your synced Premium videos by show, cast, or topic and jump between sections quickly.",
             )
-            LookTubeCard(
-                title = "Library status",
-                body = libraryStatusBody,
-            )
             LookPointsPanel(
                 lookPointsSummary = lookPointsSummary,
                 isExpanded = showLookPointsDetails,
                 onExpandedChanged = { showLookPointsDetails = it },
             )
-            BrowseControlsPanel(
+            LibraryConfigPanel(
+                libraryStatusBody = libraryStatusBody,
                 groupingMode = groupingMode,
-                onGroupingModeChanged = onGroupingModeChanged,
                 sortOption = sortOption,
-                sortMenuExpanded = sortMenuExpanded,
-                onSortMenuExpandedChanged = onSortMenuExpandedChanged,
-                onSortOptionChanged = onSortOptionChanged,
                 isGrouped = isGrouped,
                 groupSectionCount = groupSectionCount,
                 expandedGroupCount = expandedGroupCount,
-                onExpandAllGroups = onExpandAllGroups,
-                onCollapseAllGroups = onCollapseAllGroups,
-                seriesFilters = seriesFilters,
                 selectedSeriesFilter = selectedSeriesFilter,
-                onSeriesFilterChanged = onSeriesFilterChanged,
-                totalVideoCount = totalVideoCount,
-                filteredVideoCount = filteredVideoCount,
-                chipRowEndPadding = 0.dp,
+                isExpanded = showLibraryConfig,
+                onExpandedChanged = { showLibraryConfig = it },
+            ) {
+                BrowseControlsPanel(
+                    groupingMode = groupingMode,
+                    onGroupingModeChanged = onGroupingModeChanged,
+                    sortOption = sortOption,
+                    sortMenuExpanded = sortMenuExpanded,
+                    onSortMenuExpandedChanged = onSortMenuExpandedChanged,
+                    onSortOptionChanged = onSortOptionChanged,
+                    isGrouped = isGrouped,
+                    groupSectionCount = groupSectionCount,
+                    expandedGroupCount = expandedGroupCount,
+                    onExpandAllGroups = onExpandAllGroups,
+                    onCollapseAllGroups = onCollapseAllGroups,
+                    seriesFilters = seriesFilters,
+                    selectedSeriesFilter = selectedSeriesFilter,
+                    onSeriesFilterChanged = onSeriesFilterChanged,
+                    totalVideoCount = totalVideoCount,
+                    filteredVideoCount = filteredVideoCount,
+                    chipRowEndPadding = 0.dp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryConfigPanel(
+    libraryStatusBody: String,
+    groupingMode: HeuristicGroupingMode,
+    sortOption: LibrarySortOption,
+    isGrouped: Boolean,
+    groupSectionCount: Int,
+    expandedGroupCount: Int,
+    selectedSeriesFilter: String,
+    isExpanded: Boolean,
+    onExpandedChanged: (Boolean) -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val summary = remember(
+        groupingMode,
+        sortOption,
+        isGrouped,
+        groupSectionCount,
+        expandedGroupCount,
+        selectedSeriesFilter,
+    ) {
+        buildList {
+            add("Sort ${sortOption.label}")
+            add("Group ${groupingMode.label}")
+            if (isGrouped) {
+                add("$expandedGroupCount/$groupSectionCount groups open")
+            }
+            add(
+                if (selectedSeriesFilter == ALL_SERIES_FILTER) {
+                    "All shows"
+                } else {
+                    selectedSeriesFilter
+                },
             )
+        }.joinToString(" • ")
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .clickable { onExpandedChanged(!isExpanded) }
+            .animateContentSize(),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        tonalElevation = 2.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "Library Config",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        text = "Library status, grouping, visibility, sorting, and filters.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = if (isExpanded) "Hide" else "Show",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (isExpanded) {
+                LookTubeCard(
+                    title = "Library status",
+                    body = libraryStatusBody,
+                )
+                content()
+            }
         }
     }
 }
@@ -947,19 +1060,23 @@ private fun libraryWatchStatusLabel(
 @Composable
 private fun SeriesSectionHeader(
     section: SeriesSection,
+    watchedVideoCount: Int,
     completionSummary: SeriesCompletionSummary?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
+    onMarkSectionWatched: () -> Unit,
+    onMarkSectionUnwatched: () -> Unit,
     textEndPadding: Dp,
 ) {
-    val baseSupportingText = if (isExpanded) {
-        "Tap to collapse ${section.videos.size} ${if (section.videos.size == 1) "episode" else "episodes"} in this ${section.kindLabel.lowercase()}."
-    } else {
-        "Tap to expand this ${section.kindLabel.lowercase()} and show ${section.videos.size} ${if (section.videos.size == 1) "episode" else "episodes"}."
-    }
-    val supportingText = completionSummary?.let { summary ->
-        "$baseSupportingText ${summary.watchedVideoCount}/${summary.totalVideoCount} watched."
-    } ?: baseSupportingText
+    val supportingText = buildList {
+        add("${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}")
+        add("$watchedVideoCount/${section.videos.size} watched")
+        if (completionSummary?.let { it.totalVideoCount > 0 && it.watchedVideoCount == it.totalVideoCount } == true) {
+            add("Complete")
+        }
+    }.joinToString(" • ")
+    val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
+    val sectionIsFullyUnwatched = watchedVideoCount == 0
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -984,54 +1101,41 @@ private fun SeriesSectionHeader(
                     end = 16.dp + textEndPadding,
                     bottom = 14.dp,
                 ),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 text = section.kindLabel.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = section.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = if (isExpanded) {
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f)
-                    },
-                    contentColor = if (isExpanded) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    },
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = if (isExpanded) "Collapse" else "Expand",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                }
-            }
             Text(
-                text = "$supportingText ${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"} total.",
+                text = section.title,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = supportingText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            BrowseControlChipRow(
+                contentEndPadding = textEndPadding,
+            ) {
+                FilterChip(
+                    selected = isExpanded,
+                    onClick = onToggleExpanded,
+                    label = { Text(if (isExpanded) "Collapse" else "Expand") },
+                )
+                FilterChip(
+                    selected = sectionIsFullyWatched,
+                    onClick = onMarkSectionWatched,
+                    label = { Text("Mark as Watched") },
+                )
+                FilterChip(
+                    selected = sectionIsFullyUnwatched,
+                    onClick = onMarkSectionUnwatched,
+                    label = { Text("Mark as Unwatched") },
+                )
+            }
         }
     }
 }

@@ -27,7 +27,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - copied feed URLs are protected at rest
 - the app persists the last successful synced library, saved playback progress, recent playback history, and watched/unwatched engagement state
 - Giant Bomb site-content heuristics now live in one shared library so feed-title, grouping, cast, and topic rule changes have a single update point
-- Library combines grouped browsing, collapsible section headers, expand/collapse-all controls, sort/filter controls, a scroll-away overview panel above the episode list, rich video cards, watched-state controls, show-completion visualization, and jump navigation that respects visible section anchors
+- Library combines grouped browsing, collapsible section headers, group-level watched/unwatched actions, sort/filter controls, a scroll-away overview panel above the episode list, a default-collapsed Library Config section, a top-placed Look Points summary, rich video cards, show-completion visualization, and jump navigation that respects visible section anchors
 - Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, recent-play history, compact supporting copy, and a top-pinned player surface that keeps video and playback context together
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the product remains explicitly feed-first and avoids unsupported website-login automation
@@ -45,14 +45,15 @@ Harden the path from copied feed sync to daily repeat use.
 - notification posting remains a best-effort WorkManager flow rather than an exact-time delivery guarantee, but repeated detections must remain observable in testing and in the system notification tray
 - browse ergonomics continue improving from device feedback without regressing the grouped-library model
 - the chosen sort mode applies consistently to flat episode lists, grouped section ordering, and episode ordering within each visible group
-- the Library status and settings remain in an overview panel above the episode list, the overview panel can scroll off screen, and the jump rail anchors to the episode-list panel rather than overlapping the overview panel
+- the Library status and browsing controls remain in a collapsible `Library Config` element inside the overview panel above the episode list, that config element is collapsed by default, the overview panel can scroll off screen, and the jump rail anchors to the episode-list panel rather than overlapping the overview panel
 - when grouped browsing is enabled, each section header can collapse or expand its own episodes without resetting scroll state, and overview controls expose explicit expand-all and collapse-all actions
+- the Library header keeps the Look Points card above the collapsed `Library Config` element, directly below the page title and description
 - active show-filter feedback remains adjacent to the show-filter controls so library state is readable from one part of the overview panel
 - library cards expose key per-video metadata, watched-state actions, and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
 - watched-state actions use explicit `Mark as Watched` and `Mark as Unwatched` phrasing throughout the app
 - the Library overview exposes a compact Look Points summary based only on watched videos, while show completion remains a visual progress signal rather than a score bonus
 - any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment
-- grouped show headers surface watched-versus-total completion status so fully watched shows are easy to spot in the browse flow
+- grouped section headers avoid redundant tap-instruction copy, surface watched-versus-total completion status, and expose explicit group-level `Mark as Watched` and `Mark as Unwatched` actions so fully watched shows are easy to spot and update in the browse flow
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
 - the Player tab keeps the player frame visible at the top when a video is opened from Library so the active surface stays in view above the supporting metadata
 - rotating into and out of fullscreen keeps the same active video and playback session instead of pausing, restarting, or reverting to a previously played item
