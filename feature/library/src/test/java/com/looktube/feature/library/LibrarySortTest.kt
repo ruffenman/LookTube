@@ -439,6 +439,12 @@ class LibrarySortTest {
         assertEquals(listOf(2, 5, 6), buildSectionStartIndices(displayedSections))
     }
 
+    @Test
+    fun watchToggleActionLabelReflectsCurrentState() {
+        assertEquals("Mark as Watched", watchToggleActionLabel(isWatched = false))
+        assertEquals("Mark as Unwatched", watchToggleActionLabel(isWatched = true))
+    }
+
     private fun video(
         id: String,
         title: String,

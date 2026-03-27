@@ -75,7 +75,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers, progress-aware video cards, per-video watched-state controls, group-level watched/unwatched actions, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
+- renders grouped section headers, progress-aware video cards, single-toggle watched-state controls, compact group-level watched-state toggles, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -109,6 +109,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
 - The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, keeps the Look Points summary above a default-collapsed Library Config element, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
+- Grouped header controls use compact layout, icon-only expand/collapse affordances, and a single current-state watched toggle instead of parallel watched and unwatched buttons.
 
 ### Background refresh and notifications
 - Saving a non-blank feed URL results in one active periodic background refresh registration.

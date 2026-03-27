@@ -654,7 +654,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy and whole-group watched or unwatched actions.
+    description: Grouped library headers expose concise status copy, compact controls, a single whole-group watched-state toggle, and icon-only expand or collapse affordances.
     when:
       surface: library
       state:
@@ -662,8 +662,8 @@ scenarios:
         grouped_by_show: true
     then:
       - visible grouped header does not rely on tap-instruction copy to explain expand or collapse
-      - visible grouped header contains "Mark as Watched"
-      - visible grouped header contains "Mark as Unwatched"
+      - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
+      - visible grouped header uses iconography rather than text labels for expand/collapse
   - id: look_points_surfaces_use_accent_outline
     description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
     when:

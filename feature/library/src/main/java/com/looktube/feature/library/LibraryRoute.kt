@@ -1,5 +1,4 @@
 package com.looktube.feature.library
-
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -1057,6 +1056,9 @@ private fun libraryWatchStatusLabel(
     else -> "Not started"
 }
 
+internal fun watchToggleActionLabel(isWatched: Boolean): String =
+    if (isWatched) "Mark as Unwatched" else "Mark as Watched"
+
 @Composable
 private fun SeriesSectionHeader(
     section: SeriesSection,
@@ -1076,7 +1078,6 @@ private fun SeriesSectionHeader(
         }
     }.joinToString(" • ")
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
-    val sectionIsFullyUnwatched = watchedVideoCount == 0
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1101,39 +1102,74 @@ private fun SeriesSectionHeader(
                     end = 16.dp + textEndPadding,
                     bottom = 14.dp,
                 ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = section.kindLabel.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = section.kindLabel.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Surface(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable(onClick = onToggleExpanded),
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isExpanded) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surface
+                    },
+                    contentColor = if (isExpanded) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    tonalElevation = 0.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (isExpanded) "−" else "+",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
             Text(
                 text = section.title,
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(
-                text = supportingText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            BrowseControlChipRow(
-                contentEndPadding = textEndPadding,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilterChip(
-                    selected = isExpanded,
-                    onClick = onToggleExpanded,
-                    label = { Text(if (isExpanded) "Collapse" else "Expand") },
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
                 )
                 FilterChip(
                     selected = sectionIsFullyWatched,
-                    onClick = onMarkSectionWatched,
-                    label = { Text("Mark as Watched") },
-                )
-                FilterChip(
-                    selected = sectionIsFullyUnwatched,
-                    onClick = onMarkSectionUnwatched,
-                    label = { Text("Mark as Unwatched") },
+                    onClick = {
+                        if (sectionIsFullyWatched) {
+                            onMarkSectionUnwatched()
+                        } else {
+                            onMarkSectionWatched()
+                        }
+                    },
+                    label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
                 )
             }
         }
@@ -1279,7 +1315,7 @@ private fun VideoListCard(
                                 onMarkVideoWatched(video.id)
                             }
                         },
-                        label = { Text(if (isWatched) "Mark as Unwatched" else "Mark as Watched") },
+                        label = { Text(watchToggleActionLabel(isWatched)) },
                     )
                 }
             }
