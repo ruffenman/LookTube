@@ -78,7 +78,6 @@ import com.looktube.heuristics.seriesGroupingKey
 import com.looktube.heuristics.topicGroupingKey
 import com.looktube.heuristics.topicGroupingTitle
 import com.looktube.model.LibrarySyncState
-import com.looktube.model.LookPointsSummary
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SeriesCompletionSummary
 import com.looktube.model.VideoEngagementRecord
@@ -99,7 +98,6 @@ fun LibraryRoute(
     videos: List<VideoSummary>,
     playbackProgress: Map<String, PlaybackProgress>,
     videoEngagement: Map<String, VideoEngagementRecord>,
-    lookPointsSummary: LookPointsSummary,
     seriesCompletionSummaries: Map<String, SeriesCompletionSummary>,
     onVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
@@ -310,7 +308,6 @@ fun LibraryRoute(
             item(key = "library-overview-panel") {
                 LibraryOverviewPanel(
                     libraryStatusBody = libraryStatusBody,
-                    lookPointsSummary = lookPointsSummary,
                     groupingMode = groupingMode,
                     onGroupingModeChanged = { groupingMode = it },
                     sortOption = sortOption,
@@ -383,7 +380,7 @@ fun LibraryRoute(
                         maxPadding = GROUPED_VIDEO_MAX_END_PADDING,
                     )
                     item(key = "section-${displayedSection.section.key}") {
-                        SeriesSectionHeader(
+                        GroupedSeriesSectionCard(
                             section = displayedSection.section,
                             watchedVideoCount = displayedSection.section.videos.count { video ->
                                 videoEngagement[video.id].isWatched(playbackProgress[video.id])
@@ -394,6 +391,7 @@ fun LibraryRoute(
                                 null
                             },
                             isExpanded = displayedSection.isExpanded,
+                            dismissDetailsSignal = listState.isScrollInProgress,
                             onToggleExpanded = {
                                 collapsedSectionKeys = collapsedSectionKeys.toggle(displayedSection.section.key)
                             },
@@ -403,27 +401,14 @@ fun LibraryRoute(
                             onMarkSectionUnwatched = {
                                 onMarkVideosUnwatched(displayedSection.section.videos.map(VideoSummary::id))
                             },
-                            textEndPadding = groupedHeaderEndPadding,
+                            headerTextEndPadding = groupedHeaderEndPadding,
+                            videoTextEndPadding = groupedVideoEndPadding,
+                            playbackProgress = playbackProgress,
+                            videoEngagement = videoEngagement,
+                            onMarkVideoWatched = onMarkVideoWatched,
+                            onMarkVideoUnwatched = onMarkVideoUnwatched,
+                            onVideoSelected = onVideoSelected,
                         )
-                    }
-                    if (displayedSection.isExpanded) {
-                        itemsIndexed(
-                            items = displayedSection.section.videos,
-                            key = { _, video -> "${displayedSection.section.key}-${video.id}" },
-                        ) { index, video ->
-                            GroupedSectionVideoCard(
-                                video = video,
-                                progress = playbackProgress[video.id],
-                                engagementRecord = videoEngagement[video.id],
-                                dismissDetailsSignal = listState.isScrollInProgress,
-                                textEndPadding = groupedVideoEndPadding,
-                                isFirstInSection = index == 0,
-                                isLastInSection = index == displayedSection.section.videos.lastIndex,
-                                onMarkVideoWatched = onMarkVideoWatched,
-                                onMarkVideoUnwatched = onMarkVideoUnwatched,
-                                onVideoSelected = onVideoSelected,
-                            )
-                        }
                     }
                 }
             }
@@ -455,58 +440,6 @@ fun LibraryRoute(
                     }
                 },
             )
-        }
-    }
-}
-
-@Composable
-private fun LookPointsPanel(
-    lookPointsSummary: LookPointsSummary,
-    isExpanded: Boolean,
-    onExpandedChanged: (Boolean) -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onExpandedChanged(!isExpanded) },
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-        tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Look Points",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = lookPointsSummary.totalPoints.toString(),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Text(
-                text = "${lookPointsSummary.watchedVideoCount}/${lookPointsSummary.totalVideoCount} videos watched • " +
-                    "${lookPointsSummary.completedShowCount}/${lookPointsSummary.totalShowCount} shows complete",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (isExpanded) {
-                Text(
-                    text = "${lookPointsSummary.videoPoints} points from watched videos. " +
-                        "Show completion is visual only and does not add score.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
@@ -765,7 +698,6 @@ internal data class DisplayedSeriesSection(
 private fun LibraryOverviewPanel(
     modifier: Modifier = Modifier,
     libraryStatusBody: String,
-    lookPointsSummary: LookPointsSummary,
     groupingMode: HeuristicGroupingMode,
     onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
     sortOption: LibrarySortOption,
@@ -783,7 +715,6 @@ private fun LibraryOverviewPanel(
     totalVideoCount: Int,
     filteredVideoCount: Int,
 ) {
-    var showLookPointsDetails by rememberSaveable { mutableStateOf(false) }
     var showLibraryConfig by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -798,11 +729,6 @@ private fun LibraryOverviewPanel(
             LookTubePageHeader(
                 title = "Library",
                 subtitle = "Browse your synced Premium videos by show, cast, or topic and jump between sections quickly.",
-            )
-            LookPointsPanel(
-                lookPointsSummary = lookPointsSummary,
-                isExpanded = showLookPointsDetails,
-                onExpandedChanged = { showLookPointsDetails = it },
             )
             LibraryConfigPanel(
                 libraryStatusBody = libraryStatusBody,
@@ -955,7 +881,7 @@ internal enum class LibrarySortOption(val label: String) {
 private const val ALL_SERIES_FILTER = "All shows"
 private const val RESULTS_ANCHOR_INDEX = 1
 private const val VIDEO_LIST_START_INDEX = 2
-private const val RAIL_IDLE_FADE_DELAY_MS = 1_400L
+private const val RAIL_IDLE_FADE_DELAY_MS = 600L
 private val LIST_TOP_CONTENT_PADDING = 16.dp
 private val JUMP_RAIL_WIDTH = 176.dp
 private val TOP_ONLY_RAIL_WIDTH = 84.dp
@@ -966,8 +892,8 @@ private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_E
 private val TOP_ONLY_RAIL_TEXT_CLEARANCE = TOP_ONLY_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING + 8.dp
 private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
-private val GROUPED_HEADER_MAX_END_PADDING = 64.dp
-private val GROUPED_VIDEO_MAX_END_PADDING = 72.dp
+private val GROUPED_HEADER_MAX_END_PADDING = 160.dp
+private val GROUPED_VIDEO_MAX_END_PADDING = 88.dp
 private val GROUPED_SECTION_CONNECTOR_GUTTER = 18.dp
 private val GROUPED_SECTION_CONNECTOR_WIDTH = 2.dp
 private val GROUPED_SECTION_BRANCH_OFFSET = 26.dp
@@ -1082,6 +1008,77 @@ private fun cappedGroupedContentEndPadding(
 ): Dp = if (textEndPadding > maxPadding) maxPadding else textEndPadding
 
 @Composable
+private fun GroupedSeriesSectionCard(
+    section: SeriesSection,
+    watchedVideoCount: Int,
+    completionSummary: SeriesCompletionSummary?,
+    isExpanded: Boolean,
+    dismissDetailsSignal: Boolean,
+    onToggleExpanded: () -> Unit,
+    onMarkSectionWatched: () -> Unit,
+    onMarkSectionUnwatched: () -> Unit,
+    headerTextEndPadding: Dp,
+    videoTextEndPadding: Dp,
+    playbackProgress: Map<String, PlaybackProgress>,
+    videoEngagement: Map<String, VideoEngagementRecord>,
+    onMarkVideoWatched: (String) -> Unit,
+    onMarkVideoUnwatched: (String) -> Unit,
+    onVideoSelected: (String) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        color = if (isExpanded) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.34f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f)
+        },
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SeriesSectionHeader(
+                section = section,
+                watchedVideoCount = watchedVideoCount,
+                completionSummary = completionSummary,
+                isExpanded = isExpanded,
+                onToggleExpanded = onToggleExpanded,
+                onMarkSectionWatched = onMarkSectionWatched,
+                onMarkSectionUnwatched = onMarkSectionUnwatched,
+                textEndPadding = headerTextEndPadding,
+            )
+            if (isExpanded) {
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
+                )
+                Column(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    section.videos.forEachIndexed { index, video ->
+                        GroupedSectionVideoCard(
+                            video = video,
+                            progress = playbackProgress[video.id],
+                            engagementRecord = videoEngagement[video.id],
+                            dismissDetailsSignal = dismissDetailsSignal,
+                            textEndPadding = videoTextEndPadding,
+                            isFirstInSection = index == 0,
+                            isLastInSection = index == section.videos.lastIndex,
+                            onMarkVideoWatched = onMarkVideoWatched,
+                            onMarkVideoUnwatched = onMarkVideoUnwatched,
+                            onVideoSelected = onVideoSelected,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SeriesSectionHeader(
     section: SeriesSection,
     watchedVideoCount: Int,
@@ -1100,29 +1097,19 @@ private fun SeriesSectionHeader(
         }
     }.joinToString(" • ")
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onToggleExpanded)
-            .animateContentSize(),
-        shape = RoundedCornerShape(18.dp),
-        color = if (isExpanded) {
-            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.52f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)
-        },
-        tonalElevation = 0.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    start = 16.dp,
-                    top = 16.dp,
-                    end = 16.dp + textEndPadding,
-                    bottom = 16.dp,
+                    start = 14.dp,
+                    top = 14.dp,
+                    end = 14.dp + textEndPadding,
+                    bottom = 14.dp,
                 ),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -1131,73 +1118,65 @@ private fun SeriesSectionHeader(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
+            Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        text = section.title,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        text = supportingText,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    FilterChip(
-                        selected = sectionIsFullyWatched,
-                        onClick = {
-                            if (sectionIsFullyWatched) {
-                                onMarkSectionUnwatched()
-                            } else {
-                                onMarkSectionWatched()
-                            }
-                        },
-                        label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable(onClick = onToggleExpanded),
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isExpanded) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
-                        contentColor = if (isExpanded) {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                        tonalElevation = 0.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = if (isExpanded) "−" else "+",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(42.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(onClick = onToggleExpanded),
+            shape = RoundedCornerShape(14.dp),
+            color = if (isExpanded) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+            contentColor = if (isExpanded) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            tonalElevation = 0.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (isExpanded) "−" else "+",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        FilterChip(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 14.dp, bottom = 14.dp),
+            selected = sectionIsFullyWatched,
+            onClick = {
+                if (sectionIsFullyWatched) {
+                    onMarkSectionUnwatched()
+                } else {
+                    onMarkSectionWatched()
+                }
+            },
+            label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+        )
     }
 }
 
@@ -1533,12 +1512,12 @@ private fun ShowJumpRail(
             isEmphasized -> 0.96f
             else -> 0.26f
         },
-        animationSpec = tween(durationMillis = 280),
+        animationSpec = tween(durationMillis = 160),
         label = "jumpRailLabelAlpha",
     )
     val flyoutOffset by animateDpAsState(
         targetValue = if (isEmphasized) 0.dp else 12.dp,
-        animationSpec = tween(durationMillis = 280),
+        animationSpec = tween(durationMillis = 160),
         label = "jumpRailFlyoutOffset",
     )
 
@@ -1623,7 +1602,7 @@ private fun JumpRailTrack(
         val density = LocalDensity.current
         val trackAlpha by animateFloatAsState(
             targetValue = if (isEmphasized) 0.94f else 0.68f,
-            animationSpec = tween(durationMillis = 220),
+            animationSpec = tween(durationMillis = 140),
             label = "jumpRailTrackAlpha",
         )
 
@@ -1691,7 +1670,7 @@ internal fun buildSectionStartIndices(
     var currentIndex = VIDEO_LIST_START_INDEX
     sections.forEach { section ->
         add(currentIndex)
-        currentIndex += 1 + if (section.isExpanded) section.section.videos.size else 0
+        currentIndex += 1
     }
 }
 

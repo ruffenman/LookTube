@@ -2,7 +2,6 @@ package com.looktube.feature.player
 
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
-import com.looktube.model.LookPointsSummary
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.RecentPlaybackVideo
 import com.looktube.model.VideoSummary
@@ -183,20 +182,4 @@ class PlayerRouteTest {
         )
     }
 
-    @Test
-    fun lookPointsBreakdownExplainsScoreSource() {
-        assertEquals(
-            "3/10 videos watched • 1/4 shows complete • 30 points from watched videos.",
-            lookPointsBreakdown(
-                LookPointsSummary(
-                    totalPoints = 30,
-                    watchedVideoCount = 3,
-                    totalVideoCount = 10,
-                    completedShowCount = 1,
-                    totalShowCount = 4,
-                    videoPoints = 30,
-                ),
-            ),
-        )
-    }
 }

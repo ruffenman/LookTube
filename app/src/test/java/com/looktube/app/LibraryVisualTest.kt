@@ -14,7 +14,6 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.model.LibrarySyncState
-import com.looktube.model.LookPointsSummary
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SeriesCompletionSummary
 import com.looktube.model.SyncPhase
@@ -84,14 +83,6 @@ class LibraryVisualTest {
                 completedAtEpochMillis = 2_000L,
             ),
         )
-        val lookPointsSummary = LookPointsSummary(
-            totalPoints = 10,
-            watchedVideoCount = 1,
-            totalVideoCount = 3,
-            completedShowCount = 1,
-            totalShowCount = 2,
-            videoPoints = 10,
-        )
         val seriesCompletionSummaries = mapOf(
             "Giant Bombcast" to SeriesCompletionSummary(
                 seriesTitle = "Giant Bombcast",
@@ -122,7 +113,6 @@ class LibraryVisualTest {
                         videos = videos,
                         playbackProgress = playbackProgress,
                         videoEngagement = videoEngagement,
-                        lookPointsSummary = lookPointsSummary,
                         seriesCompletionSummaries = seriesCompletionSummaries,
                         onVideoSelected = {},
                         onMarkVideoWatched = {},

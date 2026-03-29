@@ -378,7 +378,7 @@ class LibrarySortTest {
     }
 
     @Test
-    fun collapsedSectionsDoNotConsumeEpisodeRowsInJumpRailIndexing() {
+    fun groupedSectionCardsEachConsumeOneJumpRailRow() {
         val displayedSections = listOf(
             DisplayedSeriesSection(
                 section = section(
@@ -436,7 +436,7 @@ class LibrarySortTest {
             ),
         )
 
-        assertEquals(listOf(2, 5, 6), buildSectionStartIndices(displayedSections))
+        assertEquals(listOf(2, 3, 4), buildSectionStartIndices(displayedSections))
     }
 
     @Test

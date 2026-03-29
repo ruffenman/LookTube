@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.3"
+  version: "0.2.7"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -178,7 +178,7 @@ contract:
         - sync Premium feed
         - clear synced data
     - name: library
-      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped sections, watched-state controls, show-completion visualization, rich cards, and section jumping.
+      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped-section cards, watched-state controls, show-completion visualization, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -189,7 +189,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu, and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -591,14 +591,13 @@ scenarios:
       - jump rail contains target "Top"
       - jump rail contains at least one section target
   - id: library_overview_panel_stays_above_scrolling_results
-    description: Library Look Points and the default-collapsed Library Config remain above the scrolling episode list, can scroll away before the results take over the viewport, and the jump rail anchors only to the episode-list panel.
+    description: The default-collapsed Library Config remains above the scrolling episode list, can scroll away before the results take over the viewport, and the jump rail anchors only to the episode-list panel.
     when:
       surface: library
       state:
         videos is non-empty array
         grouped_sections_exist: true
     then:
-      - Look Points remains visible above Library Config in the overview area
       - Library Config is collapsed before the user expands it
       - library status and browsing controls remain above the scrolling results panel until scrolled away
       - jump rail does not overlap the fixed overview panel
@@ -623,7 +622,7 @@ scenarios:
       - visible card copy contains "Resume"
       - visible card shows a progress indicator
   - id: library_completion_and_points_are_visible_without_show_score_bonus
-    description: Library overview and show-group browsing expose watched/completion progress, but only watched videos affect the numeric Look Points score.
+    description: The visible shell score badge and show-group browsing expose watched/completion progress, but only watched videos affect the numeric Look Points score.
     when:
       surface: library
       state:
@@ -636,7 +635,7 @@ scenarios:
           video_points: 30
         grouped_by_show: true
     then:
-      - visible library summary contains "Look Points"
+      - visible shell copy contains "Look Points"
       - visible grouped show copy can indicate a show is complete
       - no visible score copy implies an extra show-completion bonus
   - id: library_video_cards_allow_manual_watch_updates
@@ -654,7 +653,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, and visually nested episode cards when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, and visually nested episode cards inside one containing card when expanded.
     when:
       surface: library
       state:
@@ -664,7 +663,25 @@ scenarios:
       - visible grouped header does not rely on tap-instruction copy to explain expand or collapse
       - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
       - visible grouped header uses iconography rather than text labels for expand/collapse
+      - visible grouped header places the expand or collapse control near the top right
+      - visible grouped header places the watched toggle near the bottom right
       - expanded videos appear visually nested under the grouped header they belong to
+  - id: shell_look_points_are_global_on_library_and_player
+    description: While normal shell chrome is visible, Look Points appear as one global top-bar badge on Library and Player instead of as page-local widgets.
+    when:
+      surface: library or player
+      state:
+        look_points_summary:
+          total_points: 20
+          watched_video_count: 2
+          total_video_count: 10
+          completed_show_count: 0
+          total_show_count: 4
+          video_points: 20
+        is_fullscreen: false
+    then:
+      - visible shell copy contains "Look Points"
+      - no separate page-local Look Points card is required below the Library or Player title
   - id: look_points_surfaces_use_accent_outline
     description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
     when:
@@ -877,7 +894,7 @@ scenarios:
     then:
       - exactly one visible cast action exists
   - id: player_recent_history_and_watch_actions_are_available
-    description: Active player UI exposes recent-play history and a manual watched/unwatched action without a redundant playback-details card.
+    description: Active player UI exposes a History affordance and a manual watched/unwatched action without a redundant playback-details card.
     when:
       surface: player
       state:
@@ -897,9 +914,28 @@ scenarios:
           total_show_count: 4
           video_points: 20
     then:
-      - visible player copy contains "Recent plays"
+      - visible player copy contains "History"
       - visible player copy contains either "Mark as Watched" or "Mark as Unwatched"
       - active player surface does not rely on a separate playback-details card for resume/help text
+  - id: player_history_menu_is_bounded_and_scrollable
+    description: The player History affordance opens a surfaced dropdown that stays bounded on screen and shows scroll feedback when the list grows long.
+    when:
+      surface: player
+      state:
+        history_count: 12
+        selected_video:
+          id: "video-16"
+          title: "History item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-16.mp4"
+      action:
+        open "History"
+    then:
+      - visible history panel is surfaced and visually distinct from surrounding controls
+      - visible history panel height stays bounded within the screen
+      - long history lists expose scroll feedback
   - id: cast_support_failure_does_not_block_local_playback
     description: Failure to initialize cast support does not prevent local playback from being available.
     when:
@@ -926,6 +962,22 @@ scenarios:
     then:
       - returns.playback_progress.video_id == "video-11"
       - returns.playback_progress.position_seconds == 300
+  - id: playback_start_survives_immediate_device_lock
+    description: Selecting a playable item does not require the user to wait for visible playback before locking the device.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-17"
+          title: "Lock-safe item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-17.mp4"
+      action:
+        press play and lock the device immediately
+    then:
+      - playback startup still completes for the selected item
   - id: feed_sync_requests_use_expected_headers_without_auth_replay
     description: Feed sync uses a direct request to the copied feed URL with stable headers and without browser automation, cookies, or explicit authorization headers.
     when:

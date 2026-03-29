@@ -10,9 +10,14 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.PlayCircle
@@ -24,6 +29,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -36,9 +42,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MediaItem
@@ -52,8 +60,10 @@ import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.feature.auth.AuthRoute
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.feature.player.PlayerRoute
+import com.looktube.model.LookPointsSummary
 import com.looktube.model.VideoSummary
 import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,6 +180,12 @@ fun LookTubeApp(
                         title = {
                             Text("LookTube")
                         },
+                        actions = {
+                            LookPointsTopBarBadge(
+                                lookPointsSummary = lookPointsSummary,
+                                modifier = Modifier.padding(end = 4.dp),
+                            )
+                        },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = MaterialTheme.colorScheme.surface,
                             titleContentColor = MaterialTheme.colorScheme.onSurface,
@@ -233,7 +249,6 @@ fun LookTubeApp(
                         videos = videos,
                         playbackProgress = playbackProgress,
                         videoEngagement = videoEngagement,
-                        lookPointsSummary = lookPointsSummary,
                         seriesCompletionSummaries = seriesCompletionSummaries,
                         onVideoSelected = { videoId ->
                             viewModel.selectVideo(videoId)
@@ -254,7 +269,6 @@ fun LookTubeApp(
                         playbackSelectionRequest = playbackSelectionRequest,
                         selectedVideoEngagement = selectedPlaybackTarget?.video?.id?.let(videoEngagement::get),
                         recentPlaybackVideos = recentPlaybackVideos,
-                        lookPointsSummary = lookPointsSummary,
                         player = playbackController,
                         isFullscreen = isPlayerFullscreen,
                         onRecentVideoSelected = viewModel::selectVideo,
@@ -303,6 +317,46 @@ private fun rememberPlaybackController(): MediaController? {
     }
 
     return controller
+}
+
+@Composable
+private fun LookPointsTopBarBadge(
+    lookPointsSummary: LookPointsSummary,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = "Look Points",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = "${lookPointsSummary.watchedVideoCount}/${lookPointsSummary.totalVideoCount} watched",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = lookPointsSummary.totalPoints.toString(),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
 }
 
 internal fun handoffSelectedPlaybackTarget(

@@ -58,6 +58,7 @@ An implementation that materially changes these choices can still be valid, but 
 - three top-level destinations: `Auth`, `Library`, and `Player`
 - app opens on the Auth page by default
 - top app bar and bottom navigation stay visible outside player fullscreen mode
+- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls
 - notification launch intents can route directly to the Player page and optionally preselect a video
 
 ### Auth surface
@@ -68,14 +69,13 @@ An implementation that materially changes these choices can still be valid, but 
 
 ### Library surface
 - renders an overview panel above the scrolling episode list using the current sync state and last successful summary
-- places a compact Look Points summary directly below the page header and outside the default-collapsed Library Config section, while show completion stays visual rather than score-bearing
 - supports grouping by none, show, cast, or topic
 - supports sorting by latest, show, or oldest
 - supports a default-collapsed Library Config section that wraps library status, grouping, group visibility, sorting, and show filtering
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers, progress-aware video cards, single-toggle watched-state controls, compact group-level watched-state toggles, visually nested grouped episode cards, and a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top right and the single group watched-state toggle in the bottom right, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -92,8 +92,7 @@ An implementation that materially changes these choices can still be valid, but 
 - keeps playback on the same active item when entering or leaving fullscreen, including activity recreation from rotation
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
-- exposes recent-play history and manual watched/unwatched actions below the player in a compact supporting area
-- applies a gold/yellow accent outline to any Look Points surface or chip in Library or Player
+- exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that can scroll for longer histories
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets
@@ -107,9 +106,10 @@ An implementation that materially changes these choices can still be valid, but 
 - Successful sync replaces the active library with feed-backed items.
 - If no successful feed snapshot is available, the app may use seeded fallback data so the shell remains usable and testable.
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
-- The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, keeps the Look Points summary above a default-collapsed Library Config element, and the jump rail does not overlap that overview panel.
+- The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
-- Grouped header controls use compact layout, icon-only expand/collapse affordances, and a single current-state watched toggle instead of parallel watched and unwatched buttons, while expanded episode cards remain visually nested under the header they belong to.
+- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to.
+- The jump rail becomes visible quickly when scrolling starts and fades back out quickly after scrolling stops.
 
 ### Background refresh and notifications
 - Saving a non-blank feed URL results in one active periodic background refresh registration.
@@ -126,6 +126,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Selecting a playable item hands the resolved playback URL directly to Media3.
 - Playback progress persists locally and is restored on later playback attempts.
 - A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
+- Starting playback for a playable item remains reliable even if the device is locked immediately after the play request, without requiring the user to wait for the first visible rendered frame.
 - Entering or leaving fullscreen must not restart playback, swap back to a previously played item, or lose the current selection request boundary.
 - Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
 - When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
@@ -133,8 +134,16 @@ An implementation that materially changes these choices can still be valid, but 
 
 ### Engagement, history, and completion
 - The app persists a recent-play history and manual watched/unwatched overrides per video alongside playback progress.
-- Look Points are derived only from watched videos; completing every video in a show is visualized in browse UI but does not grant extra score.
+- Look Points are derived only from watched videos, appear as a single global shell badge on Library and Player, and do not move into Library-local or Player-local control clusters.
+- Completing every video in a show is visualized in browse UI but does not grant extra score.
 - A video can become watched either through playback completion heuristics or an explicit manual watched action, and a manual unwatched action overrides that status until the user watches or marks it watched again.
+
+### Researched captions direction
+This is intentionally documented as follow-on design guidance rather than current product contract:
+- prefer a local/offline-friendly caption generation path first, using an on-device `whisper.cpp`-class pipeline where practical
+- keep generated captions as explicit sidecar text tracks such as WebVTT rather than mutating feed-derived source metadata
+- if optional cloud caption generation is added later, place any secondary keys or account material in a distinct expandable Auth section
+- cast delivery should treat captions as first-class text tracks and use explicit Cast track mapping and activation, because default Media3 cast subtitle propagation is not a reliable transferable assumption
 
 ### Feed parsing and sync semantics
 - Feed sync performs a direct GET against the copied feed URL.

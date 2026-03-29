@@ -28,6 +28,7 @@ class PlaybackServiceTest {
         assertEquals(PLAYBACK_AUDIO_ATTRIBUTES, fakePlayer.audioAttributes)
         assertEquals(PLAYBACK_HANDLES_AUDIO_FOCUS, fakePlayer.handleAudioFocus)
         assertEquals(PLAYBACK_HANDLES_AUDIO_BECOMING_NOISY, fakePlayer.handleAudioBecomingNoisy)
+        assertEquals(PLAYBACK_WAKE_MODE, fakePlayer.wakeMode)
     }
 
     @Test
@@ -102,6 +103,7 @@ private class FakeLocalPlaybackConfigurable : LocalPlaybackConfigurable {
     var audioAttributes: androidx.media3.common.AudioAttributes? = null
     var handleAudioFocus: Boolean? = null
     var handleAudioBecomingNoisy: Boolean? = null
+    var wakeMode: Int? = null
 
     override fun setAudioAttributes(
         audioAttributes: androidx.media3.common.AudioAttributes,
@@ -113,5 +115,9 @@ private class FakeLocalPlaybackConfigurable : LocalPlaybackConfigurable {
 
     override fun setHandleAudioBecomingNoisy(handleAudioBecomingNoisy: Boolean) {
         this.handleAudioBecomingNoisy = handleAudioBecomingNoisy
+    }
+
+    override fun setWakeMode(wakeMode: Int) {
+        this.wakeMode = wakeMode
     }
 }

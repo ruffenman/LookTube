@@ -208,6 +208,7 @@ internal val PLAYBACK_AUDIO_ATTRIBUTES: AudioAttributes = AudioAttributes.Builde
 
 internal const val PLAYBACK_HANDLES_AUDIO_FOCUS = true
 internal const val PLAYBACK_HANDLES_AUDIO_BECOMING_NOISY = true
+internal const val PLAYBACK_WAKE_MODE = C.WAKE_MODE_NETWORK
 internal const val DOUBLE_TAP_SEEK_INCREMENT_MS = 10_000L
 
 internal fun shouldTransferPlaybackToRemoteSession(
@@ -244,11 +245,13 @@ internal fun shouldRestoreLocalPlaybackFromSnapshot(
 internal fun configureLocalPlayerForPlayback(player: LocalPlaybackConfigurable) {
     player.setAudioAttributes(PLAYBACK_AUDIO_ATTRIBUTES, PLAYBACK_HANDLES_AUDIO_FOCUS)
     player.setHandleAudioBecomingNoisy(PLAYBACK_HANDLES_AUDIO_BECOMING_NOISY)
+    player.setWakeMode(PLAYBACK_WAKE_MODE)
 }
 
 internal interface LocalPlaybackConfigurable {
     fun setAudioAttributes(audioAttributes: AudioAttributes, handleAudioFocus: Boolean)
     fun setHandleAudioBecomingNoisy(handleAudioBecomingNoisy: Boolean)
+    fun setWakeMode(@C.WakeMode wakeMode: Int)
 }
 
 private fun configureLocalPlayerForPlayback(player: ExoPlayer) {
@@ -260,6 +263,10 @@ private fun configureLocalPlayerForPlayback(player: ExoPlayer) {
 
             override fun setHandleAudioBecomingNoisy(handleAudioBecomingNoisy: Boolean) {
                 player.setHandleAudioBecomingNoisy(handleAudioBecomingNoisy)
+            }
+
+            override fun setWakeMode(wakeMode: Int) {
+                player.setWakeMode(wakeMode)
             }
         },
     )

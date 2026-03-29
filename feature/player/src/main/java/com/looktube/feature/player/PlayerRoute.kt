@@ -13,9 +13,14 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,9 +29,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -44,7 +52,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -61,7 +71,6 @@ import com.google.android.gms.cast.framework.CastContext
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
-import com.looktube.model.LookPointsSummary
 import com.looktube.model.RecentPlaybackVideo
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.PlaybackProgress
@@ -76,7 +85,6 @@ fun PlayerRoute(
     playbackSelectionRequest: Long,
     selectedVideoEngagement: VideoEngagementRecord?,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
-    lookPointsSummary: LookPointsSummary,
     player: Player?,
     isFullscreen: Boolean,
     onRecentVideoSelected: (String) -> Unit,
@@ -153,7 +161,6 @@ fun PlayerRoute(
             playbackSelectionRequest = playbackSelectionRequest,
             selectedVideoEngagement = selectedVideoEngagement,
             recentPlaybackVideos = recentPlaybackVideos,
-            lookPointsSummary = lookPointsSummary,
             player = player,
             onRecentVideoSelected = onRecentVideoSelected,
             onMarkVideoWatched = onMarkVideoWatched,
@@ -229,10 +236,7 @@ private fun PlayerQuickActions(
     selectedVideo: VideoSummary,
     isWatched: Boolean,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
-    lookPointsSummary: LookPointsSummary,
-    lookPointsExpanded: Boolean,
     recentPlaybackMenuExpanded: Boolean,
-    onLookPointsExpandedChanged: (Boolean) -> Unit,
     onRecentPlaybackMenuExpandedChanged: (Boolean) -> Unit,
     onRecentVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
@@ -252,6 +256,7 @@ private fun PlayerQuickActions(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top,
             ) {
                 FilterChip(
                     selected = isWatched,
@@ -264,62 +269,197 @@ private fun PlayerQuickActions(
                     },
                     label = { Text(if (isWatched) "Mark as Unwatched" else "Mark as Watched") },
                 )
-                Box {
-                    FilterChip(
-                        selected = lookPointsExpanded,
-                        onClick = { onLookPointsExpandedChanged(!lookPointsExpanded) },
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                        label = { Text("Look Points ${lookPointsSummary.totalPoints}") },
-                    )
-                }
                 if (recentPlaybackVideos.isNotEmpty()) {
-                    Box {
-                        FilterChip(
-                            selected = recentPlaybackMenuExpanded,
-                            onClick = { onRecentPlaybackMenuExpandedChanged(!recentPlaybackMenuExpanded) },
-                            label = { Text("Recent plays") },
-                        )
-                        DropdownMenu(
-                            expanded = recentPlaybackMenuExpanded,
-                            onDismissRequest = { onRecentPlaybackMenuExpandedChanged(false) },
-                        ) {
-                            recentPlaybackVideos.forEach { recentPlaybackVideo ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Column(
-                                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                                        ) {
-                                            Text(recentPlaybackVideo.video.title)
-                                            Text(
-                                                text = recentPlaybackMenuSubtitle(recentPlaybackVideo),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        onRecentPlaybackMenuExpandedChanged(false)
-                                        onRecentVideoSelected(recentPlaybackVideo.video.id)
-                                    },
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            if (lookPointsExpanded) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    HorizontalDivider()
-                    Text(
-                        text = lookPointsBreakdown(lookPointsSummary),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    HistoryMenuButton(
+                        recentPlaybackVideos = recentPlaybackVideos,
+                        expanded = recentPlaybackMenuExpanded,
+                        modifier = Modifier.weight(1f),
+                        onExpandedChanged = onRecentPlaybackMenuExpandedChanged,
+                        onRecentVideoSelected = onRecentVideoSelected,
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HistoryMenuButton(
+    recentPlaybackVideos: List<RecentPlaybackVideo>,
+    expanded: Boolean,
+    modifier: Modifier = Modifier,
+    onExpandedChanged: (Boolean) -> Unit,
+    onRecentVideoSelected: (String) -> Unit,
+) {
+    Box(modifier = modifier) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = if (expanded) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
+            } else {
+                MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+            },
+            contentColor = if (expanded) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
+            tonalElevation = 0.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = "History",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Text(
+                        text = "${recentPlaybackVideos.size} recent ${if (recentPlaybackVideos.size == 1) "play" else "plays"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    text = if (expanded) "▲" else "▼",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier.matchParentSize(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable { onExpandedChanged(!expanded) },
+            )
+        }
+        HistoryDropdownMenu(
+            recentPlaybackVideos = recentPlaybackVideos,
+            expanded = expanded,
+            onExpandedChanged = onExpandedChanged,
+            onRecentVideoSelected = onRecentVideoSelected,
+        )
+    }
+}
+
+@Composable
+private fun HistoryDropdownMenu(
+    recentPlaybackVideos: List<RecentPlaybackVideo>,
+    expanded: Boolean,
+    onExpandedChanged: (Boolean) -> Unit,
+    onRecentVideoSelected: (String) -> Unit,
+) {
+    var viewportHeightPx by remember { mutableStateOf(0) }
+    val scrollState = rememberScrollState()
+
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = { onExpandedChanged(false) },
+        modifier = Modifier.widthIn(min = 300.dp, max = 360.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(min = 300.dp, max = 360.dp)
+                .onSizeChanged { viewportHeightPx = it.height },
+        ) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 320.dp)
+                    .verticalScroll(scrollState)
+                    .padding(top = 6.dp, end = 14.dp, bottom = 6.dp)
+            ) {
+                Text(
+                    text = "History",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                recentPlaybackVideos.forEachIndexed { index, recentPlaybackVideo ->
+                    DropdownMenuItem(
+                        text = {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(recentPlaybackVideo.video.title)
+                                Text(
+                                    text = recentPlaybackMenuSubtitle(recentPlaybackVideo),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        onClick = {
+                            onExpandedChanged(false)
+                            onRecentVideoSelected(recentPlaybackVideo.video.id)
+                        },
+                    )
+                    if (index != recentPlaybackVideos.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 16.dp, end = 28.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+                    }
+                }
+            }
+            HistoryMenuScrollIndicator(
+                scrollValue = scrollState.value,
+                maxScrollValue = scrollState.maxValue,
+                viewportHeightPx = viewportHeightPx,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 12.dp, end = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun HistoryMenuScrollIndicator(
+    scrollValue: Int,
+    maxScrollValue: Int,
+    viewportHeightPx: Int,
+    modifier: Modifier = Modifier,
+) {
+    if (maxScrollValue <= 0 || viewportHeightPx <= 0) {
+        return
+    }
+    val density = LocalDensity.current
+    val contentHeightPx = viewportHeightPx + maxScrollValue
+    val minimumThumbHeightPx = with(density) { 36.dp.toPx() }
+    val thumbHeightPx = ((viewportHeightPx.toFloat() / contentHeightPx.toFloat()) * viewportHeightPx)
+        .coerceAtLeast(minimumThumbHeightPx)
+    val availableTravelPx = (viewportHeightPx - thumbHeightPx).coerceAtLeast(0f)
+    val thumbOffsetPx = if (maxScrollValue == 0) {
+        0f
+    } else {
+        (scrollValue.toFloat() / maxScrollValue.toFloat()) * availableTravelPx
+    }
+
+    Box(
+        modifier = modifier
+            .height(with(density) { viewportHeightPx.toDp() })
+            .width(4.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.26f)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset(y = with(density) { thumbOffsetPx.toDp() })
+                .height(with(density) { thumbHeightPx.toDp() })
+                .clip(RoundedCornerShape(999.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.78f)),
+        )
     }
 }
 
@@ -406,7 +546,6 @@ private fun ActivePlayerContent(
     playbackSelectionRequest: Long,
     selectedVideoEngagement: VideoEngagementRecord?,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
-    lookPointsSummary: LookPointsSummary,
     player: Player,
     onRecentVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
@@ -420,7 +559,6 @@ private fun ActivePlayerContent(
         recentPlaybackVideos.filter { recentPlaybackVideo -> recentPlaybackVideo.video.id != selectedVideo.id }
     }
     var recentPlaybackMenuExpanded by rememberSaveable(selectedVideo.id) { mutableStateOf(false) }
-    var lookPointsExpanded by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(selectedVideo.id, playbackSelectionRequest) {
         listState.scrollToItem(0)
@@ -454,10 +592,7 @@ private fun ActivePlayerContent(
                 selectedVideo = selectedVideo,
                 isWatched = isWatched,
                 recentPlaybackVideos = otherRecentPlaybackVideos,
-                lookPointsSummary = lookPointsSummary,
-                lookPointsExpanded = lookPointsExpanded,
                 recentPlaybackMenuExpanded = recentPlaybackMenuExpanded,
-                onLookPointsExpandedChanged = { lookPointsExpanded = it },
                 onRecentPlaybackMenuExpandedChanged = { recentPlaybackMenuExpanded = it },
                 onRecentVideoSelected = onRecentVideoSelected,
                 onMarkVideoWatched = onMarkVideoWatched,
@@ -749,11 +884,6 @@ internal fun recentPlaybackMenuSubtitle(recentPlaybackVideo: RecentPlaybackVideo
         add("Watched")
     }
 }.joinToString(" • ")
-
-internal fun lookPointsBreakdown(summary: LookPointsSummary): String =
-    "${summary.watchedVideoCount}/${summary.totalVideoCount} videos watched • " +
-        "${summary.completedShowCount}/${summary.totalShowCount} shows complete • " +
-        "${summary.videoPoints} points from watched videos."
 internal fun shouldKeepScreenOn(
     isPlaying: Boolean,
     playWhenReady: Boolean,
