@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -27,6 +28,7 @@ import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.SyncPhase
 
@@ -36,9 +38,12 @@ fun AuthRoute(
     accountSession: AccountSession,
     feedConfiguration: FeedConfiguration,
     syncState: LibrarySyncState,
+    availableLocalCaptionEngines: List<LocalCaptionEngine>,
+    selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
     onFeedUrlChanged: (String) -> Unit,
     onSignInRequested: () -> Unit,
+    onLocalCaptionEngineSelected: (String) -> Unit,
     onDownloadLocalCaptionModel: () -> Unit,
     onClearSyncedDataRequested: () -> Unit,
 ) {
@@ -98,11 +103,11 @@ fun AuthRoute(
         else -> "Model required"
     }
     val captionStatusBody = when {
-        localCaptionModelState.isReady -> "Offline captions are ready on this device and can be generated without any external provider."
-        localCaptionModelState.isDownloading -> "Downloading the local model that powers on-device fallback captions."
+        localCaptionModelState.isReady -> "${selectedLocalCaptionEngine.displayName} is ready on this device and can generate captions without any external provider."
+        localCaptionModelState.isDownloading -> "Downloading the ${selectedLocalCaptionEngine.displayName} model that powers on-device captions for this target."
         !localCaptionModelState.errorMessage.isNullOrBlank() -> localCaptionModelState.errorMessage
             ?: "Offline caption model setup needs attention."
-        else -> "Download the built-in English model once to unlock offline-first caption generation in Player."
+        else -> "Download the ${selectedLocalCaptionEngine.displayName} model once to unlock offline-first caption generation in Player."
     }
 
     Column(
@@ -209,6 +214,26 @@ fun AuthRoute(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
+                    text = "Selected engine: ${selectedLocalCaptionEngine.displayName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (availableLocalCaptionEngines.size > 1) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        availableLocalCaptionEngines.forEach { engine ->
+                            FilterChip(
+                                selected = engine.id == selectedLocalCaptionEngine.id,
+                                onClick = { onLocalCaptionEngineSelected(engine.id) },
+                                label = {
+                                    Text(engine.displayName)
+                                },
+                            )
+                        }
+                    }
+                }
+                Text(
                     text = "$captionStatusLabel • $captionStatusBody",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -231,9 +256,9 @@ fun AuthRoute(
                 ) {
                     Text(
                         when {
-                            localCaptionModelState.isReady -> "Model ready on this device"
-                            localCaptionModelState.isDownloading -> "Downloading local caption model…"
-                            else -> "Download offline caption model"
+                            localCaptionModelState.isReady -> "${selectedLocalCaptionEngine.displayName} ready on this device"
+                            localCaptionModelState.isDownloading -> "Downloading ${selectedLocalCaptionEngine.displayName} model…"
+                            else -> "Download ${selectedLocalCaptionEngine.displayName} model"
                         },
                     )
                 }

@@ -17,7 +17,7 @@ Current coverage:
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted feed URLs, seeded fallback behavior, and feed sync transitions
-- `app` unit tests, including background refresh diff and notification-posting regressions
+- `app` baseline unit tests, including background refresh diff and notification-posting regressions
 - committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player surfaces
 - managed-device smoke coverage now also checks the player empty-state surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
@@ -30,8 +30,8 @@ Run before a stable checkpoint commit:
 ```
 
 This adds:
-- Android lint for the app shell
-- screenshot baseline verification through Roborazzi
+- Android lint for the baseline app target
+- screenshot baseline verification through the baseline Roborazzi lane
 - optional managed-device smoke tests when `-PskipManagedDevice` is not supplied
 
 Stable-checkpoint policy:
@@ -40,11 +40,20 @@ Stable-checkpoint policy:
 - deploy the latest build immediately when a deployable app build exists
 
 ## Managed-device smoke lane
-The app is configured with a `pixel6Api36` managed virtual device. The smoke lane currently passes locally, though AGP still emits an ABI migration warning during setup:
+The baseline app target is configured with a `pixel6Api36` managed virtual device. The smoke lane currently passes locally, though AGP still emits an ABI migration warning during setup:
 
 ```powershell path=null start=null
 .\gradlew.bat verifyLocal
 ```
+
+## High-spec Moonshine lane
+Use this opt-in lane when validating the Moonshine-capable build target:
+
+```powershell path=null start=null
+.\gradlew.bat verifyMoonshine
+```
+
+This lane keeps the default contributor flow untouched while separately checking the higher-spec flavor's compile, unit, and lint behavior.
 
 ## Connected-device notification validation
 Use a connected Android device when notification reliability changes are under review:

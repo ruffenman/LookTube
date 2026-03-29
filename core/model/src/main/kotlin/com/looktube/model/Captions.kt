@@ -1,10 +1,29 @@
 package com.looktube.model
 
+data class LocalCaptionEngine(
+    val id: String,
+    val displayName: String,
+    val description: String,
+)
+
+val WhisperCppLocalCaptionEngine = LocalCaptionEngine(
+    id = "whisper_cpp",
+    displayName = "Whisper.cpp",
+    description = "Baseline offline engine supported by the default LookTube build target.",
+)
+
+val MoonshineLocalCaptionEngine = LocalCaptionEngine(
+    id = "moonshine",
+    displayName = "Moonshine",
+    description = "Higher-spec local engine available only in the Moonshine-capable build target.",
+)
+
 data class LocalCaptionModel(
     val id: String,
     val displayName: String,
     val downloadUrl: String,
     val languageTag: String,
+    val engine: LocalCaptionEngine,
 )
 
 val DefaultLocalCaptionModel = LocalCaptionModel(
@@ -12,6 +31,15 @@ val DefaultLocalCaptionModel = LocalCaptionModel(
     displayName = "English offline captions (base.en q5_1)",
     downloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin",
     languageTag = "en-US",
+    engine = WhisperCppLocalCaptionEngine,
+)
+
+val MoonshineBaseEnglishCaptionModel = LocalCaptionModel(
+    id = "moonshine-base-en-quantized",
+    displayName = "English offline captions (Moonshine base quantized)",
+    downloadUrl = "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/quantized/decoder_model_merged.ort",
+    languageTag = "en-US",
+    engine = MoonshineLocalCaptionEngine,
 )
 
 data class LocalCaptionModelState(
@@ -62,4 +90,5 @@ data class VideoCaptionTrack(
     val generatedAtEpochMillis: Long,
     val languageTag: String = DefaultLocalCaptionModel.languageTag,
     val label: String = "English (generated)",
+    val engineId: String = DefaultLocalCaptionModel.engine.id,
 )

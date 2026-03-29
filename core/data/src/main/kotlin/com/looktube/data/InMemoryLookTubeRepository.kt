@@ -4,6 +4,7 @@ import com.looktube.model.AccountSession
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PlaybackProgress
@@ -11,6 +12,7 @@ import com.looktube.model.SyncPhase
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
+import com.looktube.model.WhisperCppLocalCaptionEngine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +40,8 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     private val selectedVideoIdState = MutableStateFlow<String?>(null)
     private val playbackProgressState = MutableStateFlow(emptyMap<String, PlaybackProgress>())
     private val videoEngagementState = MutableStateFlow(emptyMap<String, VideoEngagementRecord>())
+    private val availableLocalCaptionEnginesState = MutableStateFlow(listOf(WhisperCppLocalCaptionEngine))
+    private val selectedLocalCaptionEngineState = MutableStateFlow(WhisperCppLocalCaptionEngine)
     private val localCaptionModelStateFlow = MutableStateFlow(LocalCaptionModelState())
     private val videoCaptionsState = MutableStateFlow(emptyMap<String, VideoCaptionTrack>())
     private val captionGenerationState = MutableStateFlow(emptyMap<String, CaptionGenerationStatus>())
@@ -49,6 +53,8 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override val selectedVideoId: StateFlow<String?> = selectedVideoIdState.asStateFlow()
     override val playbackProgress: StateFlow<Map<String, PlaybackProgress>> = playbackProgressState.asStateFlow()
     override val videoEngagement: StateFlow<Map<String, VideoEngagementRecord>> = videoEngagementState.asStateFlow()
+    override val availableLocalCaptionEngines: StateFlow<List<LocalCaptionEngine>> = availableLocalCaptionEnginesState.asStateFlow()
+    override val selectedLocalCaptionEngine: StateFlow<LocalCaptionEngine> = selectedLocalCaptionEngineState.asStateFlow()
     override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionModelStateFlow.asStateFlow()
     override val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>> = videoCaptionsState.asStateFlow()
     override val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>> = captionGenerationState.asStateFlow()
@@ -105,6 +111,11 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     }
 
     override suspend fun generateCaptions(videoId: String) = Unit
+
+    override fun selectLocalCaptionEngine(engineId: String) {
+        availableLocalCaptionEnginesState.value.firstOrNull { engine -> engine.id == engineId }
+            ?.let { engine -> selectedLocalCaptionEngineState.value = engine }
+    }
 
     override fun selectVideo(videoId: String) {
         selectedVideoIdState.value = videoId

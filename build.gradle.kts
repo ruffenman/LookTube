@@ -5,10 +5,26 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.roborazzi) apply false
 }
+
+tasks.register("verifyMoonshine") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Runs the Moonshine-capable high-spec compile, unit, and lint lane."
+    dependsOn(
+        "checkDocs",
+        ":core:heuristics:test",
+        ":core:model:test",
+        ":core:data:test",
+        ":core:database:test",
+        ":core:network:test",
+        ":app:assembleMoonshineDebug",
+        ":app:testMoonshineDebugUnitTest",
+        ":app:lintMoonshineDebug",
+    )
+}
 tasks.register("verifyScreenshots") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     description = "Verifies committed visual baselines against the current UI."
-    dependsOn(":app:verifyRoborazziDebug")
+    dependsOn(":app:verifyRoborazziBaselineDebug")
 }
 
 val requiredDocs = listOf(
@@ -50,7 +66,7 @@ tasks.register("verifyFast") {
         ":core:data:test",
         ":core:database:test",
         ":core:network:test",
-        ":app:testDebugUnitTest",
+        ":app:testBaselineDebugUnitTest",
     )
 }
 
@@ -60,7 +76,7 @@ tasks.register("verifyLocal") {
     dependsOn(
         "verifyFast",
         "verifyScreenshots",
-        ":app:lintDebug",
+        ":app:lintBaselineDebug",
     )
 
     val skipManagedDevice = providers.gradleProperty("skipManagedDevice")
@@ -68,14 +84,14 @@ tasks.register("verifyLocal") {
         .orElse(false)
 
     if (!skipManagedDevice.get()) {
-        dependsOn(":app:pixel6Api36DebugAndroidTest")
+        dependsOn(":app:pixel6Api36BaselineDebugAndroidTest")
     }
 }
 
 tasks.register("recordScreenshots") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     description = "Records committed screenshot baselines for the current UI."
-    dependsOn(":app:recordRoborazziDebug")
+    dependsOn(":app:recordRoborazziBaselineDebug")
 }
 
 tasks.register<Exec>("integrationProbeGiantBomb") {

@@ -9,6 +9,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - Giant Bomb site-content heuristics are consolidated in one shared library so title/grouping inference rules have a single update point
 - WorkManager-backed background refresh plus device notifications for newly discovered videos
 - app-level Media3 playback service/session with background playback and fullscreen support
+- default `baseline` app target keeps `minSdk 28` plus the existing whisper.cpp caption path, while an opt-in `moonshine` target adds a higher-spec local engine lane
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
 - committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player states
 - fixture-driven parser/repository tests plus managed smoke coverage
@@ -21,6 +22,7 @@ Use these commands as the default development loop on Windows:
 ```powershell path=null start=null
 .\gradlew.bat verifyFast
 .\gradlew.bat verifyLocal -PskipManagedDevice=true
+.\gradlew.bat verifyMoonshine
 .\gradlew.bat integrationProbeGiantBomb
 .\gradlew.bat integrationProbeGiantBombPlayback
 ```
@@ -38,6 +40,12 @@ Run the managed-device smoke lane when emulator support is ready:
 
 ```powershell path=null start=null
 .\gradlew.bat verifyLocal
+```
+
+Use the opt-in high-spec lane when validating the Moonshine-capable target:
+
+```powershell path=null start=null
+.\gradlew.bat verifyMoonshine
 ```
 
 ## Documentation map

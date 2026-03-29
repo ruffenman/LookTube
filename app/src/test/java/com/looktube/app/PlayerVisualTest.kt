@@ -12,6 +12,7 @@ import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
+import com.looktube.model.WhisperCppLocalCaptionEngine
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,6 +40,8 @@ class PlayerVisualTest {
                     playbackSelectionRequest = 0L,
                     selectedVideoEngagement = null,
                     recentPlaybackVideos = emptyList(),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
                     selectedCaptionTrack = null,
                     selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
@@ -47,6 +50,7 @@ class PlayerVisualTest {
                     onRecentVideoSelected = {},
                     onMarkVideoWatched = {},
                     onMarkVideoUnwatched = {},
+                    onLocalCaptionEngineSelected = {},
                     onGenerateCaptionsRequested = {},
                     onFullscreenChanged = {},
                 )
@@ -80,6 +84,8 @@ class PlayerVisualTest {
                     playbackSelectionRequest = 1L,
                     selectedVideoEngagement = null,
                     recentPlaybackVideos = emptyList(),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
                     selectedCaptionTrack = null,
                     selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
@@ -88,6 +94,7 @@ class PlayerVisualTest {
                     onRecentVideoSelected = {},
                     onMarkVideoWatched = {},
                     onMarkVideoUnwatched = {},
+                    onLocalCaptionEngineSelected = {},
                     onGenerateCaptionsRequested = {},
                     onFullscreenChanged = {},
                 )

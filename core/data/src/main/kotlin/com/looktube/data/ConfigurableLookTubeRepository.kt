@@ -8,6 +8,7 @@ import com.looktube.model.CaptionGenerationPhase
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PersistedFeedConfiguration
@@ -35,9 +36,8 @@ class ConfigurableLookTubeRepository(
     private val videoEngagementStore: VideoEngagementStore,
     private val videoFeedService: VideoFeedService,
     private val libraryRefreshScheduler: LibraryRefreshScheduler = NoOpLibraryRefreshScheduler,
-    private val localCaptionModelManager: LocalCaptionModelManager = NoOpLocalCaptionModelManager,
+    private val localCaptionEngineRegistry: LocalCaptionEngineRegistry = NoOpLocalCaptionEngineRegistry,
     private val videoCaptionStore: VideoCaptionStore = NoOpVideoCaptionStore,
-    private val localCaptionGenerator: LocalCaptionGenerator = UnsupportedLocalCaptionGenerator,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : LookTubeRepository {
     private val accountSessionState = MutableStateFlow(
@@ -70,7 +70,9 @@ class ConfigurableLookTubeRepository(
     override val selectedVideoId: StateFlow<String?> = selectedVideoIdState.asStateFlow()
     override val playbackProgress: StateFlow<Map<String, PlaybackProgress>> = playbackBookmarkStore.progressSnapshots
     override val videoEngagement: StateFlow<Map<String, VideoEngagementRecord>> = videoEngagementStore.engagementRecords
-    override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionModelManager.modelState
+    override val availableLocalCaptionEngines: StateFlow<List<LocalCaptionEngine>> = localCaptionEngineRegistry.availableEngines
+    override val selectedLocalCaptionEngine: StateFlow<LocalCaptionEngine> = localCaptionEngineRegistry.selectedEngine
+    override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionEngineRegistry.modelState
     override val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>> = videoCaptionStore.captions
     override val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>> = captionGenerationState.asStateFlow()
 
@@ -108,7 +110,7 @@ class ConfigurableLookTubeRepository(
     }
 
     override suspend fun downloadLocalCaptionModel() {
-        localCaptionModelManager.downloadDefaultModel()
+        localCaptionEngineRegistry.downloadSelectedModel()
     }
 
     private fun statusAfterConfigurationChange(configuration: FeedConfiguration): LibrarySyncState =
@@ -247,7 +249,7 @@ class ConfigurableLookTubeRepository(
             )
             return
         }
-        val modelPath = localCaptionModelManager.modelState.value.localPath
+        val modelPath = localCaptionEngineRegistry.modelState.value.localPath
         if (modelPath.isNullOrBlank()) {
             publishCaptionGenerationStatus(
                 videoId = videoId,
@@ -267,7 +269,7 @@ class ConfigurableLookTubeRepository(
                 ),
             )
             val document = withContext(ioDispatcher) {
-                localCaptionGenerator.generate(
+                localCaptionEngineRegistry.generate(
                     request = LocalCaptionGenerationRequest(
                         videoId = videoId,
                         playbackUrl = playbackUrl,
@@ -309,6 +311,10 @@ class ConfigurableLookTubeRepository(
                 ),
             )
         }
+    }
+
+    override fun selectLocalCaptionEngine(engineId: String) {
+        localCaptionEngineRegistry.selectEngine(engineId)
     }
 
     override fun selectVideo(videoId: String) {

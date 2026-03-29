@@ -13,6 +13,7 @@ import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.SyncPhase
+import com.looktube.model.WhisperCppLocalCaptionEngine
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,9 +48,12 @@ class AuthVisualTest {
                         phase = SyncPhase.Idle,
                         message = "Paste a copied Premium RSS URL to start syncing your library.",
                     ),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
                     onFeedUrlChanged = {},
                     onSignInRequested = {},
+                    onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
                     onClearSyncedDataRequested = {},
                 )
@@ -78,11 +82,14 @@ class AuthVisualTest {
                         message = "Synced 42 Premium videos. Last refresh completed successfully.",
                         lastSuccessfulSyncSummary = "42 videos • 12 shows",
                     ),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(
                         localPath = "/data/user/0/com.looktube.app/files/captions/models/ggml-base.en-q5_1.bin",
                     ),
                     onFeedUrlChanged = {},
                     onSignInRequested = {},
+                    onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
                     onClearSyncedDataRequested = {},
                 )
@@ -110,9 +117,12 @@ class AuthVisualTest {
                         phase = SyncPhase.Idle,
                         message = "Saved feed URL detected. Sync your library when you're ready.",
                     ),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
                     onFeedUrlChanged = {},
                     onSignInRequested = {},
+                    onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
                     onClearSyncedDataRequested = {},
                 )

@@ -7,6 +7,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import com.looktube.data.GeneratedCaptionDocument
+import com.looktube.data.LocalCaptionEngineRegistry
 import com.looktube.data.LocalCaptionGenerationRequest
 import com.looktube.data.LocalCaptionGenerator
 import com.looktube.data.LocalCaptionModelManager
@@ -14,6 +15,7 @@ import com.looktube.data.VideoCaptionStore
 import com.looktube.model.CaptionGenerationPhase
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.DefaultLocalCaptionModel
+import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.VideoCaptionTrack
 import java.io.BufferedInputStream
@@ -45,11 +47,61 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+internal data class LocalCaptionEngineRuntime(
+    val engine: LocalCaptionEngine,
+    val modelManager: LocalCaptionModelManager,
+    val generator: LocalCaptionGenerator,
+)
+
+internal class SelectableLocalCaptionEngineRegistry(
+    runtimes: List<LocalCaptionEngineRuntime>,
+    defaultEngineId: String = runtimes.first().engine.id,
+) : LocalCaptionEngineRegistry {
+    private val runtimeById = runtimes.associateBy { runtime -> runtime.engine.id }
+    private val registryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val selectedEngineState = MutableStateFlow(runtimeById.getValue(defaultEngineId).engine)
+    private val modelStateFlow = MutableStateFlow(
+        runtimeById.getValue(defaultEngineId).modelManager.modelState.value,
+    )
+
+    override val availableEngines: StateFlow<List<LocalCaptionEngine>> =
+        MutableStateFlow(runtimes.map(LocalCaptionEngineRuntime::engine)).asStateFlow()
+    override val selectedEngine: StateFlow<LocalCaptionEngine> = selectedEngineState.asStateFlow()
+    override val modelState: StateFlow<LocalCaptionModelState> = modelStateFlow.asStateFlow()
+
+    init {
+        registryScope.launch {
+            selectedEngineState.collectLatest { engine ->
+                runtimeById.getValue(engine.id).modelManager.modelState.collect { state ->
+                    modelStateFlow.value = state
+                }
+            }
+        }
+    }
+
+    override suspend fun downloadSelectedModel() {
+        selectedRuntime().modelManager.downloadDefaultModel()
+    }
+
+    override suspend fun generate(
+        request: LocalCaptionGenerationRequest,
+        onProgress: (CaptionGenerationStatus) -> Unit,
+    ): GeneratedCaptionDocument = selectedRuntime().generator.generate(request, onProgress)
+
+    override fun selectEngine(engineId: String) {
+        runtimeById[engineId]?.let { runtime ->
+            selectedEngineState.value = runtime.engine
+        }
+    }
+
+    private fun selectedRuntime(): LocalCaptionEngineRuntime = runtimeById.getValue(selectedEngineState.value.id)
+}
 
 internal class ManagedLocalCaptionModelManager(
     context: Context,
@@ -173,6 +225,7 @@ internal class FileVideoCaptionStore(
             generatedAtEpochMillis = generatedAtEpochMillis,
             languageTag = document.languageTag,
             label = document.label,
+            engineId = document.engineId,
         )
         captionsState.value = captionsState.value.toMutableMap().apply {
             put(videoId, track)
@@ -399,7 +452,8 @@ internal class OnDeviceLocalCaptionGenerator(
             GeneratedCaptionDocument(
                 webVtt = buildWebVtt(segments),
                 languageTag = DefaultLocalCaptionModel.languageTag,
-                label = "English (generated)",
+                label = "English (generated with Whisper.cpp)",
+                engineId = DefaultLocalCaptionModel.engine.id,
             )
         } finally {
             workingDirectory.deleteRecursively()
@@ -473,7 +527,7 @@ internal class OnDeviceLocalCaptionGenerator(
     }
 }
 
-private data class CaptionSegment(
+internal data class CaptionSegment(
     val startMs: Long,
     val endMs: Long,
     val text: String,
@@ -547,7 +601,7 @@ private object WhisperNativeBridge {
     private external fun nativeGetSegmentEndTicks(contextPointer: Long, index: Int): Long
 }
 
-private class RemoteMediaAudioExtractor {
+internal class RemoteMediaAudioExtractor {
     fun extractToPcm16MonoFile(
         playbackUrl: String,
         outputFile: File,
@@ -737,7 +791,7 @@ private class RemoteMediaAudioExtractor {
     }
 }
 
-private fun pcm16LeToFloatArray(
+internal fun pcm16LeToFloatArray(
     buffer: ByteArray,
     length: Int,
 ): FloatArray {
@@ -769,7 +823,7 @@ private fun readChunk(
     return totalBytesRead
 }
 
-private fun buildWebVtt(segments: List<CaptionSegment>): String = buildString {
+internal fun buildWebVtt(segments: List<CaptionSegment>): String = buildString {
     appendLine("WEBVTT")
     appendLine()
     segments.forEachIndexed { index, segment ->

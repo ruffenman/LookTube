@@ -37,6 +37,8 @@ class LookTubeAppViewModel(
     val videos = repository.videos
     val playbackProgress = repository.playbackProgress
     val videoEngagement = repository.videoEngagement
+    val availableLocalCaptionEngines = repository.availableLocalCaptionEngines
+    val selectedLocalCaptionEngine = repository.selectedLocalCaptionEngine
     val localCaptionModelState = repository.localCaptionModelState
     val videoCaptions = repository.videoCaptions
     private val requestedPageState = MutableStateFlow<Int?>(null)
@@ -214,6 +216,10 @@ class LookTubeAppViewModel(
         viewModelScope.launch {
             repository.generateCaptions(videoId)
         }
+    }
+
+    fun selectLocalCaptionEngine(engineId: String) {
+        repository.selectLocalCaptionEngine(engineId)
     }
 
     fun handleLaunchIntent(intent: Intent?) {

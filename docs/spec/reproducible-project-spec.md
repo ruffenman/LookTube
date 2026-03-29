@@ -21,7 +21,7 @@ The app does not depend on browser automation, cookie harvesting, or unsupported
 
 ## Supported implementation shape
 - platform: Android-first, Kotlin, Jetpack Compose
-- shell: one `app` module that owns app wiring, navigation, background work, and playback service integration
+- shell: one `app` module that owns app wiring, navigation, background work, and playback service integration, with the default `baseline` target preserved as the lower-spec build and an opt-in `moonshine` target reserved for higher-spec capabilities
 - shared layers: `core:heuristics`, `core:model`, `core:data`, `core:database`, `core:network`, `core:designsystem`, `core:testing`
 - feature layers: `feature:auth`, `feature:library`, `feature:player`
 - background work: WorkManager periodic refresh
@@ -145,6 +145,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Caption generation extracts audio from the selected playback URL, runs the on-device transcription path locally, and stores the result as a per-video WebVTT sidecar.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.
 - Cast playback preserves generated captions by mapping subtitle configurations into explicit Cast text tracks and serving local sidecars from the sender over a reachable local HTTP URL.
+- The default build target preserves a lower-spec whisper.cpp-based local caption path, while an opt-in higher-spec target may expose additional local engines such as Moonshine behind stricter SDK or ABI assumptions.
 - Any future cloud or provider-backed caption flow must remain optional and should layer onto the same local-first caption pipeline rather than replacing it.
 
 ### Feed parsing and sync semantics
@@ -172,15 +173,19 @@ An implementation that materially changes these choices can still be valid, but 
 ## Validation contract
 ### Fast loop
 - run `.\gradlew.bat verifyFast`
-- expect docs checks plus JVM/unit coverage for model, data, database, network, and app modules
+- expect docs checks plus JVM/unit coverage for model, data, database, network, and the baseline app target
 
 ### Full local gate
 - run `.\gradlew.bat verifyLocal -PskipManagedDevice=true`
-- expect fast-loop coverage plus lint and screenshot verification
+- expect fast-loop coverage plus baseline lint and baseline screenshot verification
 
 ### Managed-device gate
 - run `.\gradlew.bat verifyLocal`
 - expect the configured managed-device smoke lane to pass when local emulator support is ready
+
+### High-spec Moonshine gate
+- run `.\\gradlew.bat verifyMoonshine`
+- expect docs checks plus compile, unit, and lint coverage for the opt-in Moonshine-capable app target
 
 ### Connected-device checks
 - verify notification permission is granted when testing notification behavior

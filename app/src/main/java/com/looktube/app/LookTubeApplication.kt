@@ -3,8 +3,7 @@ package com.looktube.app
 import android.app.Application
 import com.looktube.data.ConfigurableLookTubeRepository
 import com.looktube.data.FeedConfigurationStore
-import com.looktube.data.LocalCaptionGenerator
-import com.looktube.data.LocalCaptionModelManager
+import com.looktube.data.LocalCaptionEngineRegistry
 import com.looktube.data.LookTubeRepository
 import com.looktube.data.SyncedLibraryStore
 import com.looktube.data.VideoCaptionStore
@@ -22,9 +21,8 @@ class LookTubeApplication : Application() {
         val syncedLibraryStore = SharedPreferencesSyncedLibraryStore(this)
         val playbackBookmarkStore = SharedPreferencesPlaybackBookmarkStore(this)
         val videoEngagementStore = SharedPreferencesVideoEngagementStore(this)
-        val localCaptionModelManager = ManagedLocalCaptionModelManager(this)
         val videoCaptionStore = FileVideoCaptionStore(this)
-        val localCaptionGenerator = OnDeviceLocalCaptionGenerator(this)
+        val localCaptionEngineRegistry = createLocalCaptionEngineRegistry(this)
         val localCaptionCastHttpServer = LocalCaptionCastHttpServer(videoCaptionStore.rootDirectory)
         val videoFeedService = HttpRssVideoFeedService(
             parser = RssVideoFeedParser(),
@@ -35,9 +33,8 @@ class LookTubeApplication : Application() {
             syncedLibraryStore = syncedLibraryStore,
             playbackBookmarkStore = playbackBookmarkStore,
             videoEngagementStore = videoEngagementStore,
-            localCaptionModelManager = localCaptionModelManager,
+            localCaptionEngineRegistry = localCaptionEngineRegistry,
             videoCaptionStore = videoCaptionStore,
-            localCaptionGenerator = localCaptionGenerator,
             localCaptionCastHttpServer = localCaptionCastHttpServer,
             videoFeedService = videoFeedService,
             librarySyncNotifier = librarySyncNotifier,
@@ -48,9 +45,8 @@ class LookTubeApplication : Application() {
                 videoEngagementStore = videoEngagementStore,
                 videoFeedService = videoFeedService,
                 libraryRefreshScheduler = WorkManagerLibraryRefreshScheduler(this),
-                localCaptionModelManager = localCaptionModelManager,
+                localCaptionEngineRegistry = localCaptionEngineRegistry,
                 videoCaptionStore = videoCaptionStore,
-                localCaptionGenerator = localCaptionGenerator,
             ),
         )
     }
@@ -67,9 +63,8 @@ data class AppContainer(
     val syncedLibraryStore: SyncedLibraryStore,
     val playbackBookmarkStore: PlaybackBookmarkStore,
     val videoEngagementStore: VideoEngagementStore,
-    val localCaptionModelManager: LocalCaptionModelManager,
+    val localCaptionEngineRegistry: LocalCaptionEngineRegistry,
     val videoCaptionStore: VideoCaptionStore,
-    val localCaptionGenerator: LocalCaptionGenerator,
     val localCaptionCastHttpServer: LocalCaptionCastUrlProvider,
     val videoFeedService: VideoFeedService,
     val librarySyncNotifier: LibrarySyncNotifier,

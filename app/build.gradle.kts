@@ -15,8 +15,26 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+    }
+
+    flavorDimensions += "targetTier"
+
+    productFlavors {
+        create("baseline") {
+            dimension = "targetTier"
+            minSdk = 28
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
+        create("moonshine") {
+            dimension = "targetTier"
+            applicationIdSuffix = ".moonshine"
+            versionNameSuffix = "-moonshine"
+            minSdk = 35
+            ndk {
+                abiFilters += "arm64-v8a"
+            }
         }
     }
 
@@ -55,7 +73,12 @@ android {
     }
 
     testOptions {
-        unitTests.isIncludeAndroidResources = true
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("robolectric.enabledSdks", "35")
+            }
+        }
 
         managedDevices {
             localDevices {
@@ -105,6 +128,7 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.cast)
     implementation(libs.media3.session)
+    add("moonshineImplementation", libs.moonshine.voice)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.androidx.compose.ui.test.junit4)

@@ -83,6 +83,8 @@ fun LookTubeApp(
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val videoEngagement by viewModel.videoEngagement.collectAsStateWithLifecycle()
     val selectedPlaybackTarget by viewModel.selectedPlaybackTarget.collectAsStateWithLifecycle()
+    val availableLocalCaptionEngines by viewModel.availableLocalCaptionEngines.collectAsStateWithLifecycle()
+    val selectedLocalCaptionEngine by viewModel.selectedLocalCaptionEngine.collectAsStateWithLifecycle()
     val localCaptionModelState by viewModel.localCaptionModelState.collectAsStateWithLifecycle()
     val selectedVideoCaptionTrack by viewModel.selectedVideoCaptionTrack.collectAsStateWithLifecycle()
     val selectedCaptionGenerationStatus by viewModel.selectedCaptionGenerationStatus.collectAsStateWithLifecycle()
@@ -256,9 +258,12 @@ fun LookTubeApp(
                         accountSession = accountSession,
                         feedConfiguration = feedConfiguration,
                         syncState = librarySyncState,
+                        availableLocalCaptionEngines = availableLocalCaptionEngines,
+                        selectedLocalCaptionEngine = selectedLocalCaptionEngine,
                         localCaptionModelState = localCaptionModelState,
                         onFeedUrlChanged = viewModel::updateFeedUrl,
                         onSignInRequested = viewModel::signInToPremiumFeed,
+                        onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
                         onDownloadLocalCaptionModel = viewModel::downloadLocalCaptionModel,
                         onClearSyncedDataRequested = viewModel::clearSyncedData,
                     )
@@ -289,6 +294,8 @@ fun LookTubeApp(
                         playbackSelectionRequest = playbackSelectionRequest,
                         selectedVideoEngagement = selectedPlaybackTarget?.video?.id?.let(videoEngagement::get),
                         recentPlaybackVideos = recentPlaybackVideos,
+                        availableLocalCaptionEngines = availableLocalCaptionEngines,
+                        selectedLocalCaptionEngine = selectedLocalCaptionEngine,
                         localCaptionModelState = localCaptionModelState,
                         selectedCaptionTrack = selectedVideoCaptionTrack,
                         selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
@@ -297,6 +304,7 @@ fun LookTubeApp(
                         onRecentVideoSelected = viewModel::selectVideo,
                         onMarkVideoWatched = viewModel::markVideoWatched,
                         onMarkVideoUnwatched = viewModel::markVideoUnwatched,
+                        onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
                         onGenerateCaptionsRequested = viewModel::generateCaptions,
                         onFullscreenChanged = { enabled ->
                             fullscreenModeName = when {

@@ -33,6 +33,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the Auth surface also shows offline caption model readiness and lets the user download the local caption model needed for provider-free caption generation
 - the Player surface can generate or regenerate captions for the selected video on-device, attach them as explicit text tracks for local playback, and keep them available during cast handoff through explicit Cast subtitle mapping
+- the default app build target stays on the lower-spec whisper.cpp caption path, while an opt-in higher-spec Moonshine target can expose an additional local caption engine and future higher-spec-only features without regressing the baseline build
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
 
@@ -75,12 +76,14 @@ Harden the path from copied feed sync to daily repeat use.
 - users can download an on-device caption model from Auth, generate captions for a playable video from Player without configuring any external provider, and regenerate them later if needed
 - generated captions are stored locally as per-video WebVTT sidecars, surfaced through the player CC controls, and kept reachable for cast sessions through explicit Cast text-track propagation instead of relying on the default Media3 cast subtitle path
 - any future higher-quality or cloud-backed caption provider remains optional and must layer onto the same caption pipeline instead of replacing the local fallback
+- the repository keeps the baseline build as the default validation target, while an opt-in higher-spec Moonshine build target can raise SDK or ABI expectations for extra local-engine support without weakening the baseline support matrix
 - docs reflect the validated product shape instead of the earlier scaffold-only phases
 
 ## Captions
 - LookTube now treats offline-first captions as a supported product behavior rather than a future-only direction.
 - Auth exposes local caption model readiness and a download action for the built-in on-device English model, so captions can work without any external provider once the model is present.
 - Player exposes per-video on-device caption generation and regeneration, shows generation progress or errors, and enables the built-in CC control for turning generated captions on locally.
+- The default build target keeps whisper.cpp as the guaranteed local fallback, and the Moonshine-capable target can expose Moonshine as an additional on-device engine on compatible devices.
 - Generated captions are stored as per-video WebVTT sidecars instead of mutating feed-derived metadata.
 - Cast delivery treats captions as first-class text tracks through explicit Cast mapping and sender-hosted sidecar serving, rather than assuming default Media3 subtitle propagation is sufficient.
 - If a higher-quality or cloud-generated caption option is added later, keep any secondary credentials or account material in a clearly separate expandable Auth section and layer that provider on top of the existing local caption pipeline.

@@ -24,7 +24,7 @@ Its central promise is deliberately narrow:
 - sole user input for access is the copied Premium feed URL
 - communicates setup, ready, syncing, synced, and error-adjacent states
 - can clear synced data while preserving the saved feed URL
-- exposes offline caption model readiness and a local-model download action without mixing any future provider credentials into the main feed URL flow
+- exposes offline caption model readiness, engine selection where the higher-spec target supports it, and a local-model download action without mixing any future provider credentials into the main feed URL flow
 ### Library
 - combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
 - wraps status plus browse controls inside a default-collapsed Library Config element that sits above the scrolling episode list
@@ -40,6 +40,7 @@ Its central promise is deliberately narrow:
 - explains remote playback on the player surface with a non-blocking visual indicator and should recover local playback cleanly after cast-session loss, reconnect, or same-video reselection
 ## Captions
 - the supported caption path is offline-first and on-device once the local caption model has been downloaded
+- the default build keeps a lower-spec local caption engine available, while a higher-spec target may expose additional local engines without replacing that fallback
 - generated captions should be stored as explicit WebVTT sidecars keyed by video rather than folded back into feed-derived source metadata
 - local playback should expose generated captions through the standard subtitle controls on the player surface
 - cast delivery should treat captions as an explicit sender-managed text-track problem and keep local sidecars reachable to the receiver, rather than assuming default Media3 cast subtitle propagation is sufficient

@@ -150,6 +150,12 @@ contract:
       parameters: {}
       returns:
         local_caption_model_state: LocalCaptionModelState
+    - name: select_local_caption_engine
+      description: Change the active on-device caption engine when the current build target exposes more than one local engine.
+      parameters:
+        engine_id: string (required)
+      returns:
+        local_caption_model_state: LocalCaptionModelState
     - name: generate_local_captions
       description: Generate or regenerate local captions for a playable video and store them as a reusable text track.
       parameters:
@@ -204,6 +210,7 @@ contract:
         - edit saved feed URL
         - sync Premium feed
         - clear synced data
+        - choose the active local caption engine when multiple engines are available for the current build target
         - download offline caption model
     - name: library
       description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped-section cards, watched-state controls, show-completion visualization, rich cards, and section jumping.
@@ -225,6 +232,7 @@ contract:
         - cast playback
         - reopen a recently played video
         - manually mark the current video watched or unwatched
+        - choose the active local caption engine when multiple engines are available for the current build target
         - generate or regenerate local captions for the selected video
         - enable or disable generated subtitle tracks from standard player controls
   processes:
@@ -334,7 +342,19 @@ scenarios:
           error_message: null
     then:
       - visible auth copy contains "Offline captions"
-      - visible auth copy contains "Download offline caption model"
+      - visible auth copy contains "Download Whisper.cpp model"
+  - id: auth_surface_can_switch_local_caption_engine_when_available
+    description: A higher-spec build target may expose multiple local caption engines from Auth without changing the feed-first access flow.
+    when:
+      surface: auth
+      state:
+        local_caption_engines:
+          - {id: "whisper_cpp", display_name: "Whisper.cpp"}
+          - {id: "moonshine", display_name: "Moonshine"}
+        selected_local_caption_engine: {id: "whisper_cpp", display_name: "Whisper.cpp"}
+    then:
+      - visible auth copy contains "Selected engine: Whisper.cpp"
+      - visible auth copy contains "Moonshine"
   - id: auth_surface_shows_caption_model_ready_state
     description: Once the local caption model is present, Auth reports that offline captions are ready on this device.
     when:
@@ -346,7 +366,7 @@ scenarios:
           error_message: null
     then:
       - visible auth copy contains "Offline captions"
-      - visible auth copy contains "Model ready on this device"
+      - visible auth copy contains "Whisper.cpp ready on this device"
   - id: syncing_auth_state_disables_mutating_actions
     description: While a sync is active, Auth indicates syncing and prevents conflicting actions.
     when:
@@ -993,6 +1013,18 @@ scenarios:
     then:
       - visible player copy contains "Offline captions"
       - visible player copy contains "Model required in Auth"
+  - id: player_can_switch_local_caption_engine_when_available
+    description: A higher-spec build target may expose multiple local caption engines on the Player surface while keeping caption generation local-first.
+    when:
+      surface: player
+      state:
+        local_caption_engines:
+          - {id: "whisper_cpp", display_name: "Whisper.cpp"}
+          - {id: "moonshine", display_name: "Moonshine"}
+        selected_local_caption_engine: {id: "moonshine", display_name: "Moonshine"}
+    then:
+      - visible player copy contains "Selected engine: Moonshine"
+      - visible player copy contains "Generate with Moonshine"
   - id: player_caption_generation_can_complete_locally
     description: Once the local model is ready, Player can generate captions for the selected video and expose them through subtitle controls.
     when:
@@ -1016,7 +1048,7 @@ scenarios:
         caption_track:
           video_id: "video-18"
           language_tag: "en-US"
-          label: "English (generated)"
+          label: "English (generated with Whisper.cpp)"
           local_file_path: "/tmp/video-18.vtt"
     then:
       - visible player copy contains "Regenerate captions"
@@ -1183,6 +1215,7 @@ constraints:
     - implementation must preserve the launch-intent behavior for opening the Player page and optionally preselecting a video
     - parser must accept RSS item shapes that expose playback targets through media:content, enclosure, or link
     - app must remain usable before the first successful live feed sync
+    - the default validation and contributor flow must keep a lower-spec baseline app target available even if optional higher-spec targets exist for extra local-engine support
   reliability:
     - background refresh remains registered while a non-blank saved feed URL exists
     - background refresh registration uses one unique periodic work identity

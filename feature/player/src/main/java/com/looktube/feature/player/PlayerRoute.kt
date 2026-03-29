@@ -74,6 +74,7 @@ import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.CaptionGenerationPhase
 import com.looktube.model.CaptionGenerationStatus
+import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.RecentPlaybackVideo
 import com.looktube.model.VideoCaptionTrack
@@ -90,6 +91,8 @@ fun PlayerRoute(
     playbackSelectionRequest: Long,
     selectedVideoEngagement: VideoEngagementRecord?,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
+    availableLocalCaptionEngines: List<LocalCaptionEngine>,
+    selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
     selectedCaptionTrack: VideoCaptionTrack?,
     selectedCaptionGenerationStatus: CaptionGenerationStatus,
@@ -98,6 +101,7 @@ fun PlayerRoute(
     onRecentVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
+    onLocalCaptionEngineSelected: (String) -> Unit,
     onGenerateCaptionsRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
@@ -170,6 +174,8 @@ fun PlayerRoute(
             playbackSelectionRequest = playbackSelectionRequest,
             selectedVideoEngagement = selectedVideoEngagement,
             recentPlaybackVideos = recentPlaybackVideos,
+            availableLocalCaptionEngines = availableLocalCaptionEngines,
+            selectedLocalCaptionEngine = selectedLocalCaptionEngine,
             localCaptionModelState = localCaptionModelState,
             selectedCaptionTrack = selectedCaptionTrack,
             selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
@@ -177,6 +183,7 @@ fun PlayerRoute(
             onRecentVideoSelected = onRecentVideoSelected,
             onMarkVideoWatched = onMarkVideoWatched,
             onMarkVideoUnwatched = onMarkVideoUnwatched,
+            onLocalCaptionEngineSelected = onLocalCaptionEngineSelected,
             onGenerateCaptionsRequested = onGenerateCaptionsRequested,
             onFullscreenChanged = onFullscreenChanged,
         )
@@ -186,9 +193,12 @@ fun PlayerRoute(
 @Composable
 private fun CaptionStatusCard(
     selectedVideo: VideoSummary,
+    availableLocalCaptionEngines: List<LocalCaptionEngine>,
+    selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
     selectedCaptionTrack: VideoCaptionTrack?,
     selectedCaptionGenerationStatus: CaptionGenerationStatus,
+    onLocalCaptionEngineSelected: (String) -> Unit,
     onGenerateCaptionsRequested: (String) -> Unit,
 ) {
     val isGenerating = selectedCaptionGenerationStatus.phase in setOf(
@@ -201,8 +211,8 @@ private fun CaptionStatusCard(
             "Generated captions are saved on this device. Use the CC button in the player controls to turn them on locally or during cast."
         isGenerating -> selectedCaptionGenerationStatus.message
         selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> selectedCaptionGenerationStatus.message
-        !localCaptionModelState.isReady -> "Download the offline caption model from Auth before generating captions on-device."
-        else -> "Generate captions for this video on-device so subtitles stay available even without an external provider."
+        !localCaptionModelState.isReady -> "Download the ${selectedLocalCaptionEngine.displayName} model from Auth before generating captions on-device."
+        else -> "Generate captions for this video with ${selectedLocalCaptionEngine.displayName} so subtitles stay available even without an external provider."
     }
 
     Surface(
@@ -221,6 +231,26 @@ private fun CaptionStatusCard(
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+            Text(
+                text = "Selected engine: ${selectedLocalCaptionEngine.displayName}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (availableLocalCaptionEngines.size > 1) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    availableLocalCaptionEngines.forEach { engine ->
+                        FilterChip(
+                            selected = engine.id == selectedLocalCaptionEngine.id,
+                            onClick = { onLocalCaptionEngineSelected(engine.id) },
+                            label = {
+                                Text(engine.displayName)
+                            },
+                        )
+                    }
+                }
+            }
             Text(
                 text = statusBody,
                 style = MaterialTheme.typography.bodyMedium,
@@ -241,7 +271,7 @@ private fun CaptionStatusCard(
                         when {
                             isGenerating -> "Generating captions…"
                             selectedCaptionTrack != null -> "Regenerate captions"
-                            localCaptionModelState.isReady -> "Generate captions"
+                            localCaptionModelState.isReady -> "Generate with ${selectedLocalCaptionEngine.displayName}"
                             else -> "Model required in Auth"
                         },
                     )
@@ -627,6 +657,8 @@ private fun ActivePlayerContent(
     playbackSelectionRequest: Long,
     selectedVideoEngagement: VideoEngagementRecord?,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
+    availableLocalCaptionEngines: List<LocalCaptionEngine>,
+    selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
     selectedCaptionTrack: VideoCaptionTrack?,
     selectedCaptionGenerationStatus: CaptionGenerationStatus,
@@ -634,6 +666,7 @@ private fun ActivePlayerContent(
     onRecentVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
+    onLocalCaptionEngineSelected: (String) -> Unit,
     onGenerateCaptionsRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
@@ -687,9 +720,12 @@ private fun ActivePlayerContent(
         item {
             CaptionStatusCard(
                 selectedVideo = selectedVideo,
+                availableLocalCaptionEngines = availableLocalCaptionEngines,
+                selectedLocalCaptionEngine = selectedLocalCaptionEngine,
                 localCaptionModelState = localCaptionModelState,
                 selectedCaptionTrack = selectedCaptionTrack,
                 selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
+                onLocalCaptionEngineSelected = onLocalCaptionEngineSelected,
                 onGenerateCaptionsRequested = onGenerateCaptionsRequested,
             )
         }
