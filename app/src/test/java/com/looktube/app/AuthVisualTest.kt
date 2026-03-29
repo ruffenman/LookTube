@@ -100,6 +100,40 @@ class AuthVisualTest {
     }
 
     @Test
+    fun authSyncingSurface() {
+        composeRule.setContent {
+            LookTubeTheme {
+                AuthRoute(
+                    paddingValues = PaddingValues(),
+                    accountSession = AccountSession(
+                        isSignedIn = true,
+                        accountLabel = "Copied Premium feed",
+                        notes = "Refreshing your saved Giant Bomb Premium feed.",
+                    ),
+                    feedConfiguration = FeedConfiguration(
+                        feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=feed-token",
+                    ),
+                    syncState = LibrarySyncState(
+                        phase = SyncPhase.Refreshing,
+                        message = "Refreshing your saved Premium library from the copied feed URL.",
+                        lastSuccessfulSyncSummary = "42 videos • 12 shows",
+                    ),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
+                    localCaptionModelState = LocalCaptionModelState(),
+                    onFeedUrlChanged = {},
+                    onSignInRequested = {},
+                    onLocalCaptionEngineSelected = {},
+                    onDownloadLocalCaptionModel = {},
+                    onClearSyncedDataRequested = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    @Test
     fun authReadySurface() {
         composeRule.setContent {
             LookTubeTheme {

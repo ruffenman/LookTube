@@ -103,4 +103,48 @@ class PlayerVisualTest {
 
         composeRule.onRoot().captureRoboImage()
     }
+
+    @Test
+    fun playerPlaybackUnavailableSurface() {
+        composeRule.setContent {
+            LookTubeTheme {
+                PlayerRoute(
+                    paddingValues = PaddingValues(),
+                    selectedVideo = VideoSummary(
+                        id = "manual-archive-1",
+                        title = "Quick Look Archive Check-In",
+                        description = "A feed item that synced successfully but does not expose a direct playback target.",
+                        isPremium = true,
+                        feedCategory = "Premium",
+                        playbackUrl = null,
+                        seriesTitle = "Quick Look",
+                        durationSeconds = 2_100,
+                    ),
+                    playbackProgress = PlaybackProgress(
+                        videoId = "manual-archive-1",
+                        positionSeconds = 320,
+                        durationSeconds = 2_100,
+                    ),
+                    playbackSelectionRequest = 1L,
+                    selectedVideoEngagement = null,
+                    recentPlaybackVideos = emptyList(),
+                    availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
+                    selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
+                    localCaptionModelState = LocalCaptionModelState(),
+                    selectedCaptionTrack = null,
+                    selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
+                    player = null,
+                    isFullscreen = false,
+                    onRecentVideoSelected = {},
+                    onMarkVideoWatched = {},
+                    onMarkVideoUnwatched = {},
+                    onLocalCaptionEngineSelected = {},
+                    onGenerateCaptionsRequested = {},
+                    onFullscreenChanged = {},
+                )
+            }
+        }
+
+        composeRule.onRoot().captureRoboImage()
+    }
 }

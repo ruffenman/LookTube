@@ -11,7 +11,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - app-level Media3 playback service/session with background playback and fullscreen support
 - default `baseline` app target keeps `minSdk 28` plus the existing whisper.cpp caption path, while an opt-in `moonshine` target adds a higher-spec local engine lane
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
-- committed Roborazzi visual baseline coverage for the Library browse surface plus Auth and Player states
+- committed Roborazzi visual baseline coverage for the Library browse surface, key Auth feed states, and stable Player status states
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
 - the validated product shape remains feed-first rather than website-login automation
@@ -75,5 +75,5 @@ Use the opt-in high-spec lane when validating the Moonshine-capable target:
 1. validate additional copied Premium feed variants and playback targets against the same feed-only path
 2. harden repeat-use reliability for background refresh and new-release notifications on real devices
 3. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
-4. keep expanding screenshot-oriented visual regression coverage around richer playback states and feed-sync states
+4. keep expanding screenshot-oriented visual regression coverage around richer active playback states once deterministic non-`PlayerView` states are locked down
 5. tighten any remaining Giant Bomb-specific playback edge cases found during device validation without drifting into unsupported site automation

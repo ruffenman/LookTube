@@ -86,10 +86,12 @@ Verify the current UI against committed baselines:
 Current committed baselines cover:
 - Library browse surface
 - Auth setup-required state
+- Auth syncing state
 - Auth synced state
 - Auth ready state with a saved feed URL
 - Player empty-queue state
 - Player preparing state
+- Player playback-unavailable state
 
 ## Live integration probe
 Use only when you have a local Giant Bomb Premium feed URL available as an environment variable:
