@@ -21,3 +21,4 @@ When encrypted persistence is unavailable, continue falling back to legacy plain
 ## Follow-up ADRs
 - whether live Giant Bomb playback requires a reusable browser-backed session beyond the copied feed URL
 - any future change to cookie/header persistence for playback handoff
+- how optional provider-backed caption credentials, if ever added, should layer onto the local-first caption flow without mixing into the primary feed URL contract

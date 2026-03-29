@@ -11,6 +11,7 @@ import com.looktube.feature.auth.AuthRoute
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.SyncPhase
 import org.junit.Rule
 import org.junit.Test
@@ -46,8 +47,10 @@ class AuthVisualTest {
                         phase = SyncPhase.Idle,
                         message = "Paste a copied Premium RSS URL to start syncing your library.",
                     ),
+                    localCaptionModelState = LocalCaptionModelState(),
                     onFeedUrlChanged = {},
                     onSignInRequested = {},
+                    onDownloadLocalCaptionModel = {},
                     onClearSyncedDataRequested = {},
                 )
             }
@@ -75,8 +78,12 @@ class AuthVisualTest {
                         message = "Synced 42 Premium videos. Last refresh completed successfully.",
                         lastSuccessfulSyncSummary = "42 videos • 12 shows",
                     ),
+                    localCaptionModelState = LocalCaptionModelState(
+                        localPath = "/data/user/0/com.looktube.app/files/captions/models/ggml-base.en-q5_1.bin",
+                    ),
                     onFeedUrlChanged = {},
                     onSignInRequested = {},
+                    onDownloadLocalCaptionModel = {},
                     onClearSyncedDataRequested = {},
                 )
             }
@@ -103,8 +110,10 @@ class AuthVisualTest {
                         phase = SyncPhase.Idle,
                         message = "Saved feed URL detected. Sync your library when you're ready.",
                     ),
+                    localCaptionModelState = LocalCaptionModelState(),
                     onFeedUrlChanged = {},
                     onSignInRequested = {},
+                    onDownloadLocalCaptionModel = {},
                     onClearSyncedDataRequested = {},
                 )
             }

@@ -8,6 +8,7 @@ Its central promise is deliberately narrow:
 - sync directly against that feed
 - browse the resulting Premium library
 - resume playback
+- generate local captions for a playable video once the on-device model is available
 - receive local new-release notifications from background refresh
 ## Explicit non-goals
 - browser-login automation
@@ -23,6 +24,7 @@ Its central promise is deliberately narrow:
 - sole user input for access is the copied Premium feed URL
 - communicates setup, ready, syncing, synced, and error-adjacent states
 - can clear synced data while preserving the saved feed URL
+- exposes offline caption model readiness and a local-model download action without mixing any future provider credentials into the main feed URL flow
 ### Library
 - combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
 - wraps status plus browse controls inside a default-collapsed Library Config element that sits above the scrolling episode list
@@ -33,15 +35,15 @@ Its central promise is deliberately narrow:
 ### Player
 - must handle empty, unavailable, preparing, and active playback states clearly
 - keeps the player frame above the supporting metadata when a video is selected
-- supports resume, cast routing, fullscreen from controls/rotation, left/right double-tap seek behavior, a bounded surfaced History menu, and manual watched/unwatched actions
+- supports resume, cast routing, fullscreen from controls/rotation, left/right double-tap seek behavior, a bounded surfaced History menu, manual watched/unwatched actions, and per-video offline caption generation with standard subtitle controls
 - should still start local playback if the user locks the device immediately after issuing the play request
 - explains remote playback on the player surface with a non-blocking visual indicator and should recover local playback cleanly after cast-session loss, reconnect, or same-video reselection
-## Researched follow-on direction: captions
-This package does not currently require generated captions, but the investigated direction is:
-- prefer an offline-friendly on-device transcription path first, using a `whisper.cpp`-class approach where feasible
-- store generated captions as explicit sidecar text tracks such as WebVTT
-- keep any optional cloud caption credentials separate from the feed URL flow in a future expandable Auth subsection
-- treat cast caption delivery as an explicit sender and receiver text-track integration problem rather than assuming default Media3 cast subtitle propagation is sufficient
+## Captions
+- the supported caption path is offline-first and on-device once the local caption model has been downloaded
+- generated captions should be stored as explicit WebVTT sidecars keyed by video rather than folded back into feed-derived source metadata
+- local playback should expose generated captions through the standard subtitle controls on the player surface
+- cast delivery should treat captions as an explicit sender-managed text-track problem and keep local sidecars reachable to the receiver, rather than assuming default Media3 cast subtitle propagation is sufficient
+- any future cloud or provider-backed caption option should remain optional and separate from the primary feed URL flow
 ## External integration stance
 The copied feed URL is the validated access path.
 Future implementations should not assume a browser session, cookies, or a secondary private API unless Giant Bomb exposes an official supported path.

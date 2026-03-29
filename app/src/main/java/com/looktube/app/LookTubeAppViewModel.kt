@@ -5,14 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.looktube.data.LookTubeRepository
+import com.looktube.model.CaptionGenerationStatus
 import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.LookPointsSummary
 import com.looktube.model.ManualWatchState
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.RecentPlaybackVideo
 import com.looktube.model.SeriesCompletionSummary
+import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoSummary
 import com.looktube.model.buildLookPointsSummary
 import com.looktube.model.buildRecentPlaybackVideos
@@ -34,6 +37,8 @@ class LookTubeAppViewModel(
     val videos = repository.videos
     val playbackProgress = repository.playbackProgress
     val videoEngagement = repository.videoEngagement
+    val localCaptionModelState = repository.localCaptionModelState
+    val videoCaptions = repository.videoCaptions
     private val requestedPageState = MutableStateFlow<Int?>(null)
     val requestedPage: StateFlow<Int?> = requestedPageState.asStateFlow()
     private val playbackSelectionRequestState = MutableStateFlow(0L)
@@ -54,7 +59,8 @@ class LookTubeAppViewModel(
         repository.videos,
         repository.selectedVideoId,
         repository.playbackProgress,
-    ) { videos, selectedVideoId, progressMap ->
+        repository.videoCaptions,
+    ) { videos, selectedVideoId, progressMap, captionTracks ->
         selectedVideoId
             ?.let { selectedId ->
                 videos.firstOrNull { it.id == selectedId }
@@ -62,6 +68,7 @@ class LookTubeAppViewModel(
                         SelectedPlaybackTarget(
                             video = video,
                             playbackProgress = progressMap[selectedId],
+                            captionTrack = captionTracks[selectedId],
                         )
                     }
             }
@@ -75,9 +82,34 @@ class LookTubeAppViewModel(
                         SelectedPlaybackTarget(
                             video = video,
                             playbackProgress = repository.playbackProgress.value[selectedId],
+                            captionTrack = repository.videoCaptions.value[selectedId],
                         )
                     }
             },
+    )
+
+    val selectedVideoCaptionTrack: StateFlow<VideoCaptionTrack?> = combine(
+        repository.selectedVideoId,
+        repository.videoCaptions,
+    ) { selectedVideoId, captionTracks ->
+        selectedVideoId?.let(captionTracks::get)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = repository.selectedVideoId.value?.let(repository.videoCaptions.value::get),
+    )
+
+    val selectedCaptionGenerationStatus: StateFlow<CaptionGenerationStatus> = combine(
+        repository.selectedVideoId,
+        repository.captionGenerationStatus,
+    ) { selectedVideoId, generationStatusMap ->
+        selectedVideoId?.let(generationStatusMap::get) ?: CaptionGenerationStatus.Idle
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = repository.selectedVideoId.value
+            ?.let(repository.captionGenerationStatus.value::get)
+            ?: CaptionGenerationStatus.Idle,
     )
 
     val selectedProgress: StateFlow<PlaybackProgress?> = combine(
@@ -166,9 +198,21 @@ class LookTubeAppViewModel(
         }
     }
 
+    fun downloadLocalCaptionModel() {
+        viewModelScope.launch {
+            repository.downloadLocalCaptionModel()
+        }
+    }
+
     fun refreshLibrary() {
         viewModelScope.launch {
             repository.refreshLibrary()
+        }
+    }
+
+    fun generateCaptions(videoId: String) {
+        viewModelScope.launch {
+            repository.generateCaptions(videoId)
         }
     }
 
@@ -233,4 +277,5 @@ class LookTubeAppViewModel(
 data class SelectedPlaybackTarget(
     val video: VideoSummary,
     val playbackProgress: PlaybackProgress?,
+    val captionTrack: VideoCaptionTrack? = null,
 )

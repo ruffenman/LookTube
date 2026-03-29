@@ -1,6 +1,6 @@
 # LookTube reproducible project spec
 ## Purpose
-LookTube is a native Android companion app for Giant Bomb Premium subscribers. Its primary job is to let a user paste a copied Giant Bomb Premium RSS feed URL, sync the feed directly, browse the resulting library, resume playback, and receive local notifications when later background refreshes discover newly released videos.
+LookTube is a native Android companion app for Giant Bomb Premium subscribers. Its primary job is to let a user paste a copied Giant Bomb Premium RSS feed URL, sync the feed directly, browse the resulting library, resume playback, generate local captions for playable videos, and receive local notifications when later background refreshes discover newly released videos.
 ## Transfer-ready package
 The upload-oriented package now lives in `docs/spec/agent-spec-package/`.
 Use that directory as the starting point for future publication to the external agent-spec repository.
@@ -65,6 +65,7 @@ An implementation that materially changes these choices can still be valid, but 
 - accepts the copied Premium feed URL as the only supported user input for feed access
 - exposes a primary sync action
 - exposes `Clear synced data` only when a successful sync or cached summary exists
+- exposes offline caption model readiness plus a one-time download action for the local caption model
 - communicates five practical user-visible states: setup required, ready, syncing, synced, and needs attention
 
 ### Library surface
@@ -93,6 +94,7 @@ An implementation that materially changes these choices can still be valid, but 
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
 - exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that can scroll for longer histories
+- exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state, and enables standard subtitle controls when a generated text track exists
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets
@@ -138,12 +140,12 @@ An implementation that materially changes these choices can still be valid, but 
 - Completing every video in a show is visualized in browse UI but does not grant extra score.
 - A video can become watched either through playback completion heuristics or an explicit manual watched action, and a manual unwatched action overrides that status until the user watches or marks it watched again.
 
-### Researched captions direction
-This is intentionally documented as follow-on design guidance rather than current product contract:
-- prefer a local/offline-friendly caption generation path first, using an on-device `whisper.cpp`-class pipeline where practical
-- keep generated captions as explicit sidecar text tracks such as WebVTT rather than mutating feed-derived source metadata
-- if optional cloud caption generation is added later, place any secondary keys or account material in a distinct expandable Auth section
-- cast delivery should treat captions as first-class text tracks and use explicit Cast track mapping and activation, because default Media3 cast subtitle propagation is not a reliable transferable assumption
+### Captions
+- Users can download a local caption model once and then generate captions for any playable video without configuring an external provider.
+- Caption generation extracts audio from the selected playback URL, runs the on-device transcription path locally, and stores the result as a per-video WebVTT sidecar.
+- Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.
+- Cast playback preserves generated captions by mapping subtitle configurations into explicit Cast text tracks and serving local sidecars from the sender over a reachable local HTTP URL.
+- Any future cloud or provider-backed caption flow must remain optional and should layer onto the same local-first caption pipeline rather than replacing it.
 
 ### Feed parsing and sync semantics
 - Feed sync performs a direct GET against the copied feed URL.
@@ -202,4 +204,4 @@ This is intentionally documented as follow-on design guidance rather than curren
 - architecture: `docs/architecture/overview.md`
 - integration notes: `docs/integration/giantbomb.md`
 - local validation workflow: `docs/testing/local-ci.md`
-- architectural decisions: `docs/decisions/ADR-0001-foundation.md`, `docs/decisions/ADR-0002-auth-persistence.md`
+- architectural decisions: `docs/decisions/ADR-0001-foundation.md`, `docs/decisions/ADR-0002-auth-persistence.md`, `docs/decisions/ADR-0003-offline-captions.md`

@@ -1,11 +1,12 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.7"
+  version: "0.2.8"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
     The user pastes a copied Premium RSS feed URL, syncs it directly,
-    browses the resulting library, resumes playback, receives local
+    browses the resulting library, resumes playback, can generate
+    offline-first local captions for playable videos, receives local
     notifications when later background refreshes discover newly released
     videos, and can cast playback without browser automation.
 
@@ -93,6 +94,20 @@ types:
     player_frame_pinned_top: boolean (required)
     remote_playback_active: boolean (required)
     remote_playback_label: string (optional, user-visible cast or handoff status)
+  LocalCaptionModelState:
+    is_ready: boolean (required)
+    is_downloading: boolean (required)
+    download_progress_fraction: number (optional, 0.0 to 1.0)
+    error_message: string (optional)
+  CaptionTrack:
+    video_id: string (required)
+    language_tag: string (required)
+    label: string (required)
+    local_file_path: string (required)
+  CaptionGenerationStatus:
+    phase: string (required, Idle | ExtractingAudio | Transcribing | Saving | Completed | Error)
+    message: string (required, user-visible)
+    progress_fraction: number (optional, 0.0 to 1.0)
 
 contract:
   functions:
@@ -130,6 +145,18 @@ contract:
         feed_configuration: FeedConfiguration
         library_sync_state: LibrarySyncState
         videos: array of VideoSummary
+    - name: download_local_caption_model
+      description: Download the built-in on-device caption model so local caption generation works without any external provider.
+      parameters: {}
+      returns:
+        local_caption_model_state: LocalCaptionModelState
+    - name: generate_local_captions
+      description: Generate or regenerate local captions for a playable video and store them as a reusable text track.
+      parameters:
+        video_id: string (required)
+      returns:
+        caption_generation_status: CaptionGenerationStatus
+        caption_track: CaptionTrack (optional)
     - name: select_video
       description: Select a video from the library and make it the active Player target.
       parameters:
@@ -166,7 +193,7 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: auth
-      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, and clearing synced data.
+      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, and local caption model readiness.
       visible_states:
         - setup required
         - ready
@@ -177,6 +204,7 @@ contract:
         - edit saved feed URL
         - sync Premium feed
         - clear synced data
+        - download offline caption model
     - name: library
       description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped-section cards, watched-state controls, show-completion visualization, rich cards, and section jumping.
       primary_actions:
@@ -189,7 +217,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu, and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu, offline caption generation state, and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -197,6 +225,8 @@ contract:
         - cast playback
         - reopen a recently played video
         - manually mark the current video watched or unwatched
+        - generate or regenerate local captions for the selected video
+        - enable or disable generated subtitle tracks from standard player controls
   processes:
     - name: library_refresh
       description: Periodic refresh that stays registered while a non-blank saved feed URL exists.
@@ -293,6 +323,30 @@ scenarios:
       - visible status label == "Synced"
       - primary sync action label == "Re-sync Premium library"
       - clear synced data action is visible
+  - id: auth_surface_can_prepare_offline_caption_model
+    description: Auth exposes the local caption model state so the user can prepare provider-free captions before opening Player.
+    when:
+      surface: auth
+      state:
+        local_caption_model_state:
+          is_ready: false
+          is_downloading: false
+          error_message: null
+    then:
+      - visible auth copy contains "Offline captions"
+      - visible auth copy contains "Download offline caption model"
+  - id: auth_surface_shows_caption_model_ready_state
+    description: Once the local caption model is present, Auth reports that offline captions are ready on this device.
+    when:
+      surface: auth
+      state:
+        local_caption_model_state:
+          is_ready: true
+          is_downloading: false
+          error_message: null
+    then:
+      - visible auth copy contains "Offline captions"
+      - visible auth copy contains "Model ready on this device"
   - id: syncing_auth_state_disables_mutating_actions
     description: While a sync is active, Auth indicates syncing and prevents conflicting actions.
     when:
@@ -917,6 +971,56 @@ scenarios:
       - visible player copy contains "History"
       - visible player copy contains either "Mark as Watched" or "Mark as Unwatched"
       - active player surface does not rely on a separate playback-details card for resume/help text
+  - id: player_caption_generation_requires_local_model
+    description: Player explains that the local caption model must be downloaded before on-device caption generation can run.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-18"
+          title: "Captionable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-18.mp4"
+        local_caption_model_state:
+          is_ready: false
+          is_downloading: false
+          error_message: null
+        caption_generation_status:
+          phase: "Idle"
+          message: ""
+    then:
+      - visible player copy contains "Offline captions"
+      - visible player copy contains "Model required in Auth"
+  - id: player_caption_generation_can_complete_locally
+    description: Once the local model is ready, Player can generate captions for the selected video and expose them through subtitle controls.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-18"
+          title: "Captionable item"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-18.mp4"
+        local_caption_model_state:
+          is_ready: true
+          is_downloading: false
+          error_message: null
+        caption_generation_status:
+          phase: "Completed"
+          message: "Generated captions are ready on this device."
+          progress_fraction: 1.0
+        caption_track:
+          video_id: "video-18"
+          language_tag: "en-US"
+          label: "English (generated)"
+          local_file_path: "/tmp/video-18.vtt"
+    then:
+      - visible player copy contains "Regenerate captions"
+      - generated subtitle track is selectable from the standard player subtitle controls
   - id: player_history_menu_is_bounded_and_scrollable
     description: The player History affordance opens a surfaced dropdown that stays bounded on screen and shows scroll feedback when the list grows long.
     when:
@@ -1069,6 +1173,7 @@ constraints:
     - copied Giant Bomb Premium feed URL is the only supported user-facing sync input
     - implementation must not require browser automation, cookie harvesting, or unsupported website sign-in replay
     - no server-push notification backend is required; new-release notifications come from local background refresh diffs
+    - offline caption generation must work without any external provider once the local caption model is present
   security:
     - if feed URL is persisted, secure platform storage must be used when available
     - live feed URLs, cookies, and raw authenticated feed payloads must not be committed as fixtures or examples
@@ -1091,3 +1196,4 @@ constraints:
     - playback progress persistence should be frequent enough that normal resume loss stays within a few seconds
     - local playback must remain available even if cast support initialization fails
     - if a cast session ends or becomes unavailable, the last known item and position must remain recoverable for local playback
+    - once generated, local captions should remain available as reusable text tracks for both local playback and cast handoff

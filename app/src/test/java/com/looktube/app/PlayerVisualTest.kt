@@ -8,6 +8,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.player.PlayerRoute
+import com.looktube.model.CaptionGenerationStatus
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import org.junit.Rule
@@ -37,11 +39,15 @@ class PlayerVisualTest {
                     playbackSelectionRequest = 0L,
                     selectedVideoEngagement = null,
                     recentPlaybackVideos = emptyList(),
+                    localCaptionModelState = LocalCaptionModelState(),
+                    selectedCaptionTrack = null,
+                    selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
                     player = null,
                     isFullscreen = false,
                     onRecentVideoSelected = {},
                     onMarkVideoWatched = {},
                     onMarkVideoUnwatched = {},
+                    onGenerateCaptionsRequested = {},
                     onFullscreenChanged = {},
                 )
             }
@@ -74,11 +80,15 @@ class PlayerVisualTest {
                     playbackSelectionRequest = 1L,
                     selectedVideoEngagement = null,
                     recentPlaybackVideos = emptyList(),
+                    localCaptionModelState = LocalCaptionModelState(),
+                    selectedCaptionTrack = null,
+                    selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
                     player = null,
                     isFullscreen = false,
                     onRecentVideoSelected = {},
                     onMarkVideoWatched = {},
                     onMarkVideoUnwatched = {},
+                    onGenerateCaptionsRequested = {},
                     onFullscreenChanged = {},
                 )
             }

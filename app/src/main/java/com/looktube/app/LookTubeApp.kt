@@ -5,8 +5,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.os.Build
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,8 +49,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -61,7 +63,9 @@ import com.looktube.feature.auth.AuthRoute
 import com.looktube.feature.library.LibraryRoute
 import com.looktube.feature.player.PlayerRoute
 import com.looktube.model.LookPointsSummary
+import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoSummary
+import java.io.File
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
 
@@ -79,6 +83,9 @@ fun LookTubeApp(
     val playbackProgress by viewModel.playbackProgress.collectAsStateWithLifecycle()
     val videoEngagement by viewModel.videoEngagement.collectAsStateWithLifecycle()
     val selectedPlaybackTarget by viewModel.selectedPlaybackTarget.collectAsStateWithLifecycle()
+    val localCaptionModelState by viewModel.localCaptionModelState.collectAsStateWithLifecycle()
+    val selectedVideoCaptionTrack by viewModel.selectedVideoCaptionTrack.collectAsStateWithLifecycle()
+    val selectedCaptionGenerationStatus by viewModel.selectedCaptionGenerationStatus.collectAsStateWithLifecycle()
     val playbackSelectionRequest by viewModel.playbackSelectionRequest.collectAsStateWithLifecycle()
     val requestedPage by viewModel.requestedPage.collectAsStateWithLifecycle()
     val recentPlaybackVideos by viewModel.recentPlaybackVideos.collectAsStateWithLifecycle()
@@ -91,6 +98,7 @@ fun LookTubeApp(
     var fullscreenModeName by rememberSaveable { mutableStateOf(PlayerFullscreenMode.Off.name) }
     var notificationPermissionPrompted by rememberSaveable { mutableStateOf(false) }
     var lastHandledPlaybackSelectionRequest by rememberSaveable { mutableStateOf(0L) }
+    var lastHandledCaptionTrackPath by rememberSaveable { mutableStateOf<String?>(null) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -122,13 +130,22 @@ fun LookTubeApp(
         }
     }
 
-    LaunchedEffect(selectedPlaybackTarget?.video?.id, playbackController, playbackSelectionRequest) {
+    LaunchedEffect(
+        selectedPlaybackTarget?.video?.id,
+        selectedPlaybackTarget?.captionTrack?.filePath,
+        playbackController,
+        playbackSelectionRequest,
+    ) {
         val controller = playbackController ?: return@LaunchedEffect
         val playbackTarget = selectedPlaybackTarget ?: return@LaunchedEffect
-        val forceReload = isExplicitPlaybackSelectionRequest(
+        val explicitSelectionReloadRequested = isExplicitPlaybackSelectionRequest(
             playbackSelectionRequest = playbackSelectionRequest,
             lastHandledPlaybackSelectionRequest = lastHandledPlaybackSelectionRequest,
         )
+        val captionTrackReloadRequested =
+            playbackTarget.captionTrack?.filePath != lastHandledCaptionTrackPath &&
+                controller.currentMediaItem?.mediaId == playbackTarget.video.id
+        val forceReload = explicitSelectionReloadRequested || captionTrackReloadRequested
         handoffSelectedPlaybackTarget(
             controller = MediaControllerPlaybackHandoffController(
                 controller = controller,
@@ -137,9 +154,10 @@ fun LookTubeApp(
             playbackTarget = playbackTarget,
             forceReload = forceReload,
         )
-        if (forceReload) {
+        if (explicitSelectionReloadRequested) {
             lastHandledPlaybackSelectionRequest = playbackSelectionRequest
         }
+        lastHandledCaptionTrackPath = playbackTarget.captionTrack?.filePath
     }
     LaunchedEffect(pagerState.currentPage, selectedPlaybackTarget?.video?.id, isLandscape, fullscreenModeName) {
         when {
@@ -238,8 +256,10 @@ fun LookTubeApp(
                         accountSession = accountSession,
                         feedConfiguration = feedConfiguration,
                         syncState = librarySyncState,
+                        localCaptionModelState = localCaptionModelState,
                         onFeedUrlChanged = viewModel::updateFeedUrl,
                         onSignInRequested = viewModel::signInToPremiumFeed,
+                        onDownloadLocalCaptionModel = viewModel::downloadLocalCaptionModel,
                         onClearSyncedDataRequested = viewModel::clearSyncedData,
                     )
 
@@ -269,11 +289,15 @@ fun LookTubeApp(
                         playbackSelectionRequest = playbackSelectionRequest,
                         selectedVideoEngagement = selectedPlaybackTarget?.video?.id?.let(videoEngagement::get),
                         recentPlaybackVideos = recentPlaybackVideos,
+                        localCaptionModelState = localCaptionModelState,
+                        selectedCaptionTrack = selectedVideoCaptionTrack,
+                        selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
                         player = playbackController,
                         isFullscreen = isPlayerFullscreen,
                         onRecentVideoSelected = viewModel::selectVideo,
                         onMarkVideoWatched = viewModel::markVideoWatched,
                         onMarkVideoUnwatched = viewModel::markVideoUnwatched,
+                        onGenerateCaptionsRequested = viewModel::generateCaptions,
                         onFullscreenChanged = { enabled ->
                             fullscreenModeName = when {
                                 enabled -> PlayerFullscreenMode.Manual.name
@@ -380,10 +404,19 @@ internal fun handoffSelectedPlaybackTarget(
         isPlaybackRouteRemote = controller.isPlaybackRouteRemote,
         hasConnectedCastSession = controller.hasConnectedCastSession,
     )
+    val startPositionMs = when {
+        shouldReplaceMediaItem &&
+            controller.currentMediaId == video.id &&
+            controller.currentPositionMs > 0L -> controller.currentPositionMs
+        else -> resumePositionMs
+    }
     if (shouldReplaceMediaItem) {
         controller.setMediaItem(
-            mediaItem = video.toPlaybackMediaItem(playbackUrl),
-            startPositionMs = resumePositionMs,
+            mediaItem = video.toPlaybackMediaItem(
+                playbackUrl = playbackUrl,
+                captionTrack = playbackTarget.captionTrack,
+            ),
+            startPositionMs = startPositionMs,
         )
         controller.prepare()
     } else if (resumePositionMs != null && controller.currentPositionMs <= 0L) {
@@ -465,7 +498,10 @@ internal fun hasConnectedCastSession(context: android.content.Context): Boolean 
         ?.isConnected == true
 }.getOrDefault(false)
 
-private fun VideoSummary.toPlaybackMediaItem(playbackUrl: String): MediaItem =
+private fun VideoSummary.toPlaybackMediaItem(
+    playbackUrl: String,
+    captionTrack: VideoCaptionTrack?,
+): MediaItem =
     MediaItem.Builder()
         .setMediaId(id)
         .setUri(playbackUrl)
@@ -476,6 +512,21 @@ private fun VideoSummary.toPlaybackMediaItem(playbackUrl: String): MediaItem =
                 .setArtist(displaySeriesTitle)
                 .setArtworkUri(thumbnailUrl?.let(Uri::parse))
                 .build(),
+        )
+        .setSubtitleConfigurations(
+            captionTrack
+                ?.takeIf { track -> track.filePath.isNotBlank() }
+                ?.let { track ->
+                    listOf(
+                        MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(File(track.filePath)))
+                            .setMimeType(MimeTypes.TEXT_VTT)
+                            .setLanguage(track.languageTag)
+                            .setLabel(track.label)
+                            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                            .build(),
+                    )
+                }
+                ?: emptyList(),
         )
         .build()
 

@@ -31,6 +31,8 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, a polished History menu, compact supporting copy, and a top-pinned player surface that keeps video and playback context together
 - Library and Player share one global Look Points badge in the top app bar so score stays visible without being embedded in page-local controls
 - the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
+- the Auth surface also shows offline caption model readiness and lets the user download the local caption model needed for provider-free caption generation
+- the Player surface can generate or regenerate captions for the selected video on-device, attach them as explicit text tracks for local playback, and keep them available during cast handoff through explicit Cast subtitle mapping
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
 
@@ -70,14 +72,18 @@ Harden the path from copied feed sync to daily repeat use.
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest
 - users can clear synced cache without re-entering the copied feed URL, while local playback progress/history/watch state tied to the synced library is cleared with that cache reset
+- users can download an on-device caption model from Auth, generate captions for a playable video from Player without configuring any external provider, and regenerate them later if needed
+- generated captions are stored locally as per-video WebVTT sidecars, surfaced through the player CC controls, and kept reachable for cast sessions through explicit Cast text-track propagation instead of relying on the default Media3 cast subtitle path
+- any future higher-quality or cloud-backed caption provider remains optional and must layer onto the same caption pipeline instead of replacing the local fallback
 - docs reflect the validated product shape instead of the earlier scaffold-only phases
 
-## Captions follow-on direction
-This is researched direction for a future slice, not current validated product behavior:
-- prefer a local/offline-friendly transcription path first, using a `whisper.cpp`-class on-device pipeline where feasible, with generated sidecar caption files such as WebVTT stored separately from feed metadata
-- if higher-quality or cloud-generated captions are added later, expose any optional secondary API keys or account material in a clearly separate expandable Auth section rather than mixing them with the primary feed URL flow
-- treat captions as explicit text tracks that follow the selected video locally and during cast sessions
-- plan for explicit Cast subtitle integration, because the default Media3 cast handoff path is not a reliable end-to-end contract for subtitle propagation or selection; a custom cast track mapping layer and/or direct `RemoteMediaClient` text-track activation path is likely required
+## Captions
+- LookTube now treats offline-first captions as a supported product behavior rather than a future-only direction.
+- Auth exposes local caption model readiness and a download action for the built-in on-device English model, so captions can work without any external provider once the model is present.
+- Player exposes per-video on-device caption generation and regeneration, shows generation progress or errors, and enables the built-in CC control for turning generated captions on locally.
+- Generated captions are stored as per-video WebVTT sidecars instead of mutating feed-derived metadata.
+- Cast delivery treats captions as first-class text tracks through explicit Cast mapping and sender-hosted sidecar serving, rather than assuming default Media3 subtitle propagation is sufficient.
+- If a higher-quality or cloud-generated caption option is added later, keep any secondary credentials or account material in a clearly separate expandable Auth section and layer that provider on top of the existing local caption pipeline.
 
 ## Notification functional targets
 - Scheduling target: a saved non-blank feed URL results in one active periodic library refresh registration owned by WorkManager; clearing the saved feed URL removes that registration.

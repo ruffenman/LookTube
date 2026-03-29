@@ -27,3 +27,4 @@ Start with:
 - chosen Premium feed access shape
 - playback engine and Media3 configuration
 - persistence strategy for watch progress and cached feed data
+- offline-first caption generation and cast subtitle delivery

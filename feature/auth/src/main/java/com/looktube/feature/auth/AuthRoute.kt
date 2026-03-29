@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -26,6 +27,7 @@ import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.SyncPhase
 
 @Composable
@@ -34,8 +36,10 @@ fun AuthRoute(
     accountSession: AccountSession,
     feedConfiguration: FeedConfiguration,
     syncState: LibrarySyncState,
+    localCaptionModelState: LocalCaptionModelState,
     onFeedUrlChanged: (String) -> Unit,
     onSignInRequested: () -> Unit,
+    onDownloadLocalCaptionModel: () -> Unit,
     onClearSyncedDataRequested: () -> Unit,
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
@@ -87,6 +91,19 @@ fun AuthRoute(
         accountSession.isSignedIn ||
             syncState.lastSuccessfulSyncSummary != null
         )
+    val captionStatusLabel = when {
+        localCaptionModelState.isReady -> "Ready"
+        localCaptionModelState.isDownloading -> "Downloading"
+        !localCaptionModelState.errorMessage.isNullOrBlank() -> "Needs attention"
+        else -> "Model required"
+    }
+    val captionStatusBody = when {
+        localCaptionModelState.isReady -> "Offline captions are ready on this device and can be generated without any external provider."
+        localCaptionModelState.isDownloading -> "Downloading the local model that powers on-device fallback captions."
+        !localCaptionModelState.errorMessage.isNullOrBlank() -> localCaptionModelState.errorMessage
+            ?: "Offline caption model setup needs attention."
+        else -> "Download the built-in English model once to unlock offline-first caption generation in Player."
+    }
 
     Column(
         modifier = Modifier
@@ -172,7 +189,54 @@ fun AuthRoute(
                         Text("Clear synced data")
                     }
                 }
-                Text("Sync Premium feed")
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+            tonalElevation = 1.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Offline captions",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "$captionStatusLabel • $captionStatusBody",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (localCaptionModelState.isDownloading) {
+                    LinearProgressIndicator(
+                        progress = { localCaptionModelState.downloadProgressFraction ?: 0f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Button(
+                    onClick = onDownloadLocalCaptionModel,
+                    enabled = !localCaptionModelState.isReady && !localCaptionModelState.isDownloading,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                    ),
+                ) {
+                    Text(
+                        when {
+                            localCaptionModelState.isReady -> "Model ready on this device"
+                            localCaptionModelState.isDownloading -> "Downloading local caption model…"
+                            else -> "Download offline caption model"
+                        },
+                    )
+                }
             }
         }
     }

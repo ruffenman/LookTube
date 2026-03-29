@@ -40,6 +40,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,7 +72,11 @@ import com.google.android.gms.cast.framework.CastContext
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
+import com.looktube.model.CaptionGenerationPhase
+import com.looktube.model.CaptionGenerationStatus
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.RecentPlaybackVideo
+import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
@@ -85,11 +90,15 @@ fun PlayerRoute(
     playbackSelectionRequest: Long,
     selectedVideoEngagement: VideoEngagementRecord?,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
+    localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionTrack: VideoCaptionTrack?,
+    selectedCaptionGenerationStatus: CaptionGenerationStatus,
     player: Player?,
     isFullscreen: Boolean,
     onRecentVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
+    onGenerateCaptionsRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val activity = rememberActivity(LocalContext.current)
@@ -161,12 +170,84 @@ fun PlayerRoute(
             playbackSelectionRequest = playbackSelectionRequest,
             selectedVideoEngagement = selectedVideoEngagement,
             recentPlaybackVideos = recentPlaybackVideos,
+            localCaptionModelState = localCaptionModelState,
+            selectedCaptionTrack = selectedCaptionTrack,
+            selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
             player = player,
             onRecentVideoSelected = onRecentVideoSelected,
             onMarkVideoWatched = onMarkVideoWatched,
             onMarkVideoUnwatched = onMarkVideoUnwatched,
+            onGenerateCaptionsRequested = onGenerateCaptionsRequested,
             onFullscreenChanged = onFullscreenChanged,
         )
+    }
+}
+
+@Composable
+private fun CaptionStatusCard(
+    selectedVideo: VideoSummary,
+    localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionTrack: VideoCaptionTrack?,
+    selectedCaptionGenerationStatus: CaptionGenerationStatus,
+    onGenerateCaptionsRequested: (String) -> Unit,
+) {
+    val isGenerating = selectedCaptionGenerationStatus.phase in setOf(
+        CaptionGenerationPhase.ExtractingAudio,
+        CaptionGenerationPhase.Transcribing,
+        CaptionGenerationPhase.Saving,
+    )
+    val statusBody = when {
+        selectedCaptionTrack != null && selectedCaptionGenerationStatus.phase != CaptionGenerationPhase.Error ->
+            "Generated captions are saved on this device. Use the CC button in the player controls to turn them on locally or during cast."
+        isGenerating -> selectedCaptionGenerationStatus.message
+        selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> selectedCaptionGenerationStatus.message
+        !localCaptionModelState.isReady -> "Download the offline caption model from Auth before generating captions on-device."
+        else -> "Generate captions for this video on-device so subtitles stay available even without an external provider."
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Offline captions",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = statusBody,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (isGenerating) {
+                LinearProgressIndicator(
+                    progress = { selectedCaptionGenerationStatus.progressFraction ?: 0f },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            FilterChip(
+                selected = selectedCaptionTrack != null,
+                enabled = localCaptionModelState.isReady && !isGenerating,
+                onClick = { onGenerateCaptionsRequested(selectedVideo.id) },
+                label = {
+                    Text(
+                        when {
+                            isGenerating -> "Generating captions…"
+                            selectedCaptionTrack != null -> "Regenerate captions"
+                            localCaptionModelState.isReady -> "Generate captions"
+                            else -> "Model required in Auth"
+                        },
+                    )
+                },
+            )
+        }
     }
 }
 
@@ -546,10 +627,14 @@ private fun ActivePlayerContent(
     playbackSelectionRequest: Long,
     selectedVideoEngagement: VideoEngagementRecord?,
     recentPlaybackVideos: List<RecentPlaybackVideo>,
+    localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionTrack: VideoCaptionTrack?,
+    selectedCaptionGenerationStatus: CaptionGenerationStatus,
     player: Player,
     onRecentVideoSelected: (String) -> Unit,
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
+    onGenerateCaptionsRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -597,6 +682,15 @@ private fun ActivePlayerContent(
                 onRecentVideoSelected = onRecentVideoSelected,
                 onMarkVideoWatched = onMarkVideoWatched,
                 onMarkVideoUnwatched = onMarkVideoUnwatched,
+            )
+        }
+        item {
+            CaptionStatusCard(
+                selectedVideo = selectedVideo,
+                localCaptionModelState = localCaptionModelState,
+                selectedCaptionTrack = selectedCaptionTrack,
+                selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
+                onGenerateCaptionsRequested = onGenerateCaptionsRequested,
             )
         }
         item {
@@ -727,6 +821,7 @@ private fun PlayerSurface(
                 useController = true
                 setControllerAutoShow(true)
                 setControllerHideOnTouch(true)
+                setShowSubtitleButton(true)
                 setShowPreviousButton(false)
                 setShowNextButton(false)
                 setMediaRouteButtonViewProvider(mediaRouteButtonViewProvider)

@@ -23,6 +23,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var localPlayer: ExoPlayer
     private lateinit var mediaSession: MediaSession
     private var castPlayer: CastPlayer? = null
+    private var localCaptionCastUrlProvider: LocalCaptionCastUrlProvider = NoOpLocalCaptionCastUrlProvider
     private var lastKnownLocalSnapshot: PlaybackSnapshot? = null
     private var lastKnownRemoteSnapshot: PlaybackSnapshot? = null
     private val progressHandler = Handler(Looper.getMainLooper())
@@ -75,6 +76,11 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        localCaptionCastUrlProvider = (application as? LookTubeApplication)
+            ?.appContainer
+            ?.localCaptionCastHttpServer
+            ?: NoOpLocalCaptionCastUrlProvider
+        localCaptionCastUrlProvider.start()
         localPlayer = ExoPlayer.Builder(this)
             .setSeekBackIncrementMs(DOUBLE_TAP_SEEK_INCREMENT_MS)
             .setSeekForwardIncrementMs(DOUBLE_TAP_SEEK_INCREMENT_MS)
@@ -82,6 +88,9 @@ class PlaybackService : MediaSessionService() {
             .also(::configureLocalPlayerForPlayback)
         player = runCatching {
             val remotePlayer = RemoteCastPlayer.Builder(this)
+                .setMediaItemConverter(
+                    CaptionAwareMediaItemConverter(localCaptionCastUrlProvider),
+                )
                 .setSeekBackIncrementMs(DOUBLE_TAP_SEEK_INCREMENT_MS)
                 .setSeekForwardIncrementMs(DOUBLE_TAP_SEEK_INCREMENT_MS)
                 .build()
@@ -111,6 +120,7 @@ class PlaybackService : MediaSessionService() {
         mediaSession.release()
         castPlayer?.setSessionAvailabilityListener(null)
         castPlayer?.release()
+        localCaptionCastUrlProvider.stop()
         localPlayer.release()
         super.onDestroy()
     }
@@ -210,6 +220,13 @@ internal const val PLAYBACK_HANDLES_AUDIO_FOCUS = true
 internal const val PLAYBACK_HANDLES_AUDIO_BECOMING_NOISY = true
 internal const val PLAYBACK_WAKE_MODE = C.WAKE_MODE_NETWORK
 internal const val DOUBLE_TAP_SEEK_INCREMENT_MS = 10_000L
+internal object NoOpLocalCaptionCastUrlProvider : LocalCaptionCastUrlProvider {
+    override fun start() = Unit
+
+    override fun stop() = Unit
+
+    override fun buildRemoteCaptionUrl(localUri: android.net.Uri): String? = null
+}
 
 internal fun shouldTransferPlaybackToRemoteSession(
     remoteCurrentMediaId: String?,

@@ -14,6 +14,7 @@
 - The app's current playback handoff is intentionally simple: `RssVideoFeedParser` maps `media:content`, then `enclosure`, then `link` into `VideoSummary.playbackUrl`, and `LookTubeApp` passes that URL directly to Media3 with `setUri(...)` and no extra cookies or playback headers.
 - A live manual sample of the first three items from the same real `premium-videos` 1080p feed succeeded under those same constraints: each extracted playback target responded to a direct ranged request with HTTP 206 and `video/mp4`.
 - All three sampled playback targets were plain `.mp4` URLs on `cdn.jwplayer.com` with no query string required, which is stronger evidence that this feed shape already exposes directly playable media URLs instead of page-only indirection.
+- That same direct progressive-media shape also makes the current offline-caption architecture practical: the app can decode audio from the feed-exposed playback URL locally, generate captions on-device, and keep those captions as local WebVTT sidecars without introducing site-login automation.
 - This still does not prove every Premium feed variant behaves the same way, but it meaningfully lowers the risk that browser-login or cookie-backed playback will be required for the validated `premium-videos` path.
 
 ## Design consequence
@@ -31,6 +32,7 @@ Background library notifications should stay local to that same feed-first path:
 - seeded fallback library data that keeps the app usable and testable before live credentials are available
 - a Media3-backed player screen that can attempt playback when a synced item exposes a stream URL
 - a user-facing feed sync flow that treats a successful Premium feed sync as the current authenticated state
+- an offline-first caption path that can download a local model, generate per-video captions from playable feed-backed media URLs, attach those sidecars to local playback, and map them into Cast subtitle tracks through explicit sender-side handling
 
 ## What is still pending
 - confirm exact production feed URLs that best represent the first supported Premium library surface

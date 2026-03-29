@@ -1,11 +1,14 @@
 package com.looktube.data
 
 import com.looktube.model.AccountSession
+import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +38,9 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     private val selectedVideoIdState = MutableStateFlow<String?>(null)
     private val playbackProgressState = MutableStateFlow(emptyMap<String, PlaybackProgress>())
     private val videoEngagementState = MutableStateFlow(emptyMap<String, VideoEngagementRecord>())
+    private val localCaptionModelStateFlow = MutableStateFlow(LocalCaptionModelState())
+    private val videoCaptionsState = MutableStateFlow(emptyMap<String, VideoCaptionTrack>())
+    private val captionGenerationState = MutableStateFlow(emptyMap<String, CaptionGenerationStatus>())
 
     override val accountSession: StateFlow<AccountSession> = accountSessionState.asStateFlow()
     override val feedConfiguration: StateFlow<FeedConfiguration> = feedConfigurationState.asStateFlow()
@@ -43,6 +49,9 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override val selectedVideoId: StateFlow<String?> = selectedVideoIdState.asStateFlow()
     override val playbackProgress: StateFlow<Map<String, PlaybackProgress>> = playbackProgressState.asStateFlow()
     override val videoEngagement: StateFlow<Map<String, VideoEngagementRecord>> = videoEngagementState.asStateFlow()
+    override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionModelStateFlow.asStateFlow()
+    override val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>> = videoCaptionsState.asStateFlow()
+    override val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>> = captionGenerationState.asStateFlow()
 
     override suspend fun bootstrap() {
         if (videosState.value.isNotEmpty()) {
@@ -81,7 +90,11 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         selectedVideoIdState.value = null
         playbackProgressState.value = emptyMap()
         videoEngagementState.value = emptyMap()
+        videoCaptionsState.value = emptyMap()
+        captionGenerationState.value = emptyMap()
     }
+
+    override suspend fun downloadLocalCaptionModel() = Unit
 
     override suspend fun refreshLibrary() {
         syncState.value = LibrarySyncState(
@@ -90,6 +103,8 @@ class InMemoryLookTubeRepository : LookTubeRepository {
             lastSuccessfulSyncSummary = "Seeded content is active.",
         )
     }
+
+    override suspend fun generateCaptions(videoId: String) = Unit
 
     override fun selectVideo(videoId: String) {
         selectedVideoIdState.value = videoId

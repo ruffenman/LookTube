@@ -4,13 +4,17 @@ import com.looktube.database.PlaybackBookmarkStore
 import com.looktube.database.VideoEngagementStore
 
 import com.looktube.model.AccountSession
+import com.looktube.model.CaptionGenerationPhase
+import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
+import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
 import com.looktube.model.toRuntime
@@ -31,6 +35,9 @@ class ConfigurableLookTubeRepository(
     private val videoEngagementStore: VideoEngagementStore,
     private val videoFeedService: VideoFeedService,
     private val libraryRefreshScheduler: LibraryRefreshScheduler = NoOpLibraryRefreshScheduler,
+    private val localCaptionModelManager: LocalCaptionModelManager = NoOpLocalCaptionModelManager,
+    private val videoCaptionStore: VideoCaptionStore = NoOpVideoCaptionStore,
+    private val localCaptionGenerator: LocalCaptionGenerator = UnsupportedLocalCaptionGenerator,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : LookTubeRepository {
     private val accountSessionState = MutableStateFlow(
@@ -53,6 +60,7 @@ class ConfigurableLookTubeRepository(
     )
     private val videosState = MutableStateFlow(emptyList<VideoSummary>())
     private val selectedVideoIdState = MutableStateFlow<String?>(null)
+    private val captionGenerationState = MutableStateFlow(emptyMap<String, CaptionGenerationStatus>())
     private var hasSuccessfulFeedSync = false
 
     override val accountSession: StateFlow<AccountSession> = accountSessionState.asStateFlow()
@@ -62,6 +70,9 @@ class ConfigurableLookTubeRepository(
     override val selectedVideoId: StateFlow<String?> = selectedVideoIdState.asStateFlow()
     override val playbackProgress: StateFlow<Map<String, PlaybackProgress>> = playbackBookmarkStore.progressSnapshots
     override val videoEngagement: StateFlow<Map<String, VideoEngagementRecord>> = videoEngagementStore.engagementRecords
+    override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionModelManager.modelState
+    override val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>> = videoCaptionStore.captions
+    override val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>> = captionGenerationState.asStateFlow()
 
     override suspend fun bootstrap() {
         if (videosState.value.isNotEmpty()) {
@@ -96,6 +107,10 @@ class ConfigurableLookTubeRepository(
         }
     }
 
+    override suspend fun downloadLocalCaptionModel() {
+        localCaptionModelManager.downloadDefaultModel()
+    }
+
     private fun statusAfterConfigurationChange(configuration: FeedConfiguration): LibrarySyncState =
         if (hasSuccessfulFeedSync && videosState.value.isNotEmpty()) {
             LibrarySyncState(
@@ -123,8 +138,10 @@ class ConfigurableLookTubeRepository(
         syncedLibraryStore.clear()
         playbackBookmarkStore.clear()
         videoEngagementStore.clear()
+        videoCaptionStore.clear()
         videosState.value = seededVideos
         selectedVideoIdState.value = null
+        captionGenerationState.value = emptyMap()
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
@@ -207,6 +224,93 @@ class ConfigurableLookTubeRepository(
         }
     }
 
+    override suspend fun generateCaptions(videoId: String) {
+        val video = videosState.value.firstOrNull { candidate -> candidate.id == videoId }
+        if (video == null) {
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.Error,
+                    message = "Caption generation needs a selected video from the current library.",
+                ),
+            )
+            return
+        }
+        val playbackUrl = video.playbackUrl
+        if (playbackUrl.isNullOrBlank()) {
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.Error,
+                    message = "This item does not expose a playable URL for local caption extraction.",
+                ),
+            )
+            return
+        }
+        val modelPath = localCaptionModelManager.modelState.value.localPath
+        if (modelPath.isNullOrBlank()) {
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.Error,
+                    message = "Download the offline caption model from Auth before generating captions.",
+                ),
+            )
+            return
+        }
+        try {
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.ExtractingAudio,
+                    message = "Preparing audio for offline caption generation…",
+                ),
+            )
+            val document = withContext(ioDispatcher) {
+                localCaptionGenerator.generate(
+                    request = LocalCaptionGenerationRequest(
+                        videoId = videoId,
+                        playbackUrl = playbackUrl,
+                        modelPath = modelPath,
+                    ),
+                    onProgress = { status ->
+                        publishCaptionGenerationStatus(
+                            videoId = videoId,
+                            status = status,
+                        )
+                    },
+                )
+            }
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.Saving,
+                    message = "Saving generated captions on this device…",
+                ),
+            )
+            videoCaptionStore.saveGeneratedCaption(
+                videoId = videoId,
+                document = document,
+            )
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.Completed,
+                    message = "Generated captions are ready on this device.",
+                    progressFraction = 1f,
+                ),
+            )
+        } catch (exception: Exception) {
+            publishCaptionGenerationStatus(
+                videoId = videoId,
+                status = CaptionGenerationStatus(
+                    phase = CaptionGenerationPhase.Error,
+                    message = "Caption generation failed: ${exception.message.orEmpty().take(180)}",
+                ),
+            )
+        }
+    }
+
     override fun selectVideo(videoId: String) {
         selectedVideoIdState.value = videoId
         videoEngagementStore.recordPlayback(videoId)
@@ -248,6 +352,15 @@ class ConfigurableLookTubeRepository(
             libraryRefreshScheduler.cancel()
         } else {
             libraryRefreshScheduler.schedule()
+        }
+    }
+
+    private fun publishCaptionGenerationStatus(
+        videoId: String,
+        status: CaptionGenerationStatus,
+    ) {
+        captionGenerationState.value = captionGenerationState.value.toMutableMap().apply {
+            put(videoId, status)
         }
     }
 

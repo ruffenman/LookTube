@@ -2,11 +2,15 @@
 .gradle/
 .idea/
 .kotlin/
+.cxx/
+.externalNativeBuild/
 build/
 captures/
 local.properties
 
 **/build/
 **/captures/
+**/.cxx/
+**/.externalNativeBuild/
 
 artifacts/

@@ -27,6 +27,7 @@ class LookTubeAppPlaybackTest {
                     positionSeconds = 125L,
                     durationSeconds = 600L,
                 ),
+                captionTrack = null,
             ),
         )
 
@@ -50,6 +51,7 @@ class LookTubeAppPlaybackTest {
                     positionSeconds = 215L,
                     durationSeconds = 900L,
                 ),
+                captionTrack = null,
             ),
         )
 
@@ -72,6 +74,7 @@ class LookTubeAppPlaybackTest {
                     positionSeconds = 215L,
                     durationSeconds = 900L,
                 ),
+                captionTrack = null,
             ),
         )
 
@@ -97,6 +100,7 @@ class LookTubeAppPlaybackTest {
                     positionSeconds = 215L,
                     durationSeconds = 900L,
                 ),
+                captionTrack = null,
             ),
         )
 
@@ -123,12 +127,13 @@ class LookTubeAppPlaybackTest {
                     positionSeconds = 215L,
                     durationSeconds = 900L,
                 ),
+                captionTrack = null,
             ),
             forceReload = true,
         )
 
         assertEquals(listOf("video-1"), controller.setMediaItemIds)
-        assertEquals(listOf(215_000L), controller.setMediaItemStartPositionsMs)
+        assertEquals(listOf(240_000L), controller.setMediaItemStartPositionsMs)
         assertEquals(1, controller.prepareCount)
         assertTrue(controller.seekPositionsMs.isEmpty())
     }
