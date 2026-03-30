@@ -534,7 +534,7 @@ internal class OnDeviceLocalCaptionGenerator(
 
     companion object {
         private const val TARGET_SAMPLE_RATE = 16_000
-        private const val TRANSCRIPTION_CHUNK_SECONDS = 30
+        private const val TRANSCRIPTION_CHUNK_SECONDS = 15
         private const val PCM_CHUNK_BYTES = TARGET_SAMPLE_RATE * TRANSCRIPTION_CHUNK_SECONDS * 2
     }
 }
@@ -605,6 +605,13 @@ internal fun transcriptionCaptionStatus(
         )
         .coerceIn(0f, safeTotalChunks.toFloat())
     val overallCompletionFraction = (completedUnits / safeTotalChunks.toFloat()).coerceIn(0f, 1f)
+    if (overallCompletionFraction <= 0f) {
+        return CaptionGenerationStatus(
+            phase = CaptionGenerationPhase.Transcribing,
+            message = "Transcribing audio on this device…",
+            progressFraction = null,
+        )
+    }
     val overallCompletionPercent = (overallCompletionFraction * 100f).roundToInt()
     return CaptionGenerationStatus(
         phase = CaptionGenerationPhase.Transcribing,
@@ -645,7 +652,8 @@ private object WhisperNativeBridge {
     private var cachedModelPath: String? = null
     @Volatile
     private var cachedContextPointer: Long = 0L
-    private val nativeProgressListener = ThreadLocal<((Int) -> Unit)?>()
+    @Volatile
+    private var nativeProgressListener: ((Int) -> Unit)? = null
 
     @Synchronized
     fun transcribe(
@@ -655,8 +663,8 @@ private object WhisperNativeBridge {
         onProgressPercent: (Int) -> Unit = {},
     ): List<CaptionSegment> {
         val contextPointer = obtainContext(modelPath)
-        val previousProgressListener = nativeProgressListener.get()
-        nativeProgressListener.set(onProgressPercent)
+        val previousProgressListener = nativeProgressListener
+        nativeProgressListener = onProgressPercent
         try {
             nativeFullTranscribe(
                 contextPointer = contextPointer,
@@ -664,7 +672,7 @@ private object WhisperNativeBridge {
                 audioData = audioSamples,
             )
         } finally {
-            nativeProgressListener.set(previousProgressListener)
+            nativeProgressListener = previousProgressListener
         }
         return buildList {
             val segmentCount = nativeGetSegmentCount(contextPointer)
@@ -701,7 +709,7 @@ private object WhisperNativeBridge {
 
     @JvmStatic
     fun dispatchNativeProgress(progressPercent: Int) {
-        nativeProgressListener.get()?.invoke(progressPercent.coerceIn(0, 100))
+        nativeProgressListener?.invoke(progressPercent.coerceIn(0, 100))
     }
 
     private external fun nativeInitContext(modelPath: String): Long
