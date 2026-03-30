@@ -1100,6 +1100,22 @@ private fun libraryWatchStatusLabel(
 internal fun watchToggleActionLabel(isWatched: Boolean): String =
     if (isWatched) "Mark as Unwatched" else "Mark as Watched"
 
+internal fun displayedPlaybackProgress(
+    video: VideoSummary,
+    progress: PlaybackProgress?,
+    isWatched: Boolean,
+): PlaybackProgress? {
+    if (!isWatched) {
+        return progress
+    }
+    val durationSeconds = video.bestDurationSeconds(progress)?.takeIf { it > 0 } ?: return progress
+    return PlaybackProgress(
+        videoId = video.id,
+        positionSeconds = durationSeconds,
+        durationSeconds = durationSeconds,
+    )
+}
+
 private fun cappedGroupedContentEndPadding(
     textEndPadding: Dp,
     maxPadding: Dp,
@@ -1304,13 +1320,18 @@ private fun VideoListCard(
     onMarkVideoUnwatched: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val progressFraction = progress?.takeIf { it.durationSeconds > 0 }
-        ?.let { (it.positionSeconds.toFloat() / it.durationSeconds.toFloat()).coerceIn(0f, 1f) }
     val isWatched = engagementRecord.isWatched(progress)
+    val displayedProgress = displayedPlaybackProgress(
+        video = video,
+        progress = progress,
+        isWatched = isWatched,
+    )
+    val progressFraction = displayedProgress?.takeIf { it.durationSeconds > 0 }
+        ?.let { (it.positionSeconds.toFloat() / it.durationSeconds.toFloat()).coerceIn(0f, 1f) }
     var showFullDetails by rememberSaveable(video.id) { mutableStateOf(false) }
     var descriptionTruncated by remember(video.id) { mutableStateOf(false) }
-    val detailRows = remember(video, progress, engagementRecord) {
-        buildVideoDetailRows(video, progress, engagementRecord)
+    val detailRows = remember(video, displayedProgress, engagementRecord) {
+        buildVideoDetailRows(video, displayedProgress, engagementRecord)
     }
 
     LaunchedEffect(dismissDetailsSignal) {
@@ -1407,9 +1428,9 @@ private fun VideoListCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                if (progress != null && progress.durationSeconds > 0) {
+                if (displayedProgress != null && displayedProgress.durationSeconds > 0) {
                     Text(
-                        text = "Resume • ${formatDuration(progress.positionSeconds)} / ${formatDuration(progress.durationSeconds)}",
+                        text = "Resume • ${formatDuration(displayedProgress.positionSeconds)} / ${formatDuration(displayedProgress.durationSeconds)}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1419,7 +1440,7 @@ private fun VideoListCard(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = libraryWatchStatusLabel(isWatched, progress),
+                        text = libraryWatchStatusLabel(isWatched, displayedProgress),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

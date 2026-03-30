@@ -1,8 +1,10 @@
 package com.looktube.feature.library
 
+import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -451,11 +453,100 @@ class LibrarySortTest {
         assertEquals(1_000L, jumpRailFadeDelayMs(JumpRailInteraction.TargetSelection))
     }
 
+    @Test
+    fun displayedPlaybackProgressFillsToTheEndForWatchedVideos() {
+        val video = video(
+            id = "alpha-1",
+            title = "Alpha 1",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 1_000L,
+            durationSeconds = 4_200L,
+        )
+        val progress = PlaybackProgress(
+            videoId = "alpha-1",
+            positionSeconds = 1_250L,
+            durationSeconds = 4_200L,
+        )
+
+        val displayedProgress = displayedPlaybackProgress(
+            video = video,
+            progress = progress,
+            isWatched = true,
+        )
+
+        assertEquals(4_200L, displayedProgress?.positionSeconds)
+        assertEquals(4_200L, displayedProgress?.durationSeconds)
+    }
+
+    @Test
+    fun displayedPlaybackProgressPreservesPartialProgressForUnwatchedVideos() {
+        val video = video(
+            id = "alpha-1",
+            title = "Alpha 1",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 1_000L,
+            durationSeconds = 4_200L,
+        )
+        val progress = PlaybackProgress(
+            videoId = "alpha-1",
+            positionSeconds = 1_250L,
+            durationSeconds = 4_200L,
+        )
+
+        val displayedProgress = displayedPlaybackProgress(
+            video = video,
+            progress = progress,
+            isWatched = false,
+        )
+
+        assertEquals(progress, displayedProgress)
+    }
+
+    @Test
+    fun displayedPlaybackProgressUsesFeedDurationForWatchedVideosWithoutSavedProgress() {
+        val video = video(
+            id = "alpha-1",
+            title = "Alpha 1",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 1_000L,
+            durationSeconds = 4_200L,
+        )
+
+        val displayedProgress = displayedPlaybackProgress(
+            video = video,
+            progress = null,
+            isWatched = true,
+        )
+
+        assertEquals(4_200L, displayedProgress?.positionSeconds)
+        assertEquals(4_200L, displayedProgress?.durationSeconds)
+    }
+
+    @Test
+    fun displayedPlaybackProgressStaysAbsentWhenAnUnwatchedVideoHasNoProgress() {
+        val video = video(
+            id = "alpha-1",
+            title = "Alpha 1",
+            seriesTitle = "Alpha Show",
+            publishedAtEpochMillis = 1_000L,
+            durationSeconds = 4_200L,
+        )
+
+        val displayedProgress = displayedPlaybackProgress(
+            video = video,
+            progress = null,
+            isWatched = false,
+        )
+
+        assertNull(displayedProgress)
+    }
+
     private fun video(
         id: String,
         title: String,
         seriesTitle: String,
         publishedAtEpochMillis: Long?,
+        durationSeconds: Long? = null,
     ) = VideoSummary(
         id = id,
         title = title,
@@ -465,6 +556,7 @@ class LibrarySortTest {
         playbackUrl = null,
         seriesTitle = seriesTitle,
         publishedAtEpochMillis = publishedAtEpochMillis,
+        durationSeconds = durationSeconds,
     )
 
     private fun section(
