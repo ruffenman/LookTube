@@ -95,6 +95,7 @@ import kotlinx.coroutines.launch
 fun LibraryRoute(
     paddingValues: PaddingValues,
     syncState: LibrarySyncState,
+    hasSavedFeedUrl: Boolean,
     videos: List<VideoSummary>,
     playbackProgress: Map<String, PlaybackProgress>,
     videoEngagement: Map<String, VideoEngagementRecord>,
@@ -308,44 +309,54 @@ fun LibraryRoute(
             verticalArrangement = Arrangement.spacedBy(14.dp),
             contentPadding = PaddingValues(vertical = LIST_TOP_CONTENT_PADDING),
         ) {
-            item(key = "library-overview-panel") {
-                LibraryOverviewPanel(
-                    libraryStatusBody = libraryStatusBody,
-                    groupingMode = groupingMode,
-                    groupMenuExpanded = groupMenuExpanded,
-                    onGroupMenuExpandedChanged = { groupMenuExpanded = it },
-                    onGroupingModeChanged = { groupingMode = it },
-                    sortOption = sortOption,
-                    sortMenuExpanded = sortMenuExpanded,
-                    onSortMenuExpandedChanged = { sortMenuExpanded = it },
-                    onSortOptionChanged = { sortOption = it },
-                    isGrouped = isGrouped,
-                    groupSectionCount = displayedSections.size,
-                    expandedGroupCount = expandedSectionCount,
-                    onExpandAllGroups = {
-                        collapsedSectionKeys = emptySet()
-                    },
-                    onCollapseAllGroups = {
-                        collapsedSectionKeys = displayedSections.mapTo(mutableSetOf()) { it.section.key }
-                    },
-                    seriesFilters = seriesFilters,
-                    selectedSeriesFilter = selectedSeriesFilter,
-                    onSeriesFilterChanged = { selectedSeriesFilter = it },
-                    totalVideoCount = videos.size,
-                    filteredVideoCount = filteredVideos.size,
-                )
+            if (videos.isEmpty()) {
+                item {
+                    LibraryEmptyStatePanel(
+                        syncState = syncState,
+                        hasSavedFeedUrl = hasSavedFeedUrl,
+                    )
+                }
+            } else {
+                item(key = "library-overview-panel") {
+                    LibraryOverviewPanel(
+                        libraryStatusBody = libraryStatusBody,
+                        groupingMode = groupingMode,
+                        groupMenuExpanded = groupMenuExpanded,
+                        onGroupMenuExpandedChanged = { groupMenuExpanded = it },
+                        onGroupingModeChanged = { groupingMode = it },
+                        sortOption = sortOption,
+                        sortMenuExpanded = sortMenuExpanded,
+                        onSortMenuExpandedChanged = { sortMenuExpanded = it },
+                        onSortOptionChanged = { sortOption = it },
+                        isGrouped = isGrouped,
+                        groupSectionCount = displayedSections.size,
+                        expandedGroupCount = expandedSectionCount,
+                        onExpandAllGroups = {
+                            collapsedSectionKeys = emptySet()
+                        },
+                        onCollapseAllGroups = {
+                            collapsedSectionKeys = displayedSections.mapTo(mutableSetOf()) { it.section.key }
+                        },
+                        seriesFilters = seriesFilters,
+                        selectedSeriesFilter = selectedSeriesFilter,
+                        onSeriesFilterChanged = { selectedSeriesFilter = it },
+                        totalVideoCount = videos.size,
+                        filteredVideoCount = filteredVideos.size,
+                    )
+                }
+                item(key = "results-anchor") {
+                    Spacer(modifier = Modifier.fillMaxWidth().height(0.dp))
+                }
             }
-            item(key = "results-anchor") {
-                Spacer(modifier = Modifier.fillMaxWidth().height(0.dp))
-            }
-            if (sortedVideos.isEmpty()) {
+            if (videos.isEmpty()) {
+                // Empty state handled above.
+            } else if (sortedVideos.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
                             text = when {
-                                videos.isEmpty() -> "Sync your Premium feed in Settings to load your library."
                                 selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
                                 else -> "No videos are available in your synced library yet."
                             },
@@ -446,6 +457,56 @@ fun LibraryRoute(
                         listState.scrollToItem(listState.targetItemIndexForFraction(fraction))
                     }
                 },
+            )
+        }
+    }
+}
+
+@Composable
+private fun LibraryEmptyStatePanel(
+    syncState: LibrarySyncState,
+    hasSavedFeedUrl: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val primaryTitle = if (hasSavedFeedUrl) {
+        "Ready to sync your library"
+    } else {
+        "Your library is empty"
+    }
+    val primaryBody = if (hasSavedFeedUrl) {
+        "Your Premium feed URL is already saved. Open Settings and run a sync to load your videos on this device."
+    } else {
+        "Add a copied Giant Bomb Premium RSS URL in Settings, then run your first sync to load the library."
+    }
+    val statusBody = buildString {
+        append(syncState.message)
+        syncState.lastSuccessfulSyncSummary?.let { summary ->
+            append("\n\n")
+            append(summary)
+        }
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+        tonalElevation = 2.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            LookTubePageHeader(
+                title = "Library",
+                subtitle = "Your synced Premium videos will appear here after the first successful sync.",
+            )
+            LookTubeCard(
+                title = primaryTitle,
+                body = primaryBody,
+            )
+            LookTubeCard(
+                title = "Current status",
+                body = statusBody,
             )
         }
     }

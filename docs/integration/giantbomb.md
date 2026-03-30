@@ -27,9 +27,9 @@ Background library notifications should stay local to that same feed-first path:
 - a manual playback probe script in `scripts/Invoke-GiantBombPlaybackProbe.ps1`
 - a configurable repository that persists the feed URL locally, with that copied feed input protected at rest inside the app
 - a user-facing action for clearing synced library data while preserving the copied feed URL
-- a live Premium RSS fetch path that can replace seeded library content when configured successfully
+- a live Premium RSS fetch path that loads the real library when configured successfully
 - a WorkManager-backed background refresh path that can notify about newly discovered videos after later successful syncs
-- seeded fallback library data that keeps the app usable and testable before live credentials are available
+- a clean empty-library state that keeps startup polished until synced Premium data is available
 - a Media3-backed player screen that can attempt playback when a synced item exposes a stream URL
 - a user-facing feed sync flow that treats a successful Premium feed sync as the current authenticated state
 - an offline-first caption path that can download a local model, generate per-video captions from playable feed-backed media URLs, attach those sidecars to local playback, and map them into Cast subtitle tracks through explicit sender-side handling

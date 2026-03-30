@@ -16,9 +16,9 @@ Current coverage:
 - `core:data` JVM tests
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
-- configurable repository tests for persisted feed URLs, seeded fallback behavior, and feed sync transitions
+- configurable repository tests for persisted feed URLs, clean empty-library startup behavior, and feed sync transitions
 - `app` baseline unit tests, including background refresh diff and notification-posting regressions
-- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Settings/feed, and Player surfaces
+- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, shell intro, Settings/feed, and Player surfaces
 - managed-device smoke coverage now also checks the player empty-state surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
@@ -85,6 +85,8 @@ Verify the current UI against committed baselines:
 
 Current committed baselines cover:
 - Library browse surface
+- Library empty state
+- launch intro overlay
 - Settings setup-required state
 - Settings syncing state
 - Settings synced state

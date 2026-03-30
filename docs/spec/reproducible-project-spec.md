@@ -38,10 +38,11 @@ An implementation that materially changes these choices can still be valid, but 
 ## Core user flows
 ### First-use setup
 1. User opens the app.
-2. User pastes a copied Giant Bomb Premium feed URL.
-3. App persists that feed URL locally with encrypted-at-rest protection where available.
-4. User triggers sync.
-5. App loads feed items into the library and exposes them for browsing and playback.
+2. App may show a brief cold-start-only brand intro that auto-dismisses quickly and can be skipped immediately with any tap.
+3. User pastes a copied Giant Bomb Premium feed URL.
+4. App persists that feed URL locally with encrypted-at-rest protection where available.
+5. User triggers sync.
+6. App loads feed items into the library and exposes them for browsing and playback.
 
 ### Daily repeat use
 1. App restores the saved feed URL, cached library snapshot, playback progress, and local engagement state for recent history and watched/unwatched tracking.
@@ -57,6 +58,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### App shell
 - three top-level destinations: `Settings`, `Library`, and `Player`
 - app opens on the Settings page by default
+- true cold starts may show a brief LookTube intro overlay that can be skipped immediately and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
 - while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls
 - notification launch intents can route directly to the Player page and optionally preselect a video
@@ -69,6 +71,7 @@ An implementation that materially changes these choices can still be valid, but 
 - communicates five practical user-visible states: setup required, ready, syncing, synced, and needs attention
 
 ### Library surface
+- shows a clean empty-state panel when no synced library data is available yet, rather than seeded placeholder content
 - renders an overview panel above the scrolling episode list using the current sync state and last successful summary
 - supports grouping by none, show, cast, or topic
 - supports sorting by latest, show, or oldest
@@ -106,7 +109,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### Sync and library state
 - Blank feed URLs do not start a successful sync.
 - Successful sync replaces the active library with feed-backed items.
-- If no successful feed snapshot is available, the app may use seeded fallback data so the shell remains usable and testable.
+- If no successful feed snapshot is available, the library remains empty and presents a clean next-step empty state instead of placeholder content.
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
 - The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.

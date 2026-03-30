@@ -63,10 +63,6 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         if (videosState.value.isNotEmpty()) {
             return
         }
-
-        val seededVideos = ConfigurableLookTubeRepository.seededVideos
-
-        videosState.value = seededVideos
         selectedVideoIdState.value = null
         playbackProgressState.value = emptyMap()
         videoEngagementState.value = emptyMap()
@@ -90,9 +86,9 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         )
         syncState.value = LibrarySyncState(
             phase = SyncPhase.Idle,
-            message = "Cleared synced data. Seeded content is active until the next refresh.",
+            message = "Cleared synced data. Sync again to load the library in this in-memory spike.",
         )
-        videosState.value = ConfigurableLookTubeRepository.seededVideos
+        videosState.value = emptyList()
         selectedVideoIdState.value = null
         playbackProgressState.value = emptyMap()
         videoEngagementState.value = emptyMap()
@@ -105,8 +101,8 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override suspend fun refreshLibrary() {
         syncState.value = LibrarySyncState(
             phase = SyncPhase.Success,
-            message = "In-memory repository does not require refresh; seeded content remains active.",
-            lastSuccessfulSyncSummary = "Seeded content is active.",
+            message = "In-memory repository does not fetch remote data; use the configurable repository for synced library behavior.",
+            lastSuccessfulSyncSummary = "No synced library data is loaded in the in-memory spike.",
         )
     }
 

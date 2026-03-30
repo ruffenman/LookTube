@@ -26,6 +26,7 @@ class MainActivity : AppCompatActivity() {
             LookTubeApp(
                 viewModel = viewModel,
                 launchIntent = launchIntent,
+                showLaunchIntroOnStart = savedInstanceState == null,
             )
         }
     }

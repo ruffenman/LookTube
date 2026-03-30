@@ -11,6 +11,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.dp
 fun LookTubeApp(
     viewModel: LookTubeAppViewModel,
     launchIntent: Intent? = null,
+    showLaunchIntroOnStart: Boolean = false,
 ) {
     val accountSession by viewModel.accountSession.collectAsStateWithLifecycle()
     val feedConfiguration by viewModel.feedConfiguration.collectAsStateWithLifecycle()
@@ -101,6 +103,7 @@ fun LookTubeApp(
     var notificationPermissionPrompted by rememberSaveable { mutableStateOf(false) }
     var lastHandledPlaybackSelectionRequest by rememberSaveable { mutableStateOf(0L) }
     var lastHandledCaptionTrackPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var showLaunchIntro by rememberSaveable { mutableStateOf(showLaunchIntroOnStart) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -192,130 +195,142 @@ fun LookTubeApp(
     }
 
     LookTubeTheme {
-        Scaffold(
+        Box(
             modifier = Modifier.fillMaxSize(),
-            topBar = {
-                if (!isPlayerFullscreen) {
-                    TopAppBar(
-                        title = {
-                            Text("LookTube")
-                        },
-                        actions = {
-                            LookPointsTopBarBadge(
-                                lookPointsSummary = lookPointsSummary,
-                                modifier = Modifier.padding(end = 4.dp),
-                            )
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
+        ) {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                topBar = {
+                    if (!isPlayerFullscreen) {
+                        TopAppBar(
+                            title = {
+                                Text("LookTube")
+                            },
+                            actions = {
+                                LookPointsTopBarBadge(
+                                    lookPointsSummary = lookPointsSummary,
+                                    modifier = Modifier.padding(end = 4.dp),
+                                )
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                titleContentColor = MaterialTheme.colorScheme.onSurface,
+                            ),
+                        )
+                    }
+                },
+                bottomBar = {
+                    if (!isPlayerFullscreen) {
+                        NavigationBar(
                             containerColor = MaterialTheme.colorScheme.surface,
-                            titleContentColor = MaterialTheme.colorScheme.onSurface,
-                        ),
-                    )
-                }
-            },
-            bottomBar = {
-                if (!isPlayerFullscreen) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ) {
-                        topLevelDestinations.forEachIndexed { index, destination ->
-                            NavigationBarItem(
-                                selected = pagerState.currentPage == index,
-                                onClick = {
-                                    scope.launch {
-                                        pagerState.animateScrollToPage(index)
-                                    }
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                ),
-                                icon = {
-                                    Icon(
-                                        imageVector = destination.icon,
-                                        contentDescription = destination.label,
-                                    )
-                                },
-                                label = { Text(destination.label) },
-                            )
+                        ) {
+                            topLevelDestinations.forEachIndexed { index, destination ->
+                                NavigationBarItem(
+                                    selected = pagerState.currentPage == index,
+                                    onClick = {
+                                        scope.launch {
+                                            pagerState.animateScrollToPage(index)
+                                        }
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
+                                    icon = {
+                                        Icon(
+                                            imageVector = destination.icon,
+                                            contentDescription = destination.label,
+                                        )
+                                    },
+                                    label = { Text(destination.label) },
+                                )
+                            }
                         }
                     }
+                },
+            ) { paddingValues ->
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondViewportPageCount = 1,
+                    userScrollEnabled = !isPlayerFullscreen,
+                ) {
+                    when (topLevelDestinations[it].route) {
+                        "settings" -> AuthRoute(
+                            paddingValues = paddingValues,
+                            accountSession = accountSession,
+                            feedConfiguration = feedConfiguration,
+                            syncState = librarySyncState,
+                            availableLocalCaptionEngines = availableLocalCaptionEngines,
+                            selectedLocalCaptionEngine = selectedLocalCaptionEngine,
+                            localCaptionModelState = localCaptionModelState,
+                            onFeedUrlChanged = viewModel::updateFeedUrl,
+                            onSignInRequested = viewModel::signInToPremiumFeed,
+                            onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
+                            onDownloadLocalCaptionModel = viewModel::downloadLocalCaptionModel,
+                            onClearSyncedDataRequested = viewModel::clearSyncedData,
+                        )
+
+                        "library" -> LibraryRoute(
+                            paddingValues = paddingValues,
+                            syncState = librarySyncState,
+                            hasSavedFeedUrl = feedConfiguration.feedUrl.isNotBlank(),
+                            videos = videos,
+                            playbackProgress = playbackProgress,
+                            videoEngagement = videoEngagement,
+                            seriesCompletionSummaries = seriesCompletionSummaries,
+                            onVideoSelected = { videoId ->
+                                viewModel.selectVideo(videoId)
+                                scope.launch {
+                                    pagerState.animateScrollToPage(LookTubeLaunchContract.PLAYER_PAGE_INDEX)
+                                }
+                            },
+                            onMarkVideoWatched = viewModel::markVideoWatched,
+                            onMarkVideoUnwatched = viewModel::markVideoUnwatched,
+                            onMarkVideosWatched = viewModel::markVideosWatched,
+                            onMarkVideosUnwatched = viewModel::markVideosUnwatched,
+                        )
+
+                        else -> PlayerRoute(
+                            paddingValues = paddingValues,
+                            selectedVideo = selectedPlaybackTarget?.video,
+                            playbackProgress = selectedPlaybackTarget?.playbackProgress,
+                            playbackSelectionRequest = playbackSelectionRequest,
+                            selectedVideoEngagement = selectedPlaybackTarget?.video?.id?.let(videoEngagement::get),
+                            recentPlaybackVideos = recentPlaybackVideos,
+                            availableLocalCaptionEngines = availableLocalCaptionEngines,
+                            selectedLocalCaptionEngine = selectedLocalCaptionEngine,
+                            localCaptionModelState = localCaptionModelState,
+                            selectedCaptionTrack = selectedVideoCaptionTrack,
+                            selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
+                            player = playbackController,
+                            isFullscreen = isPlayerFullscreen,
+                            onRecentVideoSelected = viewModel::selectVideo,
+                            onMarkVideoWatched = viewModel::markVideoWatched,
+                            onMarkVideoUnwatched = viewModel::markVideoUnwatched,
+                            onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
+                            onGenerateCaptionsRequested = viewModel::generateCaptions,
+                            onFullscreenChanged = { enabled ->
+                                fullscreenModeName = when {
+                                    enabled -> PlayerFullscreenMode.Manual.name
+                                    isLandscape -> PlayerFullscreenMode.LandscapeSuppressed.name
+                                    else -> PlayerFullscreenMode.Off.name
+                                }
+                            },
+                        )
+
+                    }
+
                 }
-            },
-        ) { paddingValues ->
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-                beyondViewportPageCount = 1,
-                userScrollEnabled = !isPlayerFullscreen,
-            ) {
-                when (topLevelDestinations[it].route) {
-                    "settings" -> AuthRoute(
-                        paddingValues = paddingValues,
-                        accountSession = accountSession,
-                        feedConfiguration = feedConfiguration,
-                        syncState = librarySyncState,
-                        availableLocalCaptionEngines = availableLocalCaptionEngines,
-                        selectedLocalCaptionEngine = selectedLocalCaptionEngine,
-                        localCaptionModelState = localCaptionModelState,
-                        onFeedUrlChanged = viewModel::updateFeedUrl,
-                        onSignInRequested = viewModel::signInToPremiumFeed,
-                        onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
-                        onDownloadLocalCaptionModel = viewModel::downloadLocalCaptionModel,
-                        onClearSyncedDataRequested = viewModel::clearSyncedData,
-                    )
-
-                    "library" -> LibraryRoute(
-                        paddingValues = paddingValues,
-                        syncState = librarySyncState,
-                        videos = videos,
-                        playbackProgress = playbackProgress,
-                        videoEngagement = videoEngagement,
-                        seriesCompletionSummaries = seriesCompletionSummaries,
-                        onVideoSelected = { videoId ->
-                            viewModel.selectVideo(videoId)
-                            scope.launch {
-                                pagerState.animateScrollToPage(LookTubeLaunchContract.PLAYER_PAGE_INDEX)
-                            }
-                        },
-                        onMarkVideoWatched = viewModel::markVideoWatched,
-                        onMarkVideoUnwatched = viewModel::markVideoUnwatched,
-                        onMarkVideosWatched = viewModel::markVideosWatched,
-                        onMarkVideosUnwatched = viewModel::markVideosUnwatched,
-                    )
-
-                    else -> PlayerRoute(
-                        paddingValues = paddingValues,
-                        selectedVideo = selectedPlaybackTarget?.video,
-                        playbackProgress = selectedPlaybackTarget?.playbackProgress,
-                        playbackSelectionRequest = playbackSelectionRequest,
-                        selectedVideoEngagement = selectedPlaybackTarget?.video?.id?.let(videoEngagement::get),
-                        recentPlaybackVideos = recentPlaybackVideos,
-                        availableLocalCaptionEngines = availableLocalCaptionEngines,
-                        selectedLocalCaptionEngine = selectedLocalCaptionEngine,
-                        localCaptionModelState = localCaptionModelState,
-                        selectedCaptionTrack = selectedVideoCaptionTrack,
-                        selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
-                        player = playbackController,
-                        isFullscreen = isPlayerFullscreen,
-                        onRecentVideoSelected = viewModel::selectVideo,
-                        onMarkVideoWatched = viewModel::markVideoWatched,
-                        onMarkVideoUnwatched = viewModel::markVideoUnwatched,
-                        onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
-                        onGenerateCaptionsRequested = viewModel::generateCaptions,
-                        onFullscreenChanged = { enabled ->
-                            fullscreenModeName = when {
-                                enabled -> PlayerFullscreenMode.Manual.name
-                                isLandscape -> PlayerFullscreenMode.LandscapeSuppressed.name
-                                else -> PlayerFullscreenMode.Off.name
-                            }
-                        },
-                    )
-
-                }
+            }
+            if (showLaunchIntro) {
+                LookTubeLaunchIntroOverlay(
+                    onDismiss = { showLaunchIntro = false },
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
     }

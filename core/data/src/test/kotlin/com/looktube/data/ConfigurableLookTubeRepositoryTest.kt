@@ -42,7 +42,7 @@ class ConfigurableLookTubeRepositoryTest {
         assertEquals(0, scheduler.cancelCount)
     }
     @Test
-    fun bootstrapLoadsPersistedFeedUrlAndKeepsSeededFallback() = runTest {
+    fun bootstrapLoadsPersistedFeedUrlAndStartsWithEmptyLibraryUntilSync() = runTest {
         val store = FakeFeedConfigurationStore(
             PersistedFeedConfiguration(
                 feedUrl = "https://example.com/feed.xml",
@@ -59,7 +59,7 @@ class ConfigurableLookTubeRepositoryTest {
         repository.bootstrap()
 
         assertEquals("https://example.com/feed.xml", repository.feedConfiguration.value.feedUrl)
-        assertTrue(repository.videos.value.isNotEmpty())
+        assertTrue(repository.videos.value.isEmpty())
         assertEquals(SyncPhase.Idle, repository.librarySyncState.value.phase)
     }
 
@@ -142,7 +142,7 @@ class ConfigurableLookTubeRepositoryTest {
 
         assertFalse(repository.accountSession.value.isSignedIn)
         assertEquals("https://example.com/premium.xml", repository.feedConfiguration.value.feedUrl)
-        assertEquals("premium-quick-look-1", repository.videos.value.first().id)
+        assertTrue(repository.videos.value.isEmpty())
         assertTrue(repository.librarySyncState.value.message.contains("Saved feed URL"))
     }
 
@@ -203,14 +203,16 @@ class ConfigurableLookTubeRepositoryTest {
         )
 
         repository.bootstrap()
-        repository.selectVideo("premium-quick-look-1")
-        repository.setManualWatchState("premium-quick-look-1", ManualWatchState.Watched)
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.signInToPremiumFeed()
+        repository.selectVideo("live-1")
+        repository.setManualWatchState("live-1", ManualWatchState.Watched)
 
         assertEquals(
             ManualWatchState.Watched,
-            repository.videoEngagement.value["premium-quick-look-1"]?.manualWatchState,
+            repository.videoEngagement.value["live-1"]?.manualWatchState,
         )
-        assertTrue(repository.videoEngagement.value["premium-quick-look-1"]?.lastPlayedAtEpochMillis != null)
+        assertTrue(repository.videoEngagement.value["live-1"]?.lastPlayedAtEpochMillis != null)
 
         repository.clearSyncedData()
 

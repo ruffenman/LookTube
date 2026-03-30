@@ -110,10 +110,44 @@ class LibraryVisualTest {
                             message = "Synced 42 Premium videos. Last refresh completed successfully.",
                             lastSuccessfulSyncSummary = "42 videos • 12 shows",
                         ),
+                        hasSavedFeedUrl = true,
                         videos = videos,
                         playbackProgress = playbackProgress,
                         videoEngagement = videoEngagement,
                         seriesCompletionSummaries = seriesCompletionSummaries,
+                        onVideoSelected = {},
+                        onMarkVideoWatched = {},
+                        onMarkVideoUnwatched = {},
+                        onMarkVideosWatched = {},
+                        onMarkVideosUnwatched = {},
+                    )
+                }
+            }
+        }
+
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    @Test
+    fun libraryEmptyStateSurface() {
+        composeRule.setContent {
+            LookTubeTheme {
+                Box(
+                    modifier = Modifier
+                        .width(412.dp)
+                        .fillMaxWidth(),
+                ) {
+                    LibraryRoute(
+                        paddingValues = PaddingValues(),
+                        syncState = LibrarySyncState(
+                            phase = SyncPhase.Idle,
+                            message = "Paste a Giant Bomb Premium RSS URL copied from the feeds page, then sync to load your library.",
+                        ),
+                        hasSavedFeedUrl = false,
+                        videos = emptyList(),
+                        playbackProgress = emptyMap(),
+                        videoEngagement = emptyMap(),
+                        seriesCompletionSummaries = emptyMap(),
                         onVideoSelected = {},
                         onMarkVideoWatched = {},
                         onMarkVideoUnwatched = {},

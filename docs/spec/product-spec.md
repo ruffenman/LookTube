@@ -31,6 +31,8 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, a polished History menu, compact supporting copy, and a top-pinned player surface that keeps video and playback context together
 - Library and Player share one global Look Points badge in the top app bar so score stays visible without being embedded in page-local controls
 - the Settings surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
+- the app no longer seeds placeholder library items on first open or after clearing synced data; instead, Library shows a clean empty-state panel until a real feed sync succeeds
+- true cold starts show a brief, professional LookTube intro overlay that auto-dismisses after about two seconds, can be skipped instantly with a tap, and does not replay when returning from background
 - the Settings surface also shows offline caption model readiness and lets the user download the local caption model needed for provider-free caption generation
 - the Player surface can generate or regenerate captions for the selected video on-device, attach them as explicit text tracks for local playback, and keep them available during cast handoff through explicit Cast subtitle mapping
 - the default app build target stays on the lower-spec whisper.cpp caption path, while an opt-in higher-spec Moonshine target can expose an additional local caption engine and future higher-spec-only features without regressing the baseline build

@@ -32,7 +32,7 @@ class LookTubeAppViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun bootstrapsSampleFeedWithoutTreatingItAsSignedIn() = runTest {
+    fun bootstrapsWithEmptyLibraryWithoutTreatingItAsSignedIn() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
             syncedLibraryStore = FakeSyncedLibraryStore(),
@@ -45,7 +45,7 @@ class LookTubeAppViewModelTest {
         val viewModel = LookTubeAppViewModel(repository)
         advanceUntilIdle()
 
-        assertTrue(viewModel.videos.value.isNotEmpty())
+        assertTrue(viewModel.videos.value.isEmpty())
         assertFalse(viewModel.accountSession.value.isSignedIn)
     }
 
@@ -94,7 +94,7 @@ class LookTubeAppViewModelTest {
 
         assertFalse(viewModel.accountSession.value.isSignedIn)
         assertEquals("https://example.com/feed.xml", viewModel.feedConfiguration.value.feedUrl)
-        assertEquals("premium-quick-look-1", viewModel.videos.value.first().id)
+        assertTrue(viewModel.videos.value.isEmpty())
         assertTrue(viewModel.librarySyncState.value.message.contains("Saved feed URL"))
     }
 

@@ -19,6 +19,7 @@ Its central promise is deliberately narrow:
 ## User-visible surfaces
 ### App shell
 - keeps the standard top app bar and bottom navigation visible outside fullscreen playback
+- may show a short, cold-start-only LookTube intro overlay that auto-dismisses quickly, can be skipped immediately with any tap, and does not replay on background resume
 - exposes one global Look Points badge in the top app bar on Library and Player so score remains visible without being embedded into page-local control rows
 ### Settings
 - sole user input for access is the copied Premium feed URL
@@ -27,11 +28,12 @@ Its central promise is deliberately narrow:
 - exposes offline caption model readiness, engine selection where the higher-spec target supports it, and a local-model download action without mixing any future provider credentials into the main feed URL flow
 ### Library
 - combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
+- uses a clean empty-state panel before the first successful sync or after clearing synced data, instead of seeded placeholder library items
 - wraps status plus browse controls inside a default-collapsed Library Config element that sits above the scrolling episode list
 - grouped headers can collapse or expand independently with compact icon-based expand/collapse controls, place their title and metadata beneath that control instead of offsetting them to its right, expose one whole-group watched-state toggle at a time, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
 - shows watched-versus-total progress for shows while Look Points scoring remains available from the global shell badge and still reflects watched videos only
 - uses explicit `Mark as Watched` and `Mark as Unwatched` wording for manual watch-state actions
-- should remain usable and informative even before a successful live sync
+- should remain usable and informative even before a successful live sync by showing an intentional empty-state treatment and next-step guidance
 ### Player
 - must handle empty, unavailable, preparing, and active playback states clearly
 - keeps the player frame above the supporting metadata when a video is selected

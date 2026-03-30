@@ -44,7 +44,7 @@ class ConfigurableLookTubeRepository(
         AccountSession(
             isSignedIn = false,
             accountLabel = null,
-            notes = "Paste a Giant Bomb Premium RSS URL to replace the seeded library.",
+            notes = "Paste a Giant Bomb Premium RSS URL to load your library.",
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
@@ -103,7 +103,7 @@ class ConfigurableLookTubeRepository(
                 ),
             )
         } else {
-            videosState.value = seededVideos
+            videosState.value = emptyList()
             selectedVideoIdState.value = null
             publishStatus(initialStatusFor(feedConfigurationState.value))
         }
@@ -141,7 +141,7 @@ class ConfigurableLookTubeRepository(
         playbackBookmarkStore.clear()
         videoEngagementStore.clear()
         videoCaptionStore.clear()
-        videosState.value = seededVideos
+        videosState.value = emptyList()
         selectedVideoIdState.value = null
         captionGenerationState.value = emptyMap()
         publishStatus(
@@ -344,12 +344,12 @@ class ConfigurableLookTubeRepository(
         when {
             configuration.feedUrl.isBlank() -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library.",
+                message = "Paste a Giant Bomb Premium RSS URL copied from the feeds page, then sync to load your library.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
             else -> LibrarySyncState(
                 phase = SyncPhase.Idle,
-                message = "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current.",
+                message = "Saved feed URL detected. Sync once to load your library, then background refresh will keep it current.",
                 lastSuccessfulSyncSummary = syncState.value.lastSuccessfulSyncSummary,
             )
         }
@@ -369,29 +369,6 @@ class ConfigurableLookTubeRepository(
         captionGenerationState.value = captionGenerationState.value.toMutableMap().apply {
             put(videoId, status)
         }
-    }
-
-    companion object {
-        val seededVideos = listOf(
-            VideoSummary(
-                id = "premium-quick-look-1",
-                title = "Premium Quick Look Spike",
-                description = "Thin vertical slice placeholder for authenticated premium playback.",
-                isPremium = true,
-                feedCategory = "Premium",
-                playbackUrl = null,
-                seriesTitle = "Quick Look",
-            ),
-            VideoSummary(
-                id = "latest-premium-2",
-                title = "Latest Premium Feed Baseline",
-                description = "Library baseline used to validate list rendering and player handoff.",
-                isPremium = true,
-                feedCategory = "Latest Premium",
-                playbackUrl = null,
-                seriesTitle = "Latest Premium",
-            ),
-        )
     }
 }
 

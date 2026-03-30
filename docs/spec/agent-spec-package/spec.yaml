@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.10"
+  version: "0.2.11"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -198,6 +198,11 @@ contract:
       returns:
         video_engagement: VideoEngagementRecord
   surfaces:
+    - name: app_shell
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay.
+      primary_actions:
+        - dismiss the launch intro immediately with any tap when it is visible
+        - navigate between Settings, Library, and Player
     - name: settings
       description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, and local caption model readiness.
       visible_states:
@@ -213,7 +218,7 @@ contract:
         - choose the active local caption engine when multiple engines are available for the current build target
         - download offline caption model
     - name: library
-      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, show-completion visualization, rich cards, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, show-completion visualization, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -262,8 +267,8 @@ contract:
       target_page: integer (optional)
 
 scenarios:
-  - id: bootstrap_without_saved_feed_uses_seeded_fallback
-    description: First launch without a saved feed URL keeps the app usable with seeded library content and setup-required status.
+  - id: bootstrap_without_saved_feed_starts_with_clean_empty_library
+    description: First launch without a saved feed URL starts with setup-required status and an empty library instead of placeholder content.
     when:
       call: bootstrap_app
       args:
@@ -274,7 +279,7 @@ scenarios:
       - returns.feed_configuration.feed_url == ""
       - returns.library_sync_state.phase == "Idle"
       - returns.account_session.is_signed_in == false
-      - returns.videos is non-empty array
+      - returns.videos == []
   - id: bootstrap_with_cached_snapshot_restores_local_library
     description: App startup restores the cached synced library when the saved feed URL matches the persisted snapshot.
     when:
@@ -301,8 +306,8 @@ scenarios:
       surface: settings
       state:
         feed_configuration: {feed_url: ""}
-        account_session: {is_signed_in: false, notes: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
-        library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
+        account_session: {is_signed_in: false, notes: "Paste a Giant Bomb Premium RSS URL copied from the feeds page, then sync to load your library."}
+        library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page, then sync to load your library."}
     then:
       - visible status label == "Setup required"
       - primary sync action is disabled
@@ -313,12 +318,25 @@ scenarios:
       surface: settings
       state:
         feed_configuration: {feed_url: "https://example.com/premium.xml"}
-        account_session: {is_signed_in: false, notes: "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current."}
-        library_sync_state: {phase: "Idle", message: "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current."}
+        account_session: {is_signed_in: false, notes: "Saved feed URL detected. Sync once to load your library, then background refresh will keep it current."}
+        library_sync_state: {phase: "Idle", message: "Saved feed URL detected. Sync once to load your library, then background refresh will keep it current."}
     then:
       - visible status label == "Ready"
       - primary sync action is enabled
       - primary sync action label == "Sync Premium feed"
+  - id: cold_start_intro_is_brief_and_skippable
+    description: A true app cold start may show a short LookTube brand intro that can be dismissed instantly and does not replay on resume.
+    when:
+      surface: app_shell
+      state:
+        is_cold_start: true
+        resumed_from_background: false
+    then:
+      - visible copy contains "LookTube"
+      - visible copy contains "Tap anywhere to skip"
+      - intro auto-dismisses after about 2 seconds
+      - any tap dismisses the intro immediately
+      - resuming from background does not show the intro again
   - id: synced_auth_state_relabels_primary_action_and_shows_clear_action
     description: After a successful sync, Settings shows a synced state, exposes clear-synced-data, and relabels the primary sync action for repeat use.
     when:
@@ -556,14 +574,15 @@ scenarios:
     then:
       - returns.target_page == 1
   - id: library_empty_state_prompts_auth_sync
-    description: Library surface tells the user to sync from Settings when no synced videos are available.
+    description: Library surface presents a clean next-step empty state when no synced videos are available.
     when:
       surface: library
       state:
         videos: []
-        library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
+        library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page, then sync to load your library."}
     then:
-      - visible empty-state copy contains "Sync your Premium feed in Settings"
+      - visible empty-state copy contains "Your library is empty"
+      - visible empty-state copy contains "Add a copied Giant Bomb Premium RSS URL in Settings"
   - id: library_default_controls_are_show_latest_with_filters_collapsed
     description: Library browsing defaults to show grouping, latest sorting, and collapsed show filters.
     when:

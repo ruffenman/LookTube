@@ -43,13 +43,13 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
 ## Current data flow
 1. `app` creates a `SharedPreferencesFeedConfigurationStore` plus the configurable repository from the app container
 2. `LookTubeAppViewModel` bootstraps the repository
-3. the repository loads the copied feed URL from an app-owned encrypted-at-rest store, restores the last synced library snapshot, and exposes persisted playback progress for the feed-first path
-4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen centered on the copied feed URL, a consolidated grouped library surface, and a shared Media3 player route
+3. the repository loads the copied feed URL from an app-owned encrypted-at-rest store, restores the last synced library snapshot when one exists, and otherwise starts from a clean empty-library state while still exposing persisted playback progress for the feed-first path
+4. feature modules render and mutate repository state through the app shell, including a Premium feed access screen centered on the copied feed URL, a consolidated grouped library surface with an explicit empty state before first sync, a cold-start-only launch intro overlay, and a shared Media3 player route
 5. an explicit sync action fetches the RSS feed directly from the copied URL, uses the shared heuristics module for any Giant Bomb content inference, and replaces the cached library on success; the architecture intentionally stops short of website-login automation
 6. while a feed URL is saved, WorkManager keeps a periodic background refresh registration alive and the app posts a library-update notification when a later successful refresh discovers previously unseen video IDs for that same feed URL
 
-## Why the current spike still keeps a seeded fallback
-The project still needs a short external integration spike to confirm the best Giant Bomb Premium auth strategy and exact production feed targets. The configurable repository now supports a real Premium feed sync path, but it keeps seeded fallback content so the app remains usable and testable before live credentials are available.
+## Startup and empty-state posture
+The app no longer relies on seeded placeholder library data for first-open polish. If no valid synced snapshot exists, the repository starts empty and the Library surface shows a clean next-step state until a real Premium feed sync succeeds. The app shell can also show a brief, tap-skippable intro only on true cold starts so resume-from-background stays immediate.
 
 ## Near-term evolution path
 - validate whether copied feed URLs stay sufficient across more Giant Bomb feed variants, or whether Giant Bomb eventually exposes an official broader auth/session path

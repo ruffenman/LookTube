@@ -8,12 +8,12 @@ import org.junit.Test
 
 class InMemoryLookTubeRepositoryTest {
     @Test
-    fun bootstrapSeedsSamplePremiumVideos() = runTest {
+    fun bootstrapStartsWithEmptyLibrary() = runTest {
         val repository = InMemoryLookTubeRepository()
 
         repository.bootstrap()
 
-        assertTrue(repository.videos.value.any { it.isPremium })
+        assertTrue(repository.videos.value.isEmpty())
         assertEquals(null, repository.selectedVideoId.value)
     }
 
@@ -29,13 +29,13 @@ class InMemoryLookTubeRepositoryTest {
     }
 
     @Test
-    fun refreshLeavesSeededContentActive() = runTest {
+    fun refreshReportsNoSyncedLibraryData() = runTest {
         val repository = InMemoryLookTubeRepository()
 
         repository.bootstrap()
         repository.refreshLibrary()
 
         assertEquals(SyncPhase.Success, repository.librarySyncState.value.phase)
-        assertTrue(repository.videos.value.isNotEmpty())
+        assertTrue(repository.videos.value.isEmpty())
     }
 }
