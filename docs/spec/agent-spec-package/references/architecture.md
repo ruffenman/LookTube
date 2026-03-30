@@ -42,7 +42,7 @@ Its central promise is deliberately narrow:
 - explains remote playback on the player surface with a non-blocking visual indicator and should recover local playback cleanly after cast-session loss, reconnect, or same-video reselection
 ## Captions
 - the supported caption path is offline-first and on-device once the local caption model has been downloaded
-- the default build keeps a lower-spec local caption engine available, while a higher-spec target may expose additional local engines without replacing that fallback
+- the default build keeps a lower-spec local caption engine available, while a higher-spec target may default to a faster local engine without removing that fallback
 - long-running local caption generation should continue surfacing hard progress during transcription itself, including processed duration and chunk-level completion, so multi-hour jobs do not look stalled or opaque
 - generated captions should be stored as explicit WebVTT sidecars keyed by video rather than folded back into feed-derived source metadata
 - local playback should expose generated captions through the standard subtitle controls on the player surface

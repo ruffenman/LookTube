@@ -9,15 +9,15 @@ internal fun createLocalCaptionEngineRegistry(context: Context): LocalCaptionEng
     SelectableLocalCaptionEngineRegistry(
         runtimes = listOf(
             LocalCaptionEngineRuntime(
-                engine = WhisperCppLocalCaptionEngine,
-                modelManager = ManagedLocalCaptionModelManager(context),
-                generator = OnDeviceLocalCaptionGenerator(context),
-            ),
-            LocalCaptionEngineRuntime(
                 engine = MoonshineLocalCaptionEngine,
                 modelManager = ManagedMoonshineCaptionModelManager(context),
                 generator = MoonshineLocalCaptionGenerator(context),
             ),
+            LocalCaptionEngineRuntime(
+                engine = WhisperCppLocalCaptionEngine,
+                modelManager = ManagedLocalCaptionModelManager(context),
+                generator = OnDeviceLocalCaptionGenerator(context),
+            ),
         ),
-        defaultEngineId = WhisperCppLocalCaptionEngine.id,
+        defaultEngineId = MoonshineLocalCaptionEngine.id,
     )

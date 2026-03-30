@@ -390,9 +390,9 @@ scenarios:
         local_caption_engines:
           - {id: "whisper_cpp", display_name: "Whisper.cpp"}
           - {id: "moonshine", display_name: "Moonshine"}
-        selected_local_caption_engine: {id: "whisper_cpp", display_name: "Whisper.cpp"}
+        selected_local_caption_engine: {id: "moonshine", display_name: "Moonshine"}
     then:
-      - visible settings copy contains "Selected engine: Whisper.cpp"
+      - visible settings copy contains "Selected engine: Moonshine"
       - visible settings copy contains "Moonshine"
   - id: auth_surface_shows_caption_model_ready_state
     description: Once the local caption model is present, Settings reports that offline captions are ready on this device.
@@ -1255,7 +1255,7 @@ constraints:
     - implementation must preserve the launch-intent behavior for opening the Player page and optionally preselecting a video
     - parser must accept RSS item shapes that expose playback targets through media:content, enclosure, or link
     - app must remain usable before the first successful live feed sync
-    - the default validation and contributor flow must keep a lower-spec baseline app target available even if optional higher-spec targets exist for extra local-engine support
+    - the default validation and contributor flow must keep a lower-spec baseline app target available even if optional higher-spec targets exist that default to faster local engines on more capable devices
   reliability:
     - background refresh remains registered while a non-blank saved feed URL exists
     - background refresh registration uses one unique periodic work identity

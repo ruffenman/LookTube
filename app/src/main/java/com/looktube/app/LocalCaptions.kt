@@ -552,7 +552,9 @@ internal class OnDeviceLocalCaptionGenerator(
 
     companion object {
         private const val TARGET_SAMPLE_RATE = 16_000
-        private const val TRANSCRIPTION_CHUNK_SECONDS = 120
+        // Whisper already decodes internally in roughly 30-second windows, so much larger
+        // outer chunks increase wall time on-device without improving progress fidelity.
+        private const val TRANSCRIPTION_CHUNK_SECONDS = 30
         private const val PCM_CHUNK_BYTES = TARGET_SAMPLE_RATE * TRANSCRIPTION_CHUNK_SECONDS * 2
         private const val PCM_BYTES_PER_SECOND = TARGET_SAMPLE_RATE * 2L
     }

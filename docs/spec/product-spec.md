@@ -35,7 +35,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - true cold starts show a brief, professional LookTube intro overlay that auto-dismisses after about two seconds, can be skipped instantly with a tap, and does not replay when returning from background
 - the Settings surface also shows offline caption model readiness and lets the user download the local caption model needed for provider-free caption generation
 - the Player surface can generate or regenerate captions for the selected video on-device, attach them as explicit text tracks for local playback, and keep them available during cast handoff through explicit Cast subtitle mapping
-- the default app build target stays on the lower-spec whisper.cpp caption path, while an opt-in higher-spec Moonshine target can expose an additional local caption engine and future higher-spec-only features without regressing the baseline build
+- the default app build target stays on the lower-spec whisper.cpp caption path, while the opt-in higher-spec Moonshine target defaults to Moonshine and still exposes Whisper.cpp as a compatibility fallback without regressing the baseline build
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
 
@@ -78,7 +78,7 @@ Harden the path from copied feed sync to daily repeat use.
 - users can download an on-device caption model from Settings, generate captions for a playable video from Player without configuring any external provider, and regenerate them later if needed
 - generated captions are stored locally as per-video WebVTT sidecars, surfaced through the player CC controls, and kept reachable for cast sessions through explicit Cast text-track propagation instead of relying on the default Media3 cast subtitle path
 - any future higher-quality or cloud-backed caption provider remains optional and must layer onto the same caption pipeline instead of replacing the local fallback
-- the repository keeps the baseline build as the default validation target, while an opt-in higher-spec Moonshine build target can raise SDK or ABI expectations for extra local-engine support without weakening the baseline support matrix
+- the repository keeps the baseline build as the default validation target, while an opt-in higher-spec Moonshine build target can raise SDK or ABI expectations for extra local-engine support, default to Moonshine, and still keep Whisper.cpp available as a compatibility fallback without weakening the baseline support matrix
 - docs reflect the validated product shape instead of the earlier scaffold-only phases
 
 ## Captions
@@ -86,7 +86,7 @@ Harden the path from copied feed sync to daily repeat use.
 - Settings exposes local caption model readiness and a download action for the built-in on-device English model, so captions can work without any external provider once the model is present.
 - Player exposes per-video on-device caption generation and regeneration, shows generation progress or errors, and enables the built-in CC control for turning generated captions on locally.
 - Long-running on-device caption jobs continue to report hard transcription progress during the transcription phase itself, including processed audio time, chunk counts, and ETA once enough work has completed to estimate it.
-- The default build target keeps whisper.cpp as the guaranteed local fallback, and the Moonshine-capable target can expose Moonshine as an additional on-device engine on compatible devices.
+- The default build target keeps whisper.cpp as the guaranteed local fallback, and the Moonshine-capable target defaults to Moonshine on compatible devices while still exposing Whisper.cpp as a compatibility fallback.
 - Generated captions are stored as per-video WebVTT sidecars instead of mutating feed-derived metadata.
 - Cast delivery treats captions as first-class text tracks through explicit Cast mapping and sender-hosted sidecar serving, rather than assuming default Media3 subtitle propagation is sufficient.
 - If a higher-quality or cloud-generated caption option is added later, keep any secondary credentials or account material in a clearly separate expandable Settings section and layer that provider on top of the existing local caption pipeline.
