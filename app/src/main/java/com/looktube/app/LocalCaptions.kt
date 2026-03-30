@@ -42,6 +42,7 @@ import java.util.UUID
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -465,12 +466,18 @@ internal class OnDeviceLocalCaptionGenerator(
             1,
             ((audioFile.length() + (PCM_CHUNK_BYTES - 1)) / PCM_CHUNK_BYTES).toInt(),
         )
+        val totalAudioDurationSeconds = max(
+            1L,
+            (audioFile.length() + (PCM_BYTES_PER_SECOND - 1)) / PCM_BYTES_PER_SECOND,
+        )
+        val transcriptionStartedAtNanos = System.nanoTime()
         val segments = mutableListOf<CaptionSegment>()
         onProgress(
             transcriptionCaptionStatus(
                 completedChunkCount = 0,
                 totalChunks = totalChunks,
-                activeChunkProgressPercent = 0,
+                processedAudioSeconds = 0L,
+                totalAudioDurationSeconds = totalAudioDurationSeconds,
             ),
         )
         FileInputStream(audioFile).use { input ->
@@ -486,6 +493,11 @@ internal class OnDeviceLocalCaptionGenerator(
                     buffer = chunkBuffer,
                     length = bytesRead,
                 )
+                val currentChunkDurationSeconds = max(
+                    1L,
+                    (audioSamples.size.toLong() + (TARGET_SAMPLE_RATE - 1).toLong()) / TARGET_SAMPLE_RATE.toLong(),
+                )
+                val processedAudioSeconds = chunkOffsetMs / 1_000L
                 val chunkSegments = WhisperNativeBridge.transcribe(
                     modelPath = modelPath,
                     audioSamples = audioSamples,
@@ -495,7 +507,11 @@ internal class OnDeviceLocalCaptionGenerator(
                             transcriptionCaptionStatus(
                                 completedChunkCount = chunkIndex,
                                 totalChunks = totalChunks,
+                                processedAudioSeconds = processedAudioSeconds,
+                                totalAudioDurationSeconds = totalAudioDurationSeconds,
+                                activeChunkDurationSeconds = currentChunkDurationSeconds,
                                 activeChunkProgressPercent = progressPercent,
+                                elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
                             ),
                         )
                     },
@@ -512,7 +528,9 @@ internal class OnDeviceLocalCaptionGenerator(
                     transcriptionCaptionStatus(
                         completedChunkCount = chunkIndex,
                         totalChunks = totalChunks,
-                        activeChunkProgressPercent = 0,
+                        processedAudioSeconds = chunkOffsetMs / 1_000L,
+                        totalAudioDurationSeconds = totalAudioDurationSeconds,
+                        elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
                     ),
                 )
             }
@@ -534,8 +552,9 @@ internal class OnDeviceLocalCaptionGenerator(
 
     companion object {
         private const val TARGET_SAMPLE_RATE = 16_000
-        private const val TRANSCRIPTION_CHUNK_SECONDS = 15
+        private const val TRANSCRIPTION_CHUNK_SECONDS = 5
         private const val PCM_CHUNK_BYTES = TARGET_SAMPLE_RATE * TRANSCRIPTION_CHUNK_SECONDS * 2
+        private const val PCM_BYTES_PER_SECOND = TARGET_SAMPLE_RATE * 2L
     }
 }
 
@@ -594,28 +613,71 @@ internal fun transcriptionProgressFraction(
 internal fun transcriptionCaptionStatus(
     completedChunkCount: Int,
     totalChunks: Int,
+    processedAudioSeconds: Long,
+    totalAudioDurationSeconds: Long,
+    activeChunkDurationSeconds: Long = 0L,
     activeChunkProgressPercent: Int? = null,
+    elapsedRealtimeSeconds: Long? = null,
 ): CaptionGenerationStatus {
     val safeTotalChunks = totalChunks.coerceAtLeast(1)
     val boundedCompletedChunkCount = completedChunkCount.coerceIn(0, safeTotalChunks)
     val boundedChunkProgressPercent = activeChunkProgressPercent?.coerceIn(0, 100)
-    val completedUnits = (
-        boundedCompletedChunkCount.toFloat() +
-            ((boundedChunkProgressPercent ?: 0).toFloat() / 100f)
+    val totalAudioSeconds = totalAudioDurationSeconds.coerceAtLeast(1L)
+    val activeProcessedAudioSeconds = if (boundedChunkProgressPercent == null) {
+        0L
+    } else {
+        ((activeChunkDurationSeconds.coerceAtLeast(0L).toDouble() * boundedChunkProgressPercent.toDouble()) / 100.0)
+            .toLong()
+    }
+    val effectiveProcessedAudioSeconds = (
+        processedAudioSeconds.coerceAtLeast(0L) + activeProcessedAudioSeconds
         )
-        .coerceIn(0f, safeTotalChunks.toFloat())
-    val overallCompletionFraction = (completedUnits / safeTotalChunks.toFloat()).coerceIn(0f, 1f)
-    if (overallCompletionFraction <= 0f) {
+        .coerceIn(0L, totalAudioSeconds)
+    val overallCompletionFraction = (
+        effectiveProcessedAudioSeconds.toFloat() / totalAudioSeconds.toFloat()
+        )
+        .coerceIn(0f, 1f)
+    val currentChunkNumber = when {
+        boundedCompletedChunkCount >= safeTotalChunks -> safeTotalChunks
+        else -> (boundedCompletedChunkCount + 1).coerceAtMost(safeTotalChunks)
+    }
+    if (effectiveProcessedAudioSeconds <= 0L) {
         return CaptionGenerationStatus(
             phase = CaptionGenerationPhase.Transcribing,
-            message = "Transcribing audio on this device…",
+            message = "Transcribing chunk $currentChunkNumber of $safeTotalChunks… 0:00 of ${formatCaptionProgressTime(totalAudioSeconds)} processed",
             progressFraction = null,
         )
     }
     val overallCompletionPercent = (overallCompletionFraction * 100f).roundToInt()
+    val estimatedRemainingSeconds = elapsedRealtimeSeconds
+        ?.takeIf { it > 0L }
+        ?.let { elapsedSeconds ->
+            val secondsPerAudioSecond = elapsedSeconds.toDouble() / effectiveProcessedAudioSeconds.toDouble()
+            ((totalAudioSeconds - effectiveProcessedAudioSeconds).toDouble() * secondsPerAudioSecond)
+                .roundToLong()
+                .coerceAtLeast(0L)
+        }
+    val progressMessage = buildString {
+        append("Transcribing chunk ")
+        append(currentChunkNumber)
+        append(" of ")
+        append(safeTotalChunks)
+        append("… ")
+        append(formatCaptionProgressTime(effectiveProcessedAudioSeconds))
+        append(" of ")
+        append(formatCaptionProgressTime(totalAudioSeconds))
+        append(" processed")
+        append(" • ")
+        append(overallCompletionPercent)
+        append("% complete")
+        estimatedRemainingSeconds?.let { remainingSeconds ->
+            append(" • ETA ~")
+            append(formatCaptionProgressTime(remainingSeconds))
+        }
+    }
     return CaptionGenerationStatus(
         phase = CaptionGenerationPhase.Transcribing,
-        message = "Transcribing audio on this device… $overallCompletionPercent% complete",
+        message = progressMessage,
         progressFraction = (
             CAPTION_TRANSCRIPTION_PROGRESS_START +
                 (overallCompletionFraction * CAPTION_TRANSCRIPTION_PROGRESS_RANGE)
@@ -626,6 +688,9 @@ internal fun transcriptionCaptionStatus(
             ),
     )
 }
+
+private fun elapsedSince(startedAtNanos: Long): Long =
+    ((System.nanoTime() - startedAtNanos).coerceAtLeast(0L) / 1_000_000_000L)
 
 internal fun formatCaptionProgressTime(totalSeconds: Long): String {
     val hours = totalSeconds / 3_600

@@ -146,7 +146,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### Captions
 - Users can download a local caption model once and then generate captions for any playable video without configuring an external provider.
 - Caption generation extracts audio from the selected playback URL, runs the on-device transcription path locally, and stores the result as a per-video WebVTT sidecar.
-- Long-running caption generation continues surfacing visible transcription progress after extraction has completed, so the user is not left with a frozen-looking progress state during multi-hour jobs.
+- Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including processed audio duration and chunk-level completion, with an ETA once enough work has finished to estimate it.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.
 - Cast playback preserves generated captions by mapping subtitle configurations into explicit Cast text tracks and serving local sidecars from the sender over a reachable local HTTP URL.
 - The default build target preserves a lower-spec whisper.cpp-based local caption path, while an opt-in higher-spec target may expose additional local engines such as Moonshine behind stricter SDK or ABI assumptions.

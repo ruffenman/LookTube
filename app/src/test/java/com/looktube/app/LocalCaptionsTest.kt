@@ -47,15 +47,17 @@ class LocalCaptionsTest {
         assertEquals(0.95f, transcriptionProgressFraction(4, 4), 0.0001f)
     }
     @Test
-    fun transcriptionCaptionStatusStartsIndeterminateUntilRealProgressArrives() {
+    fun transcriptionCaptionStatusStartsWithChunkAndDurationCopyBeforeMeasuredProgressArrives() {
         val status = transcriptionCaptionStatus(
             completedChunkCount = 0,
             totalChunks = 4,
+            processedAudioSeconds = 0L,
+            totalAudioDurationSeconds = 120L,
             activeChunkProgressPercent = 0,
         )
 
         assertEquals(CaptionGenerationPhase.Transcribing, status.phase)
-        assertEquals("Transcribing audio on this device…", status.message)
+        assertEquals("Transcribing chunk 1 of 4… 0:00 of 2:00 processed", status.message)
         assertNull(status.progressFraction)
     }
 
@@ -64,11 +66,15 @@ class LocalCaptionsTest {
         val status = transcriptionCaptionStatus(
             completedChunkCount = 1,
             totalChunks = 4,
+            processedAudioSeconds = 30L,
+            totalAudioDurationSeconds = 120L,
+            activeChunkDurationSeconds = 30L,
             activeChunkProgressPercent = 50,
+            elapsedRealtimeSeconds = 180L,
         )
 
         assertEquals(CaptionGenerationPhase.Transcribing, status.phase)
-        assertEquals("Transcribing audio on this device… 38% complete", status.message)
+        assertEquals("Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete • ETA ~5:00", status.message)
         assertEquals(0.60625f, status.progressFraction ?: 0f, 0.0001f)
     }
 
@@ -77,10 +83,11 @@ class LocalCaptionsTest {
         val status = transcriptionCaptionStatus(
             completedChunkCount = 4,
             totalChunks = 4,
+            processedAudioSeconds = 120L,
+            totalAudioDurationSeconds = 120L,
             activeChunkProgressPercent = 100,
         )
-
-        assertEquals("Transcribing audio on this device… 100% complete", status.message)
+        assertEquals("Transcribing chunk 4 of 4… 2:00 of 2:00 processed • 100% complete", status.message)
         assertEquals(0.95f, status.progressFraction ?: 0f, 0.0001f)
     }
 }
