@@ -552,7 +552,7 @@ internal class OnDeviceLocalCaptionGenerator(
 
     companion object {
         private const val TARGET_SAMPLE_RATE = 16_000
-        private const val TRANSCRIPTION_CHUNK_SECONDS = 5
+        private const val TRANSCRIPTION_CHUNK_SECONDS = 120
         private const val PCM_CHUNK_BYTES = TARGET_SAMPLE_RATE * TRANSCRIPTION_CHUNK_SECONDS * 2
         private const val PCM_BYTES_PER_SECOND = TARGET_SAMPLE_RATE * 2L
     }
@@ -650,7 +650,11 @@ internal fun transcriptionCaptionStatus(
     }
     val overallCompletionPercent = (overallCompletionFraction * 100f).roundToInt()
     val estimatedRemainingSeconds = elapsedRealtimeSeconds
-        ?.takeIf { it > 0L }
+        ?.takeIf {
+            it > 0L &&
+                effectiveProcessedAudioSeconds >= ETA_MIN_PROCESSED_AUDIO_SECONDS &&
+                boundedCompletedChunkCount >= ETA_MIN_COMPLETED_CHUNKS
+        }
         ?.let { elapsedSeconds ->
             val secondsPerAudioSecond = elapsedSeconds.toDouble() / effectiveProcessedAudioSeconds.toDouble()
             ((totalAudioSeconds - effectiveProcessedAudioSeconds).toDouble() * secondsPerAudioSecond)
@@ -707,6 +711,8 @@ private const val CAPTION_EXTRACTION_PROGRESS_START = 0.02f
 private const val CAPTION_EXTRACTION_PROGRESS_RANGE = 0.33f
 private const val CAPTION_TRANSCRIPTION_PROGRESS_START = 0.4f
 private const val CAPTION_TRANSCRIPTION_PROGRESS_RANGE = 0.55f
+private const val ETA_MIN_PROCESSED_AUDIO_SECONDS = 120L
+private const val ETA_MIN_COMPLETED_CHUNKS = 1
 
 private object WhisperNativeBridge {
     init {

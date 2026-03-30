@@ -74,7 +74,7 @@ class LocalCaptionsTest {
         )
 
         assertEquals(CaptionGenerationPhase.Transcribing, status.phase)
-        assertEquals("Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete • ETA ~5:00", status.message)
+        assertEquals("Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete", status.message)
         assertEquals(0.60625f, status.progressFraction ?: 0f, 0.0001f)
     }
 
@@ -89,5 +89,24 @@ class LocalCaptionsTest {
         )
         assertEquals("Transcribing chunk 4 of 4… 2:00 of 2:00 processed • 100% complete", status.message)
         assertEquals(0.95f, status.progressFraction ?: 0f, 0.0001f)
+    }
+
+    @Test
+    fun transcriptionCaptionStatusAddsEtaOnlyAfterEnoughMeasuredProgress() {
+        val status = transcriptionCaptionStatus(
+            completedChunkCount = 1,
+            totalChunks = 4,
+            processedAudioSeconds = 120L,
+            totalAudioDurationSeconds = 480L,
+            activeChunkDurationSeconds = 120L,
+            activeChunkProgressPercent = 50,
+            elapsedRealtimeSeconds = 180L,
+        )
+
+        assertEquals(
+            "Transcribing chunk 2 of 4… 3:00 of 8:00 processed • 38% complete • ETA ~5:00",
+            status.message,
+        )
+        assertEquals(0.60625f, status.progressFraction ?: 0f, 0.0001f)
     }
 }
