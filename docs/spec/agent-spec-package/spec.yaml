@@ -361,6 +361,25 @@ scenarios:
     then:
       - visible settings copy contains "Offline captions"
       - visible settings copy contains "Download Whisper.cpp model"
+  - id: long_running_caption_generation_keeps_reporting_transcription_progress
+    description: Multi-minute offline caption generation continues to show visible progress after audio extraction finishes instead of appearing frozen during transcription.
+    when:
+      surface: player
+      state:
+        selected_video:
+          id: "video-long"
+          title: "Long premium archive"
+          description: ""
+          is_premium: true
+          feed_category: "Premium"
+          playback_url: "https://video.example.com/video-long.mp4"
+        selected_caption_generation_status:
+          phase: "Transcribing"
+          message: "Transcribing audio on this device… 38% complete"
+          progress_fraction: 0.60625
+    then:
+      - visible player copy contains "38% complete"
+      - visible caption progress indicator remains determinate during transcription
   - id: auth_surface_can_switch_local_caption_engine_when_available
     description: A higher-spec build target may expose multiple local caption engines from Settings without changing the feed-first access flow.
     when:

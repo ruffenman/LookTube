@@ -437,13 +437,6 @@ internal class OnDeviceLocalCaptionGenerator(
                     onProgress(extractionCaptionStatus(progress))
                 },
             )
-            onProgress(
-                CaptionGenerationStatus(
-                    phase = CaptionGenerationPhase.Transcribing,
-                    message = "Transcribing audio on this device…",
-                    progressFraction = CAPTION_TRANSCRIPTION_PROGRESS_START,
-                ),
-            )
             val segments = transcribeAudioFile(
                 modelPath = request.modelPath,
                 audioFile = audioFile,
@@ -473,6 +466,13 @@ internal class OnDeviceLocalCaptionGenerator(
             ((audioFile.length() + (PCM_CHUNK_BYTES - 1)) / PCM_CHUNK_BYTES).toInt(),
         )
         val segments = mutableListOf<CaptionSegment>()
+        onProgress(
+            transcriptionCaptionStatus(
+                completedChunkCount = 0,
+                totalChunks = totalChunks,
+                activeChunkProgressPercent = 0,
+            ),
+        )
         FileInputStream(audioFile).use { input ->
             val chunkBuffer = ByteArray(PCM_CHUNK_BYTES)
             var chunkIndex = 0
@@ -490,6 +490,15 @@ internal class OnDeviceLocalCaptionGenerator(
                     modelPath = modelPath,
                     audioSamples = audioSamples,
                     numThreads = recommendedThreadCount(),
+                    onProgressPercent = { progressPercent ->
+                        onProgress(
+                            transcriptionCaptionStatus(
+                                completedChunkCount = chunkIndex,
+                                totalChunks = totalChunks,
+                                activeChunkProgressPercent = progressPercent,
+                            ),
+                        )
+                    },
                 )
                 chunkSegments.forEach { segment ->
                     segments += segment.copy(
@@ -500,13 +509,10 @@ internal class OnDeviceLocalCaptionGenerator(
                 chunkIndex += 1
                 chunkOffsetMs += (audioSamples.size * 1_000L) / TARGET_SAMPLE_RATE
                 onProgress(
-                    CaptionGenerationStatus(
-                        phase = CaptionGenerationPhase.Transcribing,
-                        message = "Transcribing audio on this device…",
-                        progressFraction = transcriptionProgressFraction(
-                            completedChunkCount = chunkIndex,
-                            totalChunks = totalChunks,
-                        ),
+                    transcriptionCaptionStatus(
+                        completedChunkCount = chunkIndex,
+                        totalChunks = totalChunks,
+                        activeChunkProgressPercent = 0,
                     ),
                 )
             }
@@ -585,6 +591,35 @@ internal fun transcriptionProgressFraction(
         )
 }
 
+internal fun transcriptionCaptionStatus(
+    completedChunkCount: Int,
+    totalChunks: Int,
+    activeChunkProgressPercent: Int? = null,
+): CaptionGenerationStatus {
+    val safeTotalChunks = totalChunks.coerceAtLeast(1)
+    val boundedCompletedChunkCount = completedChunkCount.coerceIn(0, safeTotalChunks)
+    val boundedChunkProgressPercent = activeChunkProgressPercent?.coerceIn(0, 100)
+    val completedUnits = (
+        boundedCompletedChunkCount.toFloat() +
+            ((boundedChunkProgressPercent ?: 0).toFloat() / 100f)
+        )
+        .coerceIn(0f, safeTotalChunks.toFloat())
+    val overallCompletionFraction = (completedUnits / safeTotalChunks.toFloat()).coerceIn(0f, 1f)
+    val overallCompletionPercent = (overallCompletionFraction * 100f).roundToInt()
+    return CaptionGenerationStatus(
+        phase = CaptionGenerationPhase.Transcribing,
+        message = "Transcribing audio on this device… $overallCompletionPercent% complete",
+        progressFraction = (
+            CAPTION_TRANSCRIPTION_PROGRESS_START +
+                (overallCompletionFraction * CAPTION_TRANSCRIPTION_PROGRESS_RANGE)
+            )
+            .coerceIn(
+                CAPTION_TRANSCRIPTION_PROGRESS_START,
+                CAPTION_TRANSCRIPTION_PROGRESS_START + CAPTION_TRANSCRIPTION_PROGRESS_RANGE,
+            ),
+    )
+}
+
 internal fun formatCaptionProgressTime(totalSeconds: Long): String {
     val hours = totalSeconds / 3_600
     val minutes = (totalSeconds % 3_600) / 60
@@ -610,19 +645,27 @@ private object WhisperNativeBridge {
     private var cachedModelPath: String? = null
     @Volatile
     private var cachedContextPointer: Long = 0L
+    private val nativeProgressListener = ThreadLocal<((Int) -> Unit)?>()
 
     @Synchronized
     fun transcribe(
         modelPath: String,
         audioSamples: FloatArray,
         numThreads: Int,
+        onProgressPercent: (Int) -> Unit = {},
     ): List<CaptionSegment> {
         val contextPointer = obtainContext(modelPath)
-        nativeFullTranscribe(
-            contextPointer = contextPointer,
-            numThreads = numThreads,
-            audioData = audioSamples,
-        )
+        val previousProgressListener = nativeProgressListener.get()
+        nativeProgressListener.set(onProgressPercent)
+        try {
+            nativeFullTranscribe(
+                contextPointer = contextPointer,
+                numThreads = numThreads,
+                audioData = audioSamples,
+            )
+        } finally {
+            nativeProgressListener.set(previousProgressListener)
+        }
         return buildList {
             val segmentCount = nativeGetSegmentCount(contextPointer)
             for (index in 0 until segmentCount) {
@@ -654,6 +697,11 @@ private object WhisperNativeBridge {
         cachedContextPointer = createdContextPointer
         cachedModelPath = modelPath
         return createdContextPointer
+    }
+
+    @JvmStatic
+    fun dispatchNativeProgress(progressPercent: Int) {
+        nativeProgressListener.get()?.invoke(progressPercent.coerceIn(0, 100))
     }
 
     private external fun nativeInitContext(modelPath: String): Long

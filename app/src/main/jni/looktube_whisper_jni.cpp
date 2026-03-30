@@ -6,6 +6,10 @@
 
 namespace {
 
+JavaVM * g_java_vm = nullptr;
+jclass g_whisper_bridge_class = nullptr;
+jmethodID g_dispatch_progress_method = nullptr;
+
 jclass find_illegal_state_exception(JNIEnv * env) {
     return env->FindClass("java/lang/IllegalStateException");
 }
@@ -17,7 +21,61 @@ void throw_illegal_state(JNIEnv * env, const char * message) {
     }
 }
 
+bool ensure_progress_bridge(JNIEnv * env) {
+    if (g_whisper_bridge_class != nullptr && g_dispatch_progress_method != nullptr) {
+        return true;
+    }
+    jclass local_bridge_class = env->FindClass("com/looktube/app/WhisperNativeBridge");
+    if (local_bridge_class == nullptr) {
+        env->ExceptionClear();
+        return false;
+    }
+    g_whisper_bridge_class = reinterpret_cast<jclass>(env->NewGlobalRef(local_bridge_class));
+    env->DeleteLocalRef(local_bridge_class);
+    if (g_whisper_bridge_class == nullptr) {
+        return false;
+    }
+    g_dispatch_progress_method = env->GetStaticMethodID(g_whisper_bridge_class, "dispatchNativeProgress", "(I)V");
+    if (g_dispatch_progress_method == nullptr) {
+        env->ExceptionClear();
+        return false;
+    }
+    return true;
+}
+
+void whisper_progress_bridge(
+    whisper_context * /* context */,
+    whisper_state * /* state */,
+    int progress,
+    void * /* user_data */
+) {
+    if (g_java_vm == nullptr || g_whisper_bridge_class == nullptr || g_dispatch_progress_method == nullptr) {
+        return;
+    }
+    JNIEnv * env = nullptr;
+    bool attached_current_thread = false;
+    if (g_java_vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
+        if (g_java_vm->AttachCurrentThread(&env, nullptr) != JNI_OK) {
+            return;
+        }
+        attached_current_thread = true;
+    }
+    env->CallStaticVoidMethod(g_whisper_bridge_class, g_dispatch_progress_method, progress);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+    }
+    if (attached_current_thread) {
+        g_java_vm->DetachCurrentThread();
+    }
+}
+
 }  // namespace
+
+extern "C"
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM * vm, void * /* reserved */) {
+    g_java_vm = vm;
+    return JNI_VERSION_1_6;
+}
 
 extern "C"
 JNIEXPORT jlong JNICALL
@@ -77,6 +135,10 @@ Java_com_looktube_app_WhisperNativeBridge_nativeFullTranscribe(
     params.offset_ms = 0;
     params.no_context = true;
     params.single_segment = false;
+    if (ensure_progress_bridge(env)) {
+        params.progress_callback = whisper_progress_bridge;
+        params.progress_callback_user_data = nullptr;
+    }
 
     const int result = whisper_full(context, params, audio_data_pointer, audio_data_length);
     env->ReleaseFloatArrayElements(audio_data, audio_data_pointer, JNI_ABORT);
