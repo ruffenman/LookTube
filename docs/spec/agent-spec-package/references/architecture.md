@@ -28,7 +28,7 @@ Its central promise is deliberately narrow:
 ### Library
 - combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
 - wraps status plus browse controls inside a default-collapsed Library Config element that sits above the scrolling episode list
-- grouped headers can collapse or expand independently with compact icon-based expand/collapse controls, expose one whole-group watched-state toggle at a time, let their metadata and toggle reclaim the width beneath the affordance instead of leaving a dead left gutter, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
+- grouped headers can collapse or expand independently with compact icon-based expand/collapse controls, place their title and metadata beneath that control instead of offsetting them to its right, expose one whole-group watched-state toggle at a time, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
 - shows watched-versus-total progress for shows while Look Points scoring remains available from the global shell badge and still reflects watched videos only
 - uses explicit `Mark as Watched` and `Mark as Unwatched` wording for manual watch-state actions
 - should remain usable and informative even before a successful live sync
