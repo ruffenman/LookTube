@@ -472,6 +472,9 @@ internal class OnDeviceLocalCaptionGenerator(
         )
         val transcriptionStartedAtNanos = System.nanoTime()
         val segments = mutableListOf<CaptionSegment>()
+        var lastCompletedChunkDurationSeconds: Long? = null
+        var lastCompletedChunkWallSeconds: Long? = null
+        var lastCompletedChunkTimings: WhisperNativeTimings? = null
         onProgress(
             transcriptionCaptionStatus(
                 completedChunkCount = 0,
@@ -498,7 +501,8 @@ internal class OnDeviceLocalCaptionGenerator(
                     (audioSamples.size.toLong() + (TARGET_SAMPLE_RATE - 1).toLong()) / TARGET_SAMPLE_RATE.toLong(),
                 )
                 val processedAudioSeconds = chunkOffsetMs / 1_000L
-                val chunkSegments = WhisperNativeBridge.transcribe(
+                val chunkStartedAtNanos = System.nanoTime()
+                val transcriptionResult = WhisperNativeBridge.transcribe(
                     modelPath = modelPath,
                     audioSamples = audioSamples,
                     numThreads = recommendedThreadCount(),
@@ -512,10 +516,15 @@ internal class OnDeviceLocalCaptionGenerator(
                                 activeChunkDurationSeconds = currentChunkDurationSeconds,
                                 activeChunkProgressPercent = progressPercent,
                                 elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
+                                lastCompletedChunkDurationSeconds = lastCompletedChunkDurationSeconds,
+                                lastCompletedChunkWallSeconds = lastCompletedChunkWallSeconds,
+                                lastCompletedChunkTimings = lastCompletedChunkTimings,
                             ),
                         )
                     },
                 )
+                val chunkSegments = transcriptionResult.segments
+                val chunkWallSeconds = elapsedSince(chunkStartedAtNanos)
                 chunkSegments.forEach { segment ->
                     segments += segment.copy(
                         startMs = chunkOffsetMs + segment.startMs,
@@ -524,6 +533,9 @@ internal class OnDeviceLocalCaptionGenerator(
                 }
                 chunkIndex += 1
                 chunkOffsetMs += (audioSamples.size * 1_000L) / TARGET_SAMPLE_RATE
+                lastCompletedChunkDurationSeconds = currentChunkDurationSeconds
+                lastCompletedChunkWallSeconds = chunkWallSeconds
+                lastCompletedChunkTimings = transcriptionResult.timings
                 onProgress(
                     transcriptionCaptionStatus(
                         completedChunkCount = chunkIndex,
@@ -531,6 +543,9 @@ internal class OnDeviceLocalCaptionGenerator(
                         processedAudioSeconds = chunkOffsetMs / 1_000L,
                         totalAudioDurationSeconds = totalAudioDurationSeconds,
                         elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
+                        lastCompletedChunkDurationSeconds = lastCompletedChunkDurationSeconds,
+                        lastCompletedChunkWallSeconds = lastCompletedChunkWallSeconds,
+                        lastCompletedChunkTimings = lastCompletedChunkTimings,
                     ),
                 )
             }
@@ -570,6 +585,19 @@ internal data class CaptionSegment(
     val startMs: Long,
     val endMs: Long,
     val text: String,
+)
+
+internal data class WhisperNativeTimings(
+    val sampleMs: Float,
+    val encodeMs: Float,
+    val decodeMs: Float,
+    val batchDecodeMs: Float,
+    val promptMs: Float,
+)
+
+internal data class WhisperTranscriptionResult(
+    val segments: List<CaptionSegment>,
+    val timings: WhisperNativeTimings?,
 )
 
 internal fun extractionCaptionStatus(progress: AudioExtractionProgress): CaptionGenerationStatus {
@@ -620,6 +648,9 @@ internal fun transcriptionCaptionStatus(
     activeChunkDurationSeconds: Long = 0L,
     activeChunkProgressPercent: Int? = null,
     elapsedRealtimeSeconds: Long? = null,
+    lastCompletedChunkDurationSeconds: Long? = null,
+    lastCompletedChunkWallSeconds: Long? = null,
+    lastCompletedChunkTimings: WhisperNativeTimings? = null,
 ): CaptionGenerationStatus {
     val safeTotalChunks = totalChunks.coerceAtLeast(1)
     val boundedCompletedChunkCount = completedChunkCount.coerceIn(0, safeTotalChunks)
@@ -663,6 +694,11 @@ internal fun transcriptionCaptionStatus(
                 .roundToLong()
                 .coerceAtLeast(0L)
         }
+    val measuredRealtimeSpeed = elapsedRealtimeSeconds
+        ?.takeIf { it > 0L && effectiveProcessedAudioSeconds > 0L }
+        ?.let { elapsedSeconds ->
+            effectiveProcessedAudioSeconds.toDouble() / elapsedSeconds.toDouble()
+        }
     val progressMessage = buildString {
         append("Transcribing chunk ")
         append(currentChunkNumber)
@@ -676,9 +712,21 @@ internal fun transcriptionCaptionStatus(
         append(" • ")
         append(overallCompletionPercent)
         append("% complete")
+        measuredRealtimeSpeed?.let { speed ->
+            append(" • speed ")
+            append(formatRealtimeSpeed(speed))
+        }
         estimatedRemainingSeconds?.let { remainingSeconds ->
             append(" • ETA ~")
             append(formatCaptionProgressTime(remainingSeconds))
+        }
+        buildLastCompletedChunkSummary(
+            chunkDurationSeconds = lastCompletedChunkDurationSeconds,
+            chunkWallSeconds = lastCompletedChunkWallSeconds,
+            timings = lastCompletedChunkTimings,
+        )?.let { lastChunkSummary ->
+            append(" • ")
+            append(lastChunkSummary)
         }
     }
     return CaptionGenerationStatus(
@@ -697,6 +745,35 @@ internal fun transcriptionCaptionStatus(
 
 private fun elapsedSince(startedAtNanos: Long): Long =
     ((System.nanoTime() - startedAtNanos).coerceAtLeast(0L) / 1_000_000_000L)
+
+private fun formatRealtimeSpeed(speed: Double): String =
+    String.format(Locale.US, "%.2fx realtime", speed.coerceAtLeast(0.0))
+
+private fun buildLastCompletedChunkSummary(
+    chunkDurationSeconds: Long?,
+    chunkWallSeconds: Long?,
+    timings: WhisperNativeTimings?,
+): String? {
+    val durationSeconds = chunkDurationSeconds?.takeIf { it > 0L } ?: return null
+    val wallSeconds = chunkWallSeconds?.takeIf { it >= 0L } ?: return null
+    return buildString {
+        append("last ")
+        append(formatCaptionProgressTime(durationSeconds))
+        append(" chunk ")
+        append(formatCaptionProgressTime(wallSeconds))
+        append(" wall")
+        timings?.let { nativeTimings ->
+            append(" (enc ")
+            append(formatTimingMillis(nativeTimings.encodeMs))
+            append(", dec ")
+            append(formatTimingMillis(nativeTimings.decodeMs))
+            append(')')
+        }
+    }
+}
+
+private fun formatTimingMillis(durationMs: Float): String =
+    formatCaptionProgressTime((durationMs.coerceAtLeast(0f) / 1_000f).roundToLong())
 
 internal fun formatCaptionProgressTime(totalSeconds: Long): String {
     val hours = totalSeconds / 3_600
@@ -734,11 +811,12 @@ private object WhisperNativeBridge {
         audioSamples: FloatArray,
         numThreads: Int,
         onProgressPercent: (Int) -> Unit = {},
-    ): List<CaptionSegment> {
+    ): WhisperTranscriptionResult {
         val contextPointer = obtainContext(modelPath)
         val previousProgressListener = nativeProgressListener
         nativeProgressListener = onProgressPercent
         try {
+            nativeResetTimings(contextPointer)
             nativeFullTranscribe(
                 contextPointer = contextPointer,
                 numThreads = numThreads,
@@ -758,6 +836,21 @@ private object WhisperNativeBridge {
                     ),
                 )
             }
+        }.let { segments ->
+            WhisperTranscriptionResult(
+                segments = segments,
+                timings = nativeGetTimings(contextPointer)
+                    ?.takeIf { it.size >= 5 }
+                    ?.let { rawTimings ->
+                        WhisperNativeTimings(
+                            sampleMs = rawTimings[0],
+                            encodeMs = rawTimings[1],
+                            decodeMs = rawTimings[2],
+                            batchDecodeMs = rawTimings[3],
+                            promptMs = rawTimings[4],
+                        )
+                    },
+            )
         }
     }
 
@@ -792,6 +885,8 @@ private object WhisperNativeBridge {
         numThreads: Int,
         audioData: FloatArray,
     )
+    private external fun nativeResetTimings(contextPointer: Long)
+    private external fun nativeGetTimings(contextPointer: Long): FloatArray?
     private external fun nativeGetSegmentCount(contextPointer: Long): Int
     private external fun nativeGetSegmentText(contextPointer: Long, index: Int): String
     private external fun nativeGetSegmentStartTicks(contextPointer: Long, index: Int): Long

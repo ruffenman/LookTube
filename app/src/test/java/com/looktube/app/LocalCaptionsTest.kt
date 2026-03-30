@@ -74,7 +74,10 @@ class LocalCaptionsTest {
         )
 
         assertEquals(CaptionGenerationPhase.Transcribing, status.phase)
-        assertEquals("Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete", status.message)
+        assertEquals(
+            "Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete • speed 0.25x realtime",
+            status.message,
+        )
         assertEquals(0.60625f, status.progressFraction ?: 0f, 0.0001f)
     }
 
@@ -104,9 +107,35 @@ class LocalCaptionsTest {
         )
 
         assertEquals(
-            "Transcribing chunk 2 of 4… 3:00 of 8:00 processed • 38% complete • ETA ~5:00",
+            "Transcribing chunk 2 of 4… 3:00 of 8:00 processed • 38% complete • speed 1.00x realtime • ETA ~5:00",
             status.message,
         )
         assertEquals(0.60625f, status.progressFraction ?: 0f, 0.0001f)
+    }
+
+    @Test
+    fun transcriptionCaptionStatusIncludesLastChunkWallTimeAndNativeTimings() {
+        val status = transcriptionCaptionStatus(
+            completedChunkCount = 2,
+            totalChunks = 4,
+            processedAudioSeconds = 240L,
+            totalAudioDurationSeconds = 480L,
+            elapsedRealtimeSeconds = 480L,
+            lastCompletedChunkDurationSeconds = 120L,
+            lastCompletedChunkWallSeconds = 150L,
+            lastCompletedChunkTimings = WhisperNativeTimings(
+                sampleMs = 2_000f,
+                encodeMs = 96_000f,
+                decodeMs = 12_000f,
+                batchDecodeMs = 0f,
+                promptMs = 0f,
+            ),
+        )
+
+        assertEquals(
+            "Transcribing chunk 3 of 4… 4:00 of 8:00 processed • 50% complete • speed 0.50x realtime • ETA ~8:00 • last 2:00 chunk 2:30 wall (enc 1:36, dec 0:12)",
+            status.message,
+        )
+        assertEquals(0.675f, status.progressFraction ?: 0f, 0.0001f)
     }
 }

@@ -149,6 +149,52 @@ Java_com_looktube_app_WhisperNativeBridge_nativeFullTranscribe(
 }
 
 extern "C"
+JNIEXPORT void JNICALL
+Java_com_looktube_app_WhisperNativeBridge_nativeResetTimings(
+    JNIEnv * /* env */,
+    jobject /* thiz */,
+    jlong context_pointer
+) {
+    whisper_context * context = reinterpret_cast<whisper_context *>(context_pointer);
+    if (context == nullptr) {
+        return;
+    }
+    whisper_reset_timings(context);
+}
+
+extern "C"
+JNIEXPORT jfloatArray JNICALL
+Java_com_looktube_app_WhisperNativeBridge_nativeGetTimings(
+    JNIEnv * env,
+    jobject /* thiz */,
+    jlong context_pointer
+) {
+    whisper_context * context = reinterpret_cast<whisper_context *>(context_pointer);
+    if (context == nullptr) {
+        return nullptr;
+    }
+    whisper_timings * timings = whisper_get_timings(context);
+    if (timings == nullptr) {
+        return nullptr;
+    }
+    jfloatArray result = env->NewFloatArray(5);
+    if (result == nullptr) {
+        delete timings;
+        return nullptr;
+    }
+    const jfloat timing_values[5] = {
+        timings->sample_ms,
+        timings->encode_ms,
+        timings->decode_ms,
+        timings->batchd_ms,
+        timings->prompt_ms,
+    };
+    env->SetFloatArrayRegion(result, 0, 5, timing_values);
+    delete timings;
+    return result;
+}
+
+extern "C"
 JNIEXPORT jint JNICALL
 Java_com_looktube_app_WhisperNativeBridge_nativeGetSegmentCount(
     JNIEnv * /* env */,

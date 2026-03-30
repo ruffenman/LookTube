@@ -375,12 +375,14 @@ scenarios:
           playback_url: "https://video.example.com/video-long.mp4"
         selected_caption_generation_status:
           phase: "Transcribing"
-          message: "Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete • ETA ~3:00"
+          message: "Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete • speed 0.25x realtime • ETA ~3:00 • last 0:30 chunk 2:30 wall (enc 1:36, dec 0:12)"
           progress_fraction: 0.60625
     then:
       - visible player copy contains "0:45 of 2:00 processed"
       - visible player copy contains "38% complete"
+      - visible player copy contains "speed 0.25x realtime"
       - visible player copy contains "ETA ~3:00"
+      - visible player copy contains "last 0:30 chunk 2:30 wall"
       - visible caption progress indicator remains determinate during transcription
   - id: auth_surface_can_switch_local_caption_engine_when_available
     description: A higher-spec build target may expose multiple local caption engines from Settings without changing the feed-first access flow.
