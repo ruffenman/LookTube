@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.8"
+  version: "0.2.9"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -213,7 +213,7 @@ contract:
         - choose the active local caption engine when multiple engines are available for the current build target
         - download offline caption model
     - name: library
-      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped-section cards, watched-state controls, show-completion visualization, rich cards, and section jumping.
+      description: Browse surface for synced videos with an overview panel above the scrolling results, grouping, sorting, filtering, collapsible grouped-section cards whose metadata and watched toggle can reclaim the width beneath the expand/collapse affordance, show-completion visualization, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest

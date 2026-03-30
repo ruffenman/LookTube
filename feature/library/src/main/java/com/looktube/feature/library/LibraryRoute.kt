@@ -985,7 +985,6 @@ private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 private val GROUPED_HEADER_MAX_END_PADDING = 148.dp
 private val GROUPED_VIDEO_MAX_END_PADDING = 112.dp
-private val GROUP_HEADER_TOGGLE_INDENT = 54.dp
 
 internal enum class JumpRailInteraction {
     Scroll,
@@ -1251,25 +1250,32 @@ private fun SeriesSectionHeader(
                     text = section.title,
                     style = MaterialTheme.typography.headlineSmall,
                 )
-                Text(
-                    text = supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
-        FilterChip(
-            modifier = Modifier.padding(start = GROUP_HEADER_TOGGLE_INDENT),
-            selected = sectionIsFullyWatched,
-            onClick = {
-                if (sectionIsFullyWatched) {
-                    onMarkSectionUnwatched()
-                } else {
-                    onMarkSectionWatched()
-                }
-            },
-            label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+        Text(
+            text = supportingText,
+            modifier = Modifier.padding(end = textEndPadding),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = textEndPadding),
+        )
+        {
+            FilterChip(
+                selected = sectionIsFullyWatched,
+                onClick = {
+                    if (sectionIsFullyWatched) {
+                        onMarkSectionUnwatched()
+                    } else {
+                        onMarkSectionWatched()
+                    }
+                },
+                label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+            )
+        }
     }
 }
 
