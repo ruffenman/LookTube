@@ -110,8 +110,10 @@ fun LibraryRoute(
     var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
     var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
+    var groupMenuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
+    var lastRailInteraction by remember { mutableStateOf(JumpRailInteraction.Scroll) }
     var collapsedSectionKeys by remember(groupingMode.name) { mutableStateOf(emptySet<String>()) }
     val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
@@ -265,9 +267,10 @@ fun LibraryRoute(
             return@LaunchedEffect
         }
         if (listState.isScrollInProgress) {
+            lastRailInteraction = JumpRailInteraction.Scroll
             railEmphasized = true
         } else {
-            delay(RAIL_IDLE_FADE_DELAY_MS)
+            delay(jumpRailFadeDelayMs(lastRailInteraction))
             if (!listState.isScrollInProgress) {
                 railEmphasized = false
             }
@@ -309,6 +312,8 @@ fun LibraryRoute(
                 LibraryOverviewPanel(
                     libraryStatusBody = libraryStatusBody,
                     groupingMode = groupingMode,
+                    groupMenuExpanded = groupMenuExpanded,
+                    onGroupMenuExpandedChanged = { groupMenuExpanded = it },
                     onGroupingModeChanged = { groupingMode = it },
                     sortOption = sortOption,
                     sortMenuExpanded = sortMenuExpanded,
@@ -340,7 +345,7 @@ fun LibraryRoute(
                     ) {
                         Text(
                             text = when {
-                                videos.isEmpty() -> "Sync your Premium feed on Auth to load your library."
+                                videos.isEmpty() -> "Sync your Premium feed in Settings to load your library."
                                 selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
                                 else -> "No videos are available in your synced library yet."
                             },
@@ -428,18 +433,130 @@ fun LibraryRoute(
                     .padding(top = LIST_TOP_CONTENT_PADDING, end = 4.dp, bottom = LIST_TOP_CONTENT_PADDING)
                     .height((railHeight - (LIST_TOP_CONTENT_PADDING * 2)).coerceAtLeast(0.dp)),
                 onTargetSelected = { target ->
+                    lastRailInteraction = JumpRailInteraction.TargetSelection
                     railEmphasized = true
                     scope.launch {
                         listState.scrollToItem(target.itemIndex)
                     }
                 },
                 onScrollFractionChanged = { fraction ->
+                    lastRailInteraction = JumpRailInteraction.TargetSelection
                     railEmphasized = true
                     scope.launch {
                         listState.scrollToItem(listState.targetItemIndexForFraction(fraction))
                     }
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun BrowseDropdownControlsRow(
+    groupingMode: HeuristicGroupingMode,
+    groupMenuExpanded: Boolean,
+    onGroupMenuExpandedChanged: (Boolean) -> Unit,
+    onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
+    sortOption: LibrarySortOption,
+    sortMenuExpanded: Boolean,
+    onSortMenuExpandedChanged: (Boolean) -> Unit,
+    onSortOptionChanged: (LibrarySortOption) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        BrowseSelectionDropdown(
+            label = "Group By",
+            value = groupingMode.label,
+            expanded = groupMenuExpanded,
+            modifier = Modifier.weight(1f),
+            onExpandedChanged = onGroupMenuExpandedChanged,
+        ) {
+            HeuristicGroupingMode.entries.forEach { mode ->
+                DropdownMenuItem(
+                    text = { Text(mode.label) },
+                    onClick = {
+                        onGroupingModeChanged(mode)
+                        onGroupMenuExpandedChanged(false)
+                    },
+                )
+            }
+        }
+        BrowseSelectionDropdown(
+            label = "Sort By",
+            value = sortOption.label,
+            expanded = sortMenuExpanded,
+            modifier = Modifier.weight(1f),
+            onExpandedChanged = onSortMenuExpandedChanged,
+        ) {
+            LibrarySortOption.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onSortOptionChanged(option)
+                        onSortMenuExpandedChanged(false)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrowseSelectionDropdown(
+    label: String,
+    value: String,
+    expanded: Boolean,
+    modifier: Modifier = Modifier,
+    onExpandedChanged: (Boolean) -> Unit,
+    menuContent: @Composable () -> Unit,
+) {
+    Box(modifier = modifier) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .clickable { onExpandedChanged(true) },
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = if (expanded) "▲" else "▼",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChanged(false) },
+        ) {
+            menuContent()
         }
     }
 }
@@ -489,6 +606,8 @@ private fun BrowseControlChipRow(
 @Composable
 private fun BrowseControlsPanel(
     groupingMode: HeuristicGroupingMode,
+    groupMenuExpanded: Boolean,
+    onGroupMenuExpandedChanged: (Boolean) -> Unit,
     onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
     sortOption: LibrarySortOption,
     sortMenuExpanded: Boolean,
@@ -519,18 +638,15 @@ private fun BrowseControlsPanel(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            BrowseControlSection(
-                label = "Group By",
-                contentEndPadding = chipRowEndPadding,
-                content = {
-                    HeuristicGroupingMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = groupingMode == mode,
-                            onClick = { onGroupingModeChanged(mode) },
-                            label = { Text(mode.label) },
-                        )
-                    }
-                },
+            BrowseDropdownControlsRow(
+                groupingMode = groupingMode,
+                groupMenuExpanded = groupMenuExpanded,
+                onGroupMenuExpandedChanged = onGroupMenuExpandedChanged,
+                onGroupingModeChanged = onGroupingModeChanged,
+                sortOption = sortOption,
+                sortMenuExpanded = sortMenuExpanded,
+                onSortMenuExpandedChanged = onSortMenuExpandedChanged,
+                onSortOptionChanged = onSortOptionChanged,
             )
             if (isGrouped) {
                 BrowseControlSection(
@@ -550,36 +666,6 @@ private fun BrowseControlsPanel(
                         )
                     },
                 )
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = "Sort By",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Box {
-                    FilterChip(
-                        selected = false,
-                        onClick = { onSortMenuExpandedChanged(true) },
-                        label = { Text("Sort By: ${sortOption.label}") },
-                    )
-                    DropdownMenu(
-                        expanded = sortMenuExpanded,
-                        onDismissRequest = { onSortMenuExpandedChanged(false) },
-                    ) {
-                        LibrarySortOption.entries.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option.label) },
-                                onClick = {
-                                    onSortOptionChanged(option)
-                                    onSortMenuExpandedChanged(false)
-                                },
-                            )
-                        }
-                    }
-                }
             }
             Surface(
                 modifier = Modifier
@@ -699,6 +785,8 @@ private fun LibraryOverviewPanel(
     modifier: Modifier = Modifier,
     libraryStatusBody: String,
     groupingMode: HeuristicGroupingMode,
+    groupMenuExpanded: Boolean,
+    onGroupMenuExpandedChanged: (Boolean) -> Unit,
     onGroupingModeChanged: (HeuristicGroupingMode) -> Unit,
     sortOption: LibrarySortOption,
     sortMenuExpanded: Boolean,
@@ -743,6 +831,8 @@ private fun LibraryOverviewPanel(
             ) {
                 BrowseControlsPanel(
                     groupingMode = groupingMode,
+                    groupMenuExpanded = groupMenuExpanded,
+                    onGroupMenuExpandedChanged = onGroupMenuExpandedChanged,
                     onGroupingModeChanged = onGroupingModeChanged,
                     sortOption = sortOption,
                     sortMenuExpanded = sortMenuExpanded,
@@ -787,8 +877,8 @@ private fun LibraryConfigPanel(
         selectedSeriesFilter,
     ) {
         buildList {
-            add("Sort ${sortOption.label}")
-            add("Group ${groupingMode.label}")
+            add(sortOption.label)
+            add(groupingMode.label)
             if (isGrouped) {
                 add("$expandedGroupCount/$groupSectionCount groups open")
             }
@@ -881,7 +971,8 @@ internal enum class LibrarySortOption(val label: String) {
 private const val ALL_SERIES_FILTER = "All shows"
 private const val RESULTS_ANCHOR_INDEX = 1
 private const val VIDEO_LIST_START_INDEX = 2
-private const val RAIL_IDLE_FADE_DELAY_MS = 600L
+private const val PASSIVE_RAIL_IDLE_FADE_DELAY_MS = 200L
+private const val TAP_RAIL_IDLE_FADE_DELAY_MS = 1_000L
 private val LIST_TOP_CONTENT_PADDING = 16.dp
 private val JUMP_RAIL_WIDTH = 176.dp
 private val TOP_ONLY_RAIL_WIDTH = 84.dp
@@ -892,13 +983,21 @@ private val JUMP_RAIL_TEXT_CLEARANCE = JUMP_RAIL_LABEL_WIDTH + JUMP_RAIL_LABEL_E
 private val TOP_ONLY_RAIL_TEXT_CLEARANCE = TOP_ONLY_LABEL_WIDTH + JUMP_RAIL_LABEL_END_PADDING + 8.dp
 private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
-private val GROUPED_HEADER_MAX_END_PADDING = 160.dp
-private val GROUPED_VIDEO_MAX_END_PADDING = 88.dp
-private val GROUPED_SECTION_CONNECTOR_GUTTER = 18.dp
-private val GROUPED_SECTION_CONNECTOR_WIDTH = 2.dp
-private val GROUPED_SECTION_BRANCH_OFFSET = 26.dp
-private val GROUPED_SECTION_CONNECTOR_TOP_TRIM = 8.dp
-private val GROUPED_SECTION_CONNECTOR_BOTTOM_TRIM = 14.dp
+private val GROUPED_HEADER_MAX_END_PADDING = 148.dp
+private val GROUPED_VIDEO_MAX_END_PADDING = 112.dp
+private val GROUP_HEADER_TOGGLE_INDENT = 54.dp
+
+internal enum class JumpRailInteraction {
+    Scroll,
+    TargetSelection,
+}
+
+internal fun jumpRailFadeDelayMs(interaction: JumpRailInteraction): Long =
+    if (interaction == JumpRailInteraction.TargetSelection) {
+        TAP_RAIL_IDLE_FADE_DELAY_MS
+    } else {
+        PASSIVE_RAIL_IDLE_FADE_DELAY_MS
+    }
 
 internal fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
     when (sortOption) {
@@ -1037,7 +1136,7 @@ private fun GroupedSeriesSectionCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SeriesSectionHeader(
@@ -1055,18 +1154,15 @@ private fun GroupedSeriesSectionCard(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
                 )
                 Column(
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    section.videos.forEachIndexed { index, video ->
+                    section.videos.forEach { video ->
                         GroupedSectionVideoCard(
                             video = video,
                             progress = playbackProgress[video.id],
                             engagementRecord = videoEngagement[video.id],
                             dismissDetailsSignal = dismissDetailsSignal,
                             textEndPadding = videoTextEndPadding,
-                            isFirstInSection = index == 0,
-                            isLastInSection = index == section.videos.lastIndex,
                             onMarkVideoWatched = onMarkVideoWatched,
                             onMarkVideoUnwatched = onMarkVideoUnwatched,
                             onVideoSelected = onVideoSelected,
@@ -1097,30 +1193,60 @@ private fun SeriesSectionHeader(
         }
     }.joinToString(" • ")
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggleExpanded)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    start = 14.dp,
-                    top = 14.dp,
-                    end = 14.dp + textEndPadding,
-                    bottom = 14.dp,
-                ),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .clickable(onClick = onToggleExpanded),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Text(
-                text = section.kindLabel.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Surface(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(onClick = onToggleExpanded),
+                shape = RoundedCornerShape(14.dp),
+                color = if (isExpanded) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+                contentColor = if (isExpanded) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (isExpanded) "−" else "+",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = textEndPadding),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                Text(
+                    text = section.kindLabel.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(
                     text = section.title,
                     style = MaterialTheme.typography.headlineSmall,
@@ -1132,41 +1258,8 @@ private fun SeriesSectionHeader(
                 )
             }
         }
-        Surface(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(42.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = onToggleExpanded),
-            shape = RoundedCornerShape(14.dp),
-            color = if (isExpanded) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-            contentColor = if (isExpanded) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-            tonalElevation = 0.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (isExpanded) "−" else "+",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
         FilterChip(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 14.dp, bottom = 14.dp),
+            modifier = Modifier.padding(start = GROUP_HEADER_TOGGLE_INDENT),
             selected = sectionIsFullyWatched,
             onClick = {
                 if (sectionIsFullyWatched) {
@@ -1187,66 +1280,20 @@ private fun GroupedSectionVideoCard(
     engagementRecord: VideoEngagementRecord?,
     dismissDetailsSignal: Boolean = false,
     textEndPadding: Dp = 0.dp,
-    isFirstInSection: Boolean,
-    isLastInSection: Boolean,
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
     onVideoSelected: (String) -> Unit,
 ) {
-    val connectorColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(GROUPED_SECTION_CONNECTOR_GUTTER)
-                .fillMaxHeight(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(
-                        top = if (isFirstInSection) GROUPED_SECTION_CONNECTOR_TOP_TRIM else 0.dp,
-                        bottom = if (isLastInSection) GROUPED_SECTION_CONNECTOR_BOTTOM_TRIM else 0.dp,
-                    )
-                    .width(GROUPED_SECTION_CONNECTOR_WIDTH)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(connectorColor),
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = GROUPED_SECTION_BRANCH_OFFSET)
-                    .width(GROUPED_SECTION_CONNECTOR_GUTTER)
-                    .height(GROUPED_SECTION_CONNECTOR_WIDTH)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(connectorColor),
-            )
-        }
-        Surface(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(26.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
-            tonalElevation = 0.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
-        ) {
-            Box(modifier = Modifier.padding(6.dp)) {
-                VideoListCard(
-                    video = video,
-                    progress = progress,
-                    engagementRecord = engagementRecord,
-                    dismissDetailsSignal = dismissDetailsSignal,
-                    textEndPadding = textEndPadding,
-                    onMarkVideoWatched = onMarkVideoWatched,
-                    onMarkVideoUnwatched = onMarkVideoUnwatched,
-                    modifier = Modifier.clickable { onVideoSelected(video.id) },
-                )
-            }
-        }
-    }
+    VideoListCard(
+        video = video,
+        progress = progress,
+        engagementRecord = engagementRecord,
+        dismissDetailsSignal = dismissDetailsSignal,
+        textEndPadding = textEndPadding,
+        onMarkVideoWatched = onMarkVideoWatched,
+        onMarkVideoUnwatched = onMarkVideoUnwatched,
+        modifier = Modifier.clickable { onVideoSelected(video.id) },
+    )
 }
 
 @Composable

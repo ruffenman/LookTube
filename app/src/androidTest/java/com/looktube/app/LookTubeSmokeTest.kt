@@ -14,13 +14,13 @@ class LookTubeSmokeTest {
     @Test
     fun showsMergedLibraryShell() {
         composeRule.onNodeWithText("LookTube").assertIsDisplayed()
+        composeRule.onNodeWithText("Settings").assertIsDisplayed()
         composeRule.onNodeWithText("Connect your Giant Bomb Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Premium feed URL").assertIsDisplayed()
         composeRule.onNodeWithText("Sync Premium feed").assertIsDisplayed()
         composeRule.onNodeWithText("Library").performClick()
-        composeRule.onNodeWithText("By show").assertIsDisplayed()
-        composeRule.onNodeWithText("Sort: Latest").assertIsDisplayed()
-        composeRule.onNodeWithText("Sync your Premium feed on Auth to load your library.").assertIsDisplayed()
+        composeRule.onNodeWithText("Library Config").assertIsDisplayed()
+        composeRule.onNodeWithText("Sync your Premium feed in Settings to load your library.").assertIsDisplayed()
         composeRule.onNodeWithText("Player").performClick()
         composeRule.onNodeWithText("Nothing queued yet").assertIsDisplayed()
     }

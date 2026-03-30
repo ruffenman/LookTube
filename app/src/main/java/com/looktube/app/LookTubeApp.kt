@@ -108,7 +108,7 @@ fun LookTubeApp(
     ) { }
 
     val topLevelDestinations = listOf(
-        TopLevelDestination("auth", "Auth", Icons.Outlined.AccountCircle),
+        TopLevelDestination("settings", "Settings", Icons.Outlined.AccountCircle),
         TopLevelDestination("library", "Library", Icons.Outlined.VideoLibrary),
         TopLevelDestination("player", "Player", Icons.Outlined.PlayCircle),
     )
@@ -253,7 +253,7 @@ fun LookTubeApp(
                 userScrollEnabled = !isPlayerFullscreen,
             ) {
                 when (topLevelDestinations[it].route) {
-                    "auth" -> AuthRoute(
+                    "settings" -> AuthRoute(
                         paddingValues = paddingValues,
                         accountSession = accountSession,
                         feedConfiguration = feedConfiguration,

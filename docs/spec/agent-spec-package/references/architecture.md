@@ -20,7 +20,7 @@ Its central promise is deliberately narrow:
 ### App shell
 - keeps the standard top app bar and bottom navigation visible outside fullscreen playback
 - exposes one global Look Points badge in the top app bar on Library and Player so score remains visible without being embedded into page-local control rows
-### Auth
+### Settings
 - sole user input for access is the copied Premium feed URL
 - communicates setup, ready, syncing, synced, and error-adjacent states
 - can clear synced data while preserving the saved feed URL

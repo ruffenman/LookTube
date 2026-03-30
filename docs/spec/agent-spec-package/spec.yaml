@@ -198,7 +198,7 @@ contract:
       returns:
         video_engagement: VideoEngagementRecord
   surfaces:
-    - name: auth
+    - name: settings
       description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, and local caption model readiness.
       visible_states:
         - setup required
@@ -254,7 +254,7 @@ contract:
         notification: NotificationRecord
   launch_contract:
     pages:
-      0: auth
+      0: settings
       1: library
       2: player
     extras:
@@ -296,9 +296,9 @@ scenarios:
       - returns.account_session.is_signed_in == true
       - returns.videos[0].id == "video-1"
   - id: auth_surface_requires_feed_before_sync
-    description: Auth surface remains in setup-required state until a copied feed URL is present.
+    description: Settings surface remains in setup-required state until a copied feed URL is present.
     when:
-      surface: auth
+      surface: settings
       state:
         feed_configuration: {feed_url: ""}
         account_session: {is_signed_in: false, notes: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
@@ -308,9 +308,9 @@ scenarios:
       - primary sync action is disabled
       - clear synced data action is hidden
   - id: saved_feed_without_successful_sync_is_ready
-    description: Once a copied feed URL is saved, Auth moves to a ready state even before the first successful sync.
+    description: Once a copied feed URL is saved, Settings moves to a ready state even before the first successful sync.
     when:
-      surface: auth
+      surface: settings
       state:
         feed_configuration: {feed_url: "https://example.com/premium.xml"}
         account_session: {is_signed_in: false, notes: "Saved feed URL detected. Sync once to seed the library, then background refresh will keep it current."}
@@ -320,9 +320,9 @@ scenarios:
       - primary sync action is enabled
       - primary sync action label == "Sync Premium feed"
   - id: synced_auth_state_relabels_primary_action_and_shows_clear_action
-    description: After a successful sync, Auth shows a synced state, exposes clear-synced-data, and relabels the primary sync action for repeat use.
+    description: After a successful sync, Settings shows a synced state, exposes clear-synced-data, and relabels the primary sync action for repeat use.
     when:
-      surface: auth
+      surface: settings
       state:
         feed_configuration: {feed_url: "https://example.com/premium.xml"}
         account_session: {is_signed_in: true, account_label: "Copied Premium feed", notes: "Using copied Giant Bomb Premium feed URL."}
@@ -332,45 +332,45 @@ scenarios:
       - primary sync action label == "Re-sync Premium library"
       - clear synced data action is visible
   - id: auth_surface_can_prepare_offline_caption_model
-    description: Auth exposes the local caption model state so the user can prepare provider-free captions before opening Player.
+    description: Settings exposes the local caption model state so the user can prepare provider-free captions before opening Player.
     when:
-      surface: auth
+      surface: settings
       state:
         local_caption_model_state:
           is_ready: false
           is_downloading: false
           error_message: null
     then:
-      - visible auth copy contains "Offline captions"
-      - visible auth copy contains "Download Whisper.cpp model"
+      - visible settings copy contains "Offline captions"
+      - visible settings copy contains "Download Whisper.cpp model"
   - id: auth_surface_can_switch_local_caption_engine_when_available
-    description: A higher-spec build target may expose multiple local caption engines from Auth without changing the feed-first access flow.
+    description: A higher-spec build target may expose multiple local caption engines from Settings without changing the feed-first access flow.
     when:
-      surface: auth
+      surface: settings
       state:
         local_caption_engines:
           - {id: "whisper_cpp", display_name: "Whisper.cpp"}
           - {id: "moonshine", display_name: "Moonshine"}
         selected_local_caption_engine: {id: "whisper_cpp", display_name: "Whisper.cpp"}
     then:
-      - visible auth copy contains "Selected engine: Whisper.cpp"
-      - visible auth copy contains "Moonshine"
+      - visible settings copy contains "Selected engine: Whisper.cpp"
+      - visible settings copy contains "Moonshine"
   - id: auth_surface_shows_caption_model_ready_state
-    description: Once the local caption model is present, Auth reports that offline captions are ready on this device.
+    description: Once the local caption model is present, Settings reports that offline captions are ready on this device.
     when:
-      surface: auth
+      surface: settings
       state:
         local_caption_model_state:
           is_ready: true
           is_downloading: false
           error_message: null
     then:
-      - visible auth copy contains "Offline captions"
-      - visible auth copy contains "Whisper.cpp ready on this device"
+      - visible settings copy contains "Offline captions"
+      - visible settings copy contains "Whisper.cpp ready on this device"
   - id: syncing_auth_state_disables_mutating_actions
-    description: While a sync is active, Auth indicates syncing and prevents conflicting actions.
+    description: While a sync is active, Settings indicates syncing and prevents conflicting actions.
     when:
-      surface: auth
+      surface: settings
       state:
         feed_configuration: {feed_url: "https://example.com/premium.xml"}
         account_session: {is_signed_in: false, notes: "Refreshing feed."}
@@ -431,7 +431,7 @@ scenarios:
   - id: notification_permission_requested_after_feed_saved
     description: On OS versions that gate notifications behind runtime permission, the app requests permission once a non-blank feed URL is saved and permission is not already granted.
     when:
-      surface: auth
+      surface: settings
       state:
         feed_configuration: {feed_url: "https://example.com/premium.xml"}
         notification_permission: denied
@@ -442,7 +442,7 @@ scenarios:
   - id: notification_permission_not_requested_before_feed_saved
     description: Notification permission is not prompted before the user has saved any feed URL.
     when:
-      surface: auth
+      surface: settings
       state:
         feed_configuration: {feed_url: ""}
         notification_permission: denied
@@ -556,14 +556,14 @@ scenarios:
     then:
       - returns.target_page == 1
   - id: library_empty_state_prompts_auth_sync
-    description: Library surface tells the user to sync from Auth when no synced videos are available.
+    description: Library surface tells the user to sync from Settings when no synced videos are available.
     when:
       surface: library
       state:
         videos: []
         library_sync_state: {phase: "Idle", message: "Paste a Giant Bomb Premium RSS URL copied from the feeds page to replace the seeded library."}
     then:
-      - visible empty-state copy contains "Sync your Premium feed on Auth"
+      - visible empty-state copy contains "Sync your Premium feed in Settings"
   - id: library_default_controls_are_show_latest_with_filters_collapsed
     description: Library browsing defaults to show grouping, latest sorting, and collapsed show filters.
     when:
@@ -1012,7 +1012,7 @@ scenarios:
           message: ""
     then:
       - visible player copy contains "Offline captions"
-      - visible player copy contains "Model required in Auth"
+      - visible player copy contains "Model required in Settings"
   - id: player_can_switch_local_caption_engine_when_available
     description: A higher-spec build target may expose multiple local caption engines on the Player surface while keeping caption generation local-first.
     when:
@@ -1211,7 +1211,7 @@ constraints:
     - live feed URLs, cookies, and raw authenticated feed payloads must not be committed as fixtures or examples
     - feed sync and playback flows must not log secret-bearing feed URLs verbatim in normal operation
   compatibility:
-    - implementation must preserve the three top-level surfaces: Auth, Library, and Player
+    - implementation must preserve the three top-level surfaces: Settings, Library, and Player
     - implementation must preserve the launch-intent behavior for opening the Player page and optionally preselecting a video
     - parser must accept RSS item shapes that expose playback targets through media:content, enclosure, or link
     - app must remain usable before the first successful live feed sync

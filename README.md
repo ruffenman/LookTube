@@ -11,7 +11,7 @@ The repository is now past the initial foundation spike and includes a usable An
 - app-level Media3 playback service/session with background playback and fullscreen support
 - default `baseline` app target keeps `minSdk 28` plus the existing whisper.cpp caption path, while an opt-in `moonshine` target adds a higher-spec local engine lane
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
-- committed Roborazzi visual baseline coverage for the Library browse surface, key Auth feed states, and stable Player status states
+- committed Roborazzi visual baseline coverage for the Library browse surface, key Settings/feed states, and stable Player status states
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
 - the validated product shape remains feed-first rather than website-login automation

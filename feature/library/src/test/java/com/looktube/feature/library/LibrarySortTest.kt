@@ -445,6 +445,12 @@ class LibrarySortTest {
         assertEquals("Mark as Unwatched", watchToggleActionLabel(isWatched = true))
     }
 
+    @Test
+    fun jumpRailFadeDelayIsShortAfterScrollingAndLongerAfterRailSelections() {
+        assertEquals(200L, jumpRailFadeDelayMs(JumpRailInteraction.Scroll))
+        assertEquals(1_000L, jumpRailFadeDelayMs(JumpRailInteraction.TargetSelection))
+    }
+
     private fun video(
         id: String,
         title: String,

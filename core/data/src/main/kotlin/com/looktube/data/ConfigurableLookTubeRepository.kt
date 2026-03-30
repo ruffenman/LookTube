@@ -255,7 +255,7 @@ class ConfigurableLookTubeRepository(
                 videoId = videoId,
                 status = CaptionGenerationStatus(
                     phase = CaptionGenerationPhase.Error,
-                    message = "Download the offline caption model from Auth before generating captions.",
+                    message = "Download the offline caption model from Settings before generating captions.",
                 ),
             )
             return
@@ -288,6 +288,7 @@ class ConfigurableLookTubeRepository(
                 status = CaptionGenerationStatus(
                     phase = CaptionGenerationPhase.Saving,
                     message = "Saving generated captions on this device…",
+                    progressFraction = 0.98f,
                 ),
             )
             videoCaptionStore.saveGeneratedCaption(

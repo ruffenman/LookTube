@@ -427,18 +427,21 @@ internal class OnDeviceLocalCaptionGenerator(
             onProgress(
                 CaptionGenerationStatus(
                     phase = CaptionGenerationPhase.ExtractingAudio,
-                    message = "Extracting mono audio for offline caption generation…",
+                    message = "Preparing audio extraction for offline caption generation…",
                 ),
             )
             audioExtractor.extractToPcm16MonoFile(
                 playbackUrl = request.playbackUrl,
                 outputFile = audioFile,
+                onProgress = { progress ->
+                    onProgress(extractionCaptionStatus(progress))
+                },
             )
             onProgress(
                 CaptionGenerationStatus(
                     phase = CaptionGenerationPhase.Transcribing,
                     message = "Transcribing audio on this device…",
-                    progressFraction = 0f,
+                    progressFraction = CAPTION_TRANSCRIPTION_PROGRESS_START,
                 ),
             )
             val segments = transcribeAudioFile(
@@ -500,7 +503,10 @@ internal class OnDeviceLocalCaptionGenerator(
                     CaptionGenerationStatus(
                         phase = CaptionGenerationPhase.Transcribing,
                         message = "Transcribing audio on this device…",
-                        progressFraction = chunkIndex.toFloat() / totalChunks.toFloat(),
+                        progressFraction = transcriptionProgressFraction(
+                            completedChunkCount = chunkIndex,
+                            totalChunks = totalChunks,
+                        ),
                     ),
                 )
             }
@@ -527,11 +533,73 @@ internal class OnDeviceLocalCaptionGenerator(
     }
 }
 
+internal data class AudioExtractionProgress(
+    val currentPositionUs: Long,
+    val durationUs: Long?,
+    val decodedBytes: Long,
+)
+
 internal data class CaptionSegment(
     val startMs: Long,
     val endMs: Long,
     val text: String,
 )
+
+internal fun extractionCaptionStatus(progress: AudioExtractionProgress): CaptionGenerationStatus {
+    val currentPositionSeconds = (progress.currentPositionUs / 1_000_000L).coerceAtLeast(0L)
+    val durationSeconds = progress.durationUs
+        ?.takeIf { it > 0L }
+        ?.let { durationUs -> (durationUs / 1_000_000L).coerceAtLeast(1L) }
+    val message = durationSeconds?.let { totalSeconds ->
+        "Extracting mono audio for offline caption generation… ${formatCaptionProgressTime(currentPositionSeconds)} / ${formatCaptionProgressTime(totalSeconds)}"
+    } ?: "Extracting mono audio for offline caption generation… ${formatCaptionProgressTime(currentPositionSeconds)} decoded so far"
+    val progressFraction = durationSeconds?.let { totalSeconds ->
+        (CAPTION_EXTRACTION_PROGRESS_START + (
+            (currentPositionSeconds.toFloat() / totalSeconds.toFloat()).coerceIn(0f, 1f) *
+                CAPTION_EXTRACTION_PROGRESS_RANGE
+            ))
+            .coerceIn(
+                CAPTION_EXTRACTION_PROGRESS_START,
+                CAPTION_EXTRACTION_PROGRESS_START + CAPTION_EXTRACTION_PROGRESS_RANGE,
+            )
+    }
+    return CaptionGenerationStatus(
+        phase = CaptionGenerationPhase.ExtractingAudio,
+        message = message,
+        progressFraction = progressFraction,
+    )
+}
+
+internal fun transcriptionProgressFraction(
+    completedChunkCount: Int,
+    totalChunks: Int,
+): Float {
+    val safeTotalChunks = totalChunks.coerceAtLeast(1)
+    return (CAPTION_TRANSCRIPTION_PROGRESS_START + (
+        (completedChunkCount.toFloat() / safeTotalChunks.toFloat()).coerceIn(0f, 1f) *
+            CAPTION_TRANSCRIPTION_PROGRESS_RANGE
+        ))
+        .coerceIn(
+            CAPTION_TRANSCRIPTION_PROGRESS_START,
+            CAPTION_TRANSCRIPTION_PROGRESS_START + CAPTION_TRANSCRIPTION_PROGRESS_RANGE,
+        )
+}
+
+internal fun formatCaptionProgressTime(totalSeconds: Long): String {
+    val hours = totalSeconds / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val remainingSeconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, remainingSeconds)
+    } else {
+        "%d:%02d".format(minutes, remainingSeconds)
+    }
+}
+
+private const val CAPTION_EXTRACTION_PROGRESS_START = 0.02f
+private const val CAPTION_EXTRACTION_PROGRESS_RANGE = 0.33f
+private const val CAPTION_TRANSCRIPTION_PROGRESS_START = 0.4f
+private const val CAPTION_TRANSCRIPTION_PROGRESS_RANGE = 0.55f
 
 private object WhisperNativeBridge {
     init {
@@ -605,6 +673,7 @@ internal class RemoteMediaAudioExtractor {
     fun extractToPcm16MonoFile(
         playbackUrl: String,
         outputFile: File,
+        onProgress: (AudioExtractionProgress) -> Unit = {},
     ) {
         val extractor = MediaExtractor()
         var decoder: MediaCodec? = null
@@ -617,6 +686,7 @@ internal class RemoteMediaAudioExtractor {
                 }
                 extractor.selectTrack(trackIndex)
                 val inputFormat = extractor.getTrackFormat(trackIndex)
+                val trackDurationUs = inputFormat.durationUsOrNull()
                 val mimeType = inputFormat.getString(MediaFormat.KEY_MIME)
                     ?: throw IOException("The selected audio track did not provide a MIME type.")
                 decoder = MediaCodec.createDecoderByType(mimeType).apply {
@@ -627,7 +697,18 @@ internal class RemoteMediaAudioExtractor {
                 var sawInputEnd = false
                 var sawOutputEnd = false
                 var outputFormat = inputFormat
+                var lastProgressAtNanos = System.nanoTime()
+                var lastReportedPositionUs = Long.MIN_VALUE
+                var decodedBytes = 0L
+                onProgress(
+                    AudioExtractionProgress(
+                        currentPositionUs = 0L,
+                        durationUs = trackDurationUs,
+                        decodedBytes = 0L,
+                    ),
+                )
                 while (!sawOutputEnd) {
+                    var madeForwardProgress = false
                     if (!sawInputEnd) {
                         val inputBufferIndex = decoder!!.dequeueInputBuffer(DEQUEUE_TIMEOUT_US)
                         if (inputBufferIndex >= 0) {
@@ -643,6 +724,8 @@ internal class RemoteMediaAudioExtractor {
                                     MediaCodec.BUFFER_FLAG_END_OF_STREAM,
                                 )
                                 sawInputEnd = true
+                                madeForwardProgress = true
+                                lastProgressAtNanos = System.nanoTime()
                             } else {
                                 decoder!!.queueInputBuffer(
                                     inputBufferIndex,
@@ -651,6 +734,8 @@ internal class RemoteMediaAudioExtractor {
                                     extractor.sampleTime,
                                     0,
                                 )
+                                madeForwardProgress = true
+                                lastProgressAtNanos = System.nanoTime()
                                 extractor.advance()
                             }
                         }
@@ -659,6 +744,8 @@ internal class RemoteMediaAudioExtractor {
                         MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                         MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                             outputFormat = decoder!!.outputFormat
+                            madeForwardProgress = true
+                            lastProgressAtNanos = System.nanoTime()
                         }
                         else -> {
                             if (outputBufferIndex >= 0) {
@@ -674,11 +761,44 @@ internal class RemoteMediaAudioExtractor {
                                         pcmBytes = pcmBytes,
                                         outputFormat = outputFormat,
                                     )
+                                    decodedBytes += bufferInfo.size
+                                    madeForwardProgress = true
+                                    lastProgressAtNanos = System.nanoTime()
+                                    val currentPositionUs = bufferInfo.presentationTimeUs.coerceAtLeast(0L)
+                                    if (
+                                        currentPositionUs == 0L ||
+                                            currentPositionUs - lastReportedPositionUs >= EXTRACTION_PROGRESS_REPORT_INTERVAL_US
+                                    ) {
+                                        lastReportedPositionUs = currentPositionUs
+                                        onProgress(
+                                            AudioExtractionProgress(
+                                                currentPositionUs = currentPositionUs,
+                                                durationUs = trackDurationUs,
+                                                decodedBytes = decodedBytes,
+                                            ),
+                                        )
+                                    }
                                 }
                                 sawOutputEnd = (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
                                 decoder!!.releaseOutputBuffer(outputBufferIndex, false)
                             }
                         }
+                    }
+                    if (sawOutputEnd) {
+                        onProgress(
+                            AudioExtractionProgress(
+                                currentPositionUs = max(lastReportedPositionUs, trackDurationUs ?: 0L),
+                                durationUs = trackDurationUs,
+                                decodedBytes = decodedBytes,
+                            ),
+                        )
+                    } else if (
+                        !madeForwardProgress &&
+                            System.nanoTime() - lastProgressAtNanos > EXTRACTION_STALL_TIMEOUT_NS
+                    ) {
+                        throw IOException(
+                            "Audio extraction stalled before offline captions could continue. Try again after playback is stable or pick another video.",
+                        )
                     }
                 }
             } catch (exception: Exception) {
@@ -694,6 +814,12 @@ internal class RemoteMediaAudioExtractor {
         }
     }
 
+    private fun MediaFormat.durationUsOrNull(): Long? =
+        if (containsKey(MediaFormat.KEY_DURATION)) {
+            getLong(MediaFormat.KEY_DURATION).takeIf { it > 0L }
+        } else {
+            null
+        }
     private fun findAudioTrackIndex(extractor: MediaExtractor): Int =
         (0 until extractor.trackCount).firstOrNull { index ->
             extractor.getTrackFormat(index)
@@ -788,6 +914,8 @@ internal class RemoteMediaAudioExtractor {
 
     private companion object {
         private const val DEQUEUE_TIMEOUT_US = 10_000L
+        private const val EXTRACTION_PROGRESS_REPORT_INTERVAL_US = 500_000L
+        private const val EXTRACTION_STALL_TIMEOUT_NS = 15_000_000_000L
     }
 }
 

@@ -55,13 +55,13 @@ An implementation that materially changes these choices can still be valid, but 
 3. App preserves the saved feed URL so the next sync stays cheap.
 ## Surface inventory
 ### App shell
-- three top-level destinations: `Auth`, `Library`, and `Player`
-- app opens on the Auth page by default
+- three top-level destinations: `Settings`, `Library`, and `Player`
+- app opens on the Settings page by default
 - top app bar and bottom navigation stay visible outside player fullscreen mode
 - while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls
 - notification launch intents can route directly to the Player page and optionally preselect a video
 
-### Auth surface
+### Settings surface
 - accepts the copied Premium feed URL as the only supported user input for feed access
 - exposes a primary sync action
 - exposes `Clear synced data` only when a successful sync or cached summary exists
@@ -76,12 +76,12 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top right and the single group watched-state toggle in the bottom right, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left beside the group title, places the single group watched-state toggle beneath the group info immediately above the child video list, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
 - keeps active show-filter feedback adjacent to the show-filter controls inside the overview panel
-- keeps the primary Auth, Library, and Player surfaces visually consistent through shared card, header, and panel treatments
+- keeps the primary Settings, Library, and Player surfaces visually consistent through shared card, header, and panel treatments
 - opens the selected video in the Player surface
 
 ### Player surface
@@ -111,7 +111,7 @@ An implementation that materially changes these choices can still be valid, but 
 - The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
 - Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to.
-- The jump rail becomes visible quickly when scrolling starts and fades back out quickly after scrolling stops.
+- The jump rail becomes visible quickly when scrolling starts, fades back out roughly 0.2 seconds after passive scrolling stops, and only lingers longer after an explicit jump-rail selection.
 
 ### Background refresh and notifications
 - Saving a non-blank feed URL results in one active periodic background refresh registration.

@@ -18,7 +18,7 @@ Current coverage:
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted feed URLs, seeded fallback behavior, and feed sync transitions
 - `app` baseline unit tests, including background refresh diff and notification-posting regressions
-- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Auth, and Player surfaces
+- committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, Settings/feed, and Player surfaces
 - managed-device smoke coverage now also checks the player empty-state surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
@@ -85,10 +85,10 @@ Verify the current UI against committed baselines:
 
 Current committed baselines cover:
 - Library browse surface
-- Auth setup-required state
-- Auth syncing state
-- Auth synced state
-- Auth ready state with a saved feed URL
+- Settings setup-required state
+- Settings syncing state
+- Settings synced state
+- Settings ready state with a saved feed URL
 - Player empty-queue state
 - Player preparing state
 - Player playback-unavailable state

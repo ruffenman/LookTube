@@ -141,7 +141,7 @@ fun PlayerRoute(
             playbackProgress = playbackProgress,
             headerSubtitle = "The selected video is loaded, but it does not currently expose a playable stream.",
             statusTitle = "Playback unavailable",
-            statusBody = "This item does not expose a playable stream right now. Try another video or refresh your library from Auth.",
+            statusBody = "This item does not expose a playable stream right now. Try another video or refresh your library from Settings.",
             frameTitle = "No playable stream",
             frameBody = "LookTube found this video in the feed, but the current item does not include a playable URL.",
             frameAtTop = true,
@@ -209,9 +209,9 @@ private fun CaptionStatusCard(
     val statusBody = when {
         selectedCaptionTrack != null && selectedCaptionGenerationStatus.phase != CaptionGenerationPhase.Error ->
             "Generated captions are saved on this device. Use the CC button in the player controls to turn them on locally or during cast."
-        isGenerating -> selectedCaptionGenerationStatus.message
+        isGenerating -> "${selectedCaptionGenerationStatus.message} CC will turn on as soon as the track finishes saving."
         selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> selectedCaptionGenerationStatus.message
-        !localCaptionModelState.isReady -> "Download the ${selectedLocalCaptionEngine.displayName} model from Auth before generating captions on-device."
+        !localCaptionModelState.isReady -> "Download the ${selectedLocalCaptionEngine.displayName} model from Settings before generating captions on-device."
         else -> "Generate captions for this video with ${selectedLocalCaptionEngine.displayName} so subtitles stay available even without an external provider."
     }
 
@@ -257,8 +257,12 @@ private fun CaptionStatusCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (isGenerating) {
-                LinearProgressIndicator(
-                    progress = { selectedCaptionGenerationStatus.progressFraction ?: 0f },
+                selectedCaptionGenerationStatus.progressFraction?.let { progressFraction ->
+                    LinearProgressIndicator(
+                        progress = { progressFraction },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } ?: LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -272,7 +276,7 @@ private fun CaptionStatusCard(
                             isGenerating -> "Generating captions…"
                             selectedCaptionTrack != null -> "Regenerate captions"
                             localCaptionModelState.isReady -> "Generate with ${selectedLocalCaptionEngine.displayName}"
-                            else -> "Model required in Auth"
+                            else -> "Model required in Settings"
                         },
                     )
                 },

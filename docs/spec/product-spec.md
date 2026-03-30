@@ -23,15 +23,15 @@ Premium Giant Bomb subscribers should be able to open an Android app, paste a co
 
 ## Current validated state
 The current app already covers a substantial first-use slice for a Premium subscriber:
-- copied Premium RSS feed URLs can be configured and synced from the Auth surface
+- copied Premium RSS feed URLs can be configured and synced from the Settings surface
 - copied feed URLs are protected at rest
 - the app persists the last successful synced library, saved playback progress, recent playback history, and watched/unwatched engagement state
 - Giant Bomb site-content heuristics now live in one shared library so feed-title, grouping, cast, and topic rule changes have a single update point
 - Library combines grouped browsing, collapsible section headers, group-level watched/unwatched actions, sort/filter controls, a scroll-away overview panel above the episode list, a default-collapsed Library Config section, grouped-card containment that visually keeps headers and episodes together, rich video cards, show-completion visualization, and snappier jump navigation that respects visible section anchors
 - Player uses a shared Media3 session/service model with fullscreen, resume support, cast routing, a polished History menu, compact supporting copy, and a top-pinned player surface that keeps video and playback context together
 - Library and Player share one global Look Points badge in the top app bar so score stays visible without being embedded in page-local controls
-- the Auth surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
-- the Auth surface also shows offline caption model readiness and lets the user download the local caption model needed for provider-free caption generation
+- the Settings surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
+- the Settings surface also shows offline caption model readiness and lets the user download the local caption model needed for provider-free caption generation
 - the Player surface can generate or regenerate captions for the selected video on-device, attach them as explicit text tracks for local playback, and keep them available during cast handoff through explicit Cast subtitle mapping
 - the default app build target stays on the lower-spec whisper.cpp caption path, while an opt-in higher-spec Moonshine target can expose an additional local caption engine and future higher-spec-only features without regressing the baseline build
 - the product remains explicitly feed-first and avoids unsupported website-login automation
@@ -56,7 +56,7 @@ Harden the path from copied feed sync to daily repeat use.
 - library cards expose key per-video metadata, watched-state actions, and an explicit full-info affordance so stored video details remain inspectable even when descriptions are short
 - watched-state actions use explicit `Mark as Watched` and `Mark as Unwatched` phrasing throughout the app
 - Look Points remain based only on watched videos, with the global header badge using the app's gold/yellow accent outline treatment while show completion remains a visual progress signal rather than a score bonus
-- grouped section headers avoid redundant tap-instruction copy, keep the expand/collapse affordance in the top right, keep the single group watched-state toggle in the bottom right, surface watched-versus-total completion status, and give title plus group info most of the layout space so fully watched shows are easy to spot and update without duplicated opposing buttons
+- grouped section headers avoid redundant tap-instruction copy, keep the expand/collapse affordance in the top left beside the group title, move the single group watched-state toggle below the group info directly above the child video list, surface watched-versus-total completion status, and give title plus group info most of the layout space so fully watched shows are easy to spot and update without duplicated opposing buttons
 - expanded grouped sections render as containing cards so the header and its videos read as one collapsible element
 - any manual watched-state control in the app exposes only the next valid toggle action for its current state rather than parallel watched and unwatched buttons for the same item or group
 - selecting a video with saved playback progress resumes from that stored point reliably, including after app reloads where the bookmark state and player controller restore asynchronously
@@ -68,12 +68,12 @@ Harden the path from copied feed sync to daily repeat use.
 - selecting a playable video starts playback reliably even if the device is locked immediately after the selection or play action, without requiring the user to wait for visible playback first
 - player interactions follow a YouTube-like model where double taps on the left or right half of the video seek backward or forward 10 seconds, fullscreen remains available from the fullscreen control or device rotation, and next/previous controls are omitted because the app does not define an implicit queue
 - the active Player surface uses compact supporting text beneath the frame instead of a redundant Playback Details card, shows a `History` affordance with a bounded surfaced dropdown and scroll feedback for long lists, and keeps unreliable per-item Premium yes/no presentation out of the user-facing contract unless a stable feed signal is validated later
-- the Library jump rail fades in quickly when scrolling starts and fades out quickly after scrolling stops so section jumping feels responsive without lingering on screen
-- Auth, Library, and Player keep a consistent card/header/panel treatment so the main app surfaces feel visually coherent without changing the existing LookTube design language
+- the Library jump rail fades in quickly when scrolling starts, fades back out about 0.2 seconds after passive scroll/touch input stops, and only keeps a longer linger after an explicit jump-rail selection so section jumping feels responsive without lingering on screen
+- Settings, Library, and Player keep a consistent card/header/panel treatment so the main app surfaces feel visually coherent without changing the existing LookTube design language
 - screenshot-oriented visual regression coverage is added for the now-stable browse/player experience
 - saved feed URLs remain protected at rest
 - users can clear synced cache without re-entering the copied feed URL, while local playback progress/history/watch state tied to the synced library is cleared with that cache reset
-- users can download an on-device caption model from Auth, generate captions for a playable video from Player without configuring any external provider, and regenerate them later if needed
+- users can download an on-device caption model from Settings, generate captions for a playable video from Player without configuring any external provider, and regenerate them later if needed
 - generated captions are stored locally as per-video WebVTT sidecars, surfaced through the player CC controls, and kept reachable for cast sessions through explicit Cast text-track propagation instead of relying on the default Media3 cast subtitle path
 - any future higher-quality or cloud-backed caption provider remains optional and must layer onto the same caption pipeline instead of replacing the local fallback
 - the repository keeps the baseline build as the default validation target, while an opt-in higher-spec Moonshine build target can raise SDK or ABI expectations for extra local-engine support without weakening the baseline support matrix
@@ -81,12 +81,12 @@ Harden the path from copied feed sync to daily repeat use.
 
 ## Captions
 - LookTube now treats offline-first captions as a supported product behavior rather than a future-only direction.
-- Auth exposes local caption model readiness and a download action for the built-in on-device English model, so captions can work without any external provider once the model is present.
+- Settings exposes local caption model readiness and a download action for the built-in on-device English model, so captions can work without any external provider once the model is present.
 - Player exposes per-video on-device caption generation and regeneration, shows generation progress or errors, and enables the built-in CC control for turning generated captions on locally.
 - The default build target keeps whisper.cpp as the guaranteed local fallback, and the Moonshine-capable target can expose Moonshine as an additional on-device engine on compatible devices.
 - Generated captions are stored as per-video WebVTT sidecars instead of mutating feed-derived metadata.
 - Cast delivery treats captions as first-class text tracks through explicit Cast mapping and sender-hosted sidecar serving, rather than assuming default Media3 subtitle propagation is sufficient.
-- If a higher-quality or cloud-generated caption option is added later, keep any secondary credentials or account material in a clearly separate expandable Auth section and layer that provider on top of the existing local caption pipeline.
+- If a higher-quality or cloud-generated caption option is added later, keep any secondary credentials or account material in a clearly separate expandable Settings section and layer that provider on top of the existing local caption pipeline.
 
 ## Notification functional targets
 - Scheduling target: a saved non-blank feed URL results in one active periodic library refresh registration owned by WorkManager; clearing the saved feed URL removes that registration.
