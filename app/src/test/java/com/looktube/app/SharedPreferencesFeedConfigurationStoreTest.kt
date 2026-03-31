@@ -23,7 +23,11 @@ class SharedPreferencesFeedConfigurationStoreTest {
             securePayloadCipher = PrefixingSecurePayloadCipher(),
         )
 
-        store.setFeedUrl("https://www.giantbomb.com/feeds/premium-videos/?token=super-secret")
+        store.save(
+            com.looktube.model.PersistedFeedConfiguration(
+                feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=super-secret",
+            ),
+        )
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=super-secret", store.persistedConfiguration.value.feedUrl)
         assertEquals(1, preferences.all.size)
@@ -56,11 +60,38 @@ class SharedPreferencesFeedConfigurationStoreTest {
             securePayloadCipher = FailingSecurePayloadCipher(),
         )
 
-        store.setFeedUrl("https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret")
+        store.save(
+            com.looktube.model.PersistedFeedConfiguration(
+                feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret",
+            ),
+        )
 
         assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=fallback-secret", store.persistedConfiguration.value.feedUrl)
         assertTrue(preferences.contains("feed_url"))
         assertFalse(preferences.all.keys.any { it.contains("encrypted") })
+    }
+
+    @Test
+    fun persistsAutoCaptionAndDailyOpenFieldsInEncryptedPayload() = runTest {
+        val preferences = createPreferences("extended-fields")
+        val store = SharedPreferencesFeedConfigurationStore(
+            preferences = preferences,
+            securePayloadCipher = PrefixingSecurePayloadCipher(),
+        )
+
+        store.save(
+            com.looktube.model.PersistedFeedConfiguration(
+                feedUrl = "https://www.giantbomb.com/feeds/premium-videos/?token=extended-secret",
+                autoGenerateCaptionsForNewVideos = true,
+                dailyOpenPointCount = 7,
+                lastOpenedLocalEpochDay = 20_177L,
+            ),
+        )
+
+        assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=extended-secret", store.persistedConfiguration.value.feedUrl)
+        assertTrue(store.persistedConfiguration.value.autoGenerateCaptionsForNewVideos)
+        assertEquals(7, store.persistedConfiguration.value.dailyOpenPointCount)
+        assertEquals(20_177L, store.persistedConfiguration.value.lastOpenedLocalEpochDay)
     }
 
     private fun createPreferences(nameSuffix: String): SharedPreferences {

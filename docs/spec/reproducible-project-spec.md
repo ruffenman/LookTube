@@ -1,6 +1,6 @@
 # LookTube reproducible project spec
 ## Purpose
-LookTube is a native Android companion app for Giant Bomb Premium subscribers. Its primary job is to let a user paste a copied Giant Bomb Premium RSS feed URL, sync the feed directly, browse the resulting library, resume playback, generate local captions for playable videos, and receive local notifications when later background refreshes discover newly released videos.
+LookTube is a native Android companion app for Giant Bomb Premium subscribers. Its primary job is to let a user paste a copied Giant Bomb Premium RSS feed URL, sync the feed directly, browse the resulting library, resume playback, generate local captions for playable videos, optionally auto-generate local captions for newly discovered videos, and receive local notifications when later background refreshes discover newly released videos.
 ## Transfer-ready package
 The upload-oriented package now lives in `docs/spec/agent-spec-package/`.
 Use that directory as the starting point for future publication to the external agent-spec repository.
@@ -49,6 +49,7 @@ An implementation that materially changes these choices can still be valid, but 
 2. User can browse and resume without re-entering the feed URL.
 3. WorkManager keeps periodic background refresh active while a non-blank feed URL remains saved.
 4. If a later successful refresh finds previously unseen video IDs for the same feed URL, the app posts a local notification that opens the newest discovered video.
+5. If automatic caption generation for new videos is enabled and the on-device model is ready, newly discovered playable videos can be captioned automatically during sync or background refresh.
 
 ### Clear synced data
 1. User clears synced data.
@@ -60,7 +61,7 @@ An implementation that materially changes these choices can still be valid, but 
 - app opens on the Settings page by default
 - true cold starts may show a brief LookTube intro overlay that can be skipped immediately and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
-- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls
+- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, and can show a compact playing indicator between the title and badge when playback is active
 - notification launch intents can route directly to the Player page and optionally preselect a video
 
 ### Settings surface
@@ -68,6 +69,7 @@ An implementation that materially changes these choices can still be valid, but 
 - exposes a primary sync action
 - exposes `Clear synced data` only when a successful sync or cached summary exists
 - exposes offline caption model readiness plus a one-time download action for the local caption model
+- exposes a persistent toggle for automatically generating captions for newly discovered videos
 - communicates five practical user-visible states: setup required, ready, syncing, synced, and needs attention
 
 ### Library surface
@@ -79,7 +81,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, uses distinct collapsed and expanded visual states, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -96,7 +98,7 @@ An implementation that materially changes these choices can still be valid, but 
 - keeps playback on the same active item when entering or leaving fullscreen, including activity recreation from rotation
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
-- exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that can scroll for longer histories
+- exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that sizes to content, caps at roughly two-thirds of the usable shell height, and can scroll for longer histories
 - exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state, and enables standard subtitle controls when a generated text track exists
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
@@ -104,6 +106,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### Feed configuration and persistence
 - A saved feed URL survives app restarts.
 - Secure persistence is preferred; plaintext fallback, if required, stores only the feed URL.
+- The persisted feed configuration also carries the automatic-caption toggle for newly discovered videos and daily-open Look Points bookkeeping.
 - Clearing synced data does not clear the saved feed URL.
 
 ### Sync and library state
@@ -125,6 +128,9 @@ An implementation that materially changes these choices can still be valid, but 
 - No notification is posted for first sync, feed switches, unchanged snapshots, empty snapshots, or missing notification permission.
 - Each successful refresh that discovers at least one new video posts a distinct library-update notification entry.
 - Tapping that notification opens the newest discovered video in the player route.
+- Background refresh bootstraps repository state before syncing.
+- When automatic caption generation for new videos is enabled and the local model is ready, background refresh can auto-caption newly discovered playable videos that do not already have a saved caption sidecar.
+- Long-running background auto-caption work may run as foreground-maintenance work for better reliability while the app is backgrounded or the device is locked.
 - Delivery timing is best-effort and constrained by WorkManager and Android power policy; correctness matters more than exact cadence.
 
 ### Playback and resume
@@ -139,12 +145,13 @@ An implementation that materially changes these choices can still be valid, but 
 
 ### Engagement, history, and completion
 - The app persists a recent-play history and manual watched/unwatched overrides per video alongside playback progress.
-- Look Points are derived only from watched videos, appear as a single global shell badge on Library and Player, and do not move into Library-local or Player-local control clusters.
+- Watched videos are worth 12 Look Points, app opens add 1 point once per local day, Look Points appear as a single global shell badge on Library and Player, and the score does not move into Library-local or Player-local control clusters.
 - Completing every video in a show is visualized in browse UI but does not grant extra score.
 - A video can become watched either through playback completion heuristics or an explicit manual watched action, and a manual unwatched action overrides that status until the user watches or marks it watched again.
 
 ### Captions
 - Users can download a local caption model once and then generate captions for any playable video without configuring an external provider.
+- Users can enable a persistent setting that automatically generates captions for newly discovered playable videos once the local caption model is ready.
 - Caption generation extracts audio from the selected playback URL, runs the on-device transcription path locally, and stores the result as a per-video WebVTT sidecar.
 - Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including processed audio duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.

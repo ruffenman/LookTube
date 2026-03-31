@@ -289,18 +289,6 @@ fun LibraryRoute(
             resultsAnchorOffsetPx.dp
         }
         val railHeight = (maxHeight - railTopOffset).coerceAtLeast(0.dp)
-        if (resultsAnchorOffsetPx != Int.MAX_VALUE) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = railTopOffset)
-                    .height(railHeight)
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-                tonalElevation = 2.dp,
-            ) {}
-        }
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -1269,80 +1257,103 @@ private fun SeriesSectionHeader(
         }
     }.joinToString(" • ")
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
-    Column(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .clip(RoundedCornerShape(22.dp))
+            .clickable(onClick = onToggleExpanded),
+        shape = RoundedCornerShape(22.dp),
+        color = if (isExpanded) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f)
+        } else {
+            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.44f)
+        },
+        contentColor = if (isExpanded) {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        } else {
+            MaterialTheme.colorScheme.onTertiaryContainer
+        },
+        tonalElevation = if (isExpanded) 1.dp else 0.dp,
+        border = BorderStroke(
+            1.dp,
+            if (isExpanded) {
+                MaterialTheme.colorScheme.secondary.copy(alpha = 0.42f)
+            } else {
+                MaterialTheme.colorScheme.tertiary.copy(alpha = 0.38f)
+            },
+        ),
     ) {
-        Surface(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(onClick = onToggleExpanded),
-            shape = RoundedCornerShape(14.dp),
-            color = if (isExpanded) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-            contentColor = if (isExpanded) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-            tonalElevation = 0.dp,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (isExpanded) "−" else "+",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onToggleExpanded)
-                .padding(end = textEndPadding),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text = section.kindLabel.uppercase(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = section.title,
-                style = MaterialTheme.typography.headlineSmall,
-            )
-            Text(
-                text = supportingText,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = textEndPadding),
-        ) {
-            FilterChip(
-                selected = sectionIsFullyWatched,
-                onClick = {
-                    if (sectionIsFullyWatched) {
-                        onMarkSectionUnwatched()
-                    } else {
-                        onMarkSectionWatched()
-                    }
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = if (isExpanded) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
                 },
-                label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
-            )
+                contentColor = if (isExpanded) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (isExpanded) "−" else "+",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = textEndPadding),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = section.kindLabel.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = section.title,
+                    style = MaterialTheme.typography.headlineSmall,
+                )
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = textEndPadding),
+            ) {
+                FilterChip(
+                    selected = sectionIsFullyWatched,
+                    onClick = {
+                        if (sectionIsFullyWatched) {
+                            onMarkSectionUnwatched()
+                        } else {
+                            onMarkSectionWatched()
+                        }
+                    },
+                    label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+                )
+            }
         }
     }
 }

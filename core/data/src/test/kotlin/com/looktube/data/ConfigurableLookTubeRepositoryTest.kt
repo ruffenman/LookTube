@@ -2,10 +2,19 @@ package com.looktube.data
 
 import com.looktube.database.InMemoryPlaybackBookmarkStore
 import com.looktube.database.InMemoryVideoEngagementStore
+import com.looktube.data.GeneratedCaptionDocument
+import com.looktube.data.LocalCaptionEngineRegistry
+import com.looktube.data.LocalCaptionGenerationRequest
+import com.looktube.data.VideoCaptionStore
+import com.looktube.model.DefaultLocalCaptionModel
+import com.looktube.model.LocalCaptionModelState
+import com.looktube.model.LocalCaptionEngine
+import com.looktube.model.WhisperCppLocalCaptionEngine
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoSummary
 import com.looktube.network.RssVideoFeedParser
 import com.looktube.network.VideoFeedRequest
@@ -13,6 +22,7 @@ import com.looktube.network.VideoFeedService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -218,7 +228,124 @@ class ConfigurableLookTubeRepositoryTest {
 
         assertTrue(repository.videoEngagement.value.isEmpty())
     }
+
+    @Test
+    fun noteAppOpenedAwardsOnePointOnlyOncePerLocalDay() = runTest {
+        val store = FakeFeedConfigurationStore()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = store,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+            currentTimeMillisProvider = { 1_744_761_600_000L },
+        )
+
+        repository.bootstrap()
+        repository.noteAppOpened()
+        repository.noteAppOpened()
+
+        assertEquals(1, repository.feedConfiguration.value.dailyOpenPointCount)
+    }
+
+    @Test
+    fun refreshAutoGeneratesCaptionsForNewVideosWhenEnabled() = runTest {
+        val captionStore = RecordingVideoCaptionStore()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(
+                PersistedFeedConfiguration(
+                    feedUrl = "https://example.com/feed.xml",
+                    autoGenerateCaptionsForNewVideos = true,
+                ),
+            ),
+            syncedLibraryStore = FakeSyncedLibraryStore(
+                PersistedLibrarySnapshot(
+                    feedUrl = "https://example.com/feed.xml",
+                    videos = listOf(video(id = "live-app-1")),
+                    lastSuccessfulSyncSummary = "Loaded 1 item.",
+                ),
+            ),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = MultiVideoFeedService(),
+            localCaptionEngineRegistry = FakeLocalCaptionEngineRegistry(),
+            videoCaptionStore = captionStore,
+        )
+
+        repository.bootstrap()
+        repository.refreshLibrary()
+
+        assertEquals(listOf("live-app-2"), captionStore.savedVideoIds)
+    }
 }
+
+private class FakeLocalCaptionEngineRegistry : LocalCaptionEngineRegistry {
+    private val modelStateFlow = MutableStateFlow(
+        LocalCaptionModelState(
+            model = DefaultLocalCaptionModel,
+            localPath = "D:/fake/model.bin",
+        ),
+    )
+
+    override val availableEngines: StateFlow<List<LocalCaptionEngine>> =
+        MutableStateFlow(listOf(WhisperCppLocalCaptionEngine)).asStateFlow()
+    override val selectedEngine: StateFlow<LocalCaptionEngine> =
+        MutableStateFlow(WhisperCppLocalCaptionEngine).asStateFlow()
+    override val modelState: StateFlow<LocalCaptionModelState> = modelStateFlow.asStateFlow()
+
+    override suspend fun downloadSelectedModel() = Unit
+
+    override suspend fun generate(
+        request: LocalCaptionGenerationRequest,
+        onProgress: (com.looktube.model.CaptionGenerationStatus) -> Unit,
+    ): GeneratedCaptionDocument = GeneratedCaptionDocument(
+        webVtt = "WEBVTT\n",
+        languageTag = "en-US",
+        label = "English (generated)",
+        engineId = WhisperCppLocalCaptionEngine.id,
+    )
+
+    override fun selectEngine(engineId: String) = Unit
+}
+
+private class RecordingVideoCaptionStore : VideoCaptionStore {
+    private val state = MutableStateFlow(emptyMap<String, VideoCaptionTrack>())
+    val savedVideoIds = mutableListOf<String>()
+
+    override val captions: StateFlow<Map<String, VideoCaptionTrack>> = state.asStateFlow()
+
+    override suspend fun saveGeneratedCaption(
+        videoId: String,
+        document: com.looktube.data.GeneratedCaptionDocument,
+        generatedAtEpochMillis: Long,
+    ): VideoCaptionTrack {
+        savedVideoIds += videoId
+        val track = VideoCaptionTrack(
+            videoId = videoId,
+            filePath = "D:/fake/$videoId.vtt",
+            generatedAtEpochMillis = generatedAtEpochMillis,
+            languageTag = document.languageTag,
+            label = document.label,
+            engineId = document.engineId,
+        )
+        state.update { existing -> existing + (videoId to track) }
+        return track
+    }
+
+    override suspend fun clear() {
+        state.value = emptyMap()
+        savedVideoIds.clear()
+    }
+}
+
+private fun video(id: String): VideoSummary = VideoSummary(
+    id = id,
+    title = "Video $id",
+    description = "Description for $id",
+    isPremium = true,
+    feedCategory = "Premium",
+    playbackUrl = "https://video.example.com/$id.mp4",
+)
 
 private class FakeLibraryRefreshScheduler : LibraryRefreshScheduler {
     var scheduleCount: Int = 0
@@ -242,13 +369,15 @@ private class FakeFeedConfigurationStore(
 
     override val persistedConfiguration: StateFlow<PersistedFeedConfiguration> = state.asStateFlow()
 
-    override suspend fun setFeedUrl(feedUrl: String) {
-        state.value = state.value.copy(feedUrl = feedUrl)
+    override suspend fun save(configuration: PersistedFeedConfiguration) {
+        state.value = configuration
     }
 }
 
-private class FakeSyncedLibraryStore : SyncedLibraryStore {
-    private val state = MutableStateFlow<PersistedLibrarySnapshot?>(null)
+private class FakeSyncedLibraryStore(
+    initialSnapshot: PersistedLibrarySnapshot? = null,
+) : SyncedLibraryStore {
+    private val state = MutableStateFlow<PersistedLibrarySnapshot?>(initialSnapshot)
 
     override val persistedSnapshot: StateFlow<PersistedLibrarySnapshot?> = state.asStateFlow()
 
@@ -282,6 +411,31 @@ private class RecordingVideoFeedService : VideoFeedService {
     override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> {
         lastRequest = request
         return FakeVideoFeedService().loadVideos(request)
+    }
+}
+
+private class MultiVideoFeedService : VideoFeedService {
+    override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> {
+        return listOf(
+            VideoSummary(
+                id = "live-app-1",
+                title = "App-level sync result",
+                description = "Loaded via the fake app test service.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/live-app-1.m3u8",
+                seriesTitle = "Live Show",
+            ),
+            VideoSummary(
+                id = "live-app-2",
+                title = "App-level sync result two",
+                description = "Loaded via the fake app test service.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/live-app-2.m3u8",
+                seriesTitle = "Live Show",
+            ),
+        )
     }
 }
 

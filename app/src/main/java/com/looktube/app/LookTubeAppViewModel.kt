@@ -145,11 +145,13 @@ class LookTubeAppViewModel(
         repository.videos,
         repository.playbackProgress,
         repository.videoEngagement,
-    ) { videos, progressMap, engagementRecords ->
+        repository.feedConfiguration,
+    ) { videos, progressMap, engagementRecords, feedConfiguration ->
         buildLookPointsSummary(
             videos = videos,
             playbackProgress = progressMap,
             engagementRecords = engagementRecords,
+            dailyOpenPointCount = feedConfiguration.dailyOpenPointCount,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -187,6 +189,18 @@ class LookTubeAppViewModel(
     fun updateFeedUrl(feedUrl: String) {
         viewModelScope.launch {
             repository.updateFeedUrl(feedUrl)
+        }
+    }
+
+    fun noteAppOpened() {
+        viewModelScope.launch {
+            repository.noteAppOpened()
+        }
+    }
+
+    fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.updateAutoGenerateCaptionsForNewVideos(enabled)
         }
     }
     fun signInToPremiumFeed() {

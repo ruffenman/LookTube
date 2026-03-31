@@ -28,8 +28,10 @@ interface LookTubeRepository {
     val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>>
 
     suspend fun bootstrap()
+    suspend fun noteAppOpened()
 
     suspend fun updateFeedUrl(feedUrl: String)
+    suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean)
     suspend fun signInToPremiumFeed()
     suspend fun clearSyncedData()
     suspend fun downloadLocalCaptionModel()

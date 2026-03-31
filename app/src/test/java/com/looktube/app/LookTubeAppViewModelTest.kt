@@ -151,8 +151,7 @@ class LookTubeAppViewModelTest {
         viewModel.selectVideo("live-app-1")
         viewModel.markVideoWatched("live-app-1")
         advanceUntilIdle()
-
-        assertEquals(10, viewModel.lookPointsSummary.value.totalPoints)
+        assertEquals(12, viewModel.lookPointsSummary.value.totalPoints)
         assertEquals("live-app-1", viewModel.recentPlaybackVideos.value.firstOrNull()?.video?.id)
     }
 
@@ -175,8 +174,7 @@ class LookTubeAppViewModelTest {
         advanceUntilIdle()
         viewModel.markVideosWatched(listOf("live-app-1", "live-app-2"))
         advanceUntilIdle()
-
-        assertEquals(20, viewModel.lookPointsSummary.value.totalPoints)
+        assertEquals(24, viewModel.lookPointsSummary.value.totalPoints)
         assertEquals(
             2,
             viewModel.seriesCompletionSummaries.value["Live Show"]?.watchedVideoCount,
@@ -193,8 +191,8 @@ private class FakeFeedConfigurationStore : FeedConfigurationStore {
 
     override val persistedConfiguration: StateFlow<PersistedFeedConfiguration> = state.asStateFlow()
 
-    override suspend fun setFeedUrl(feedUrl: String) {
-        state.value = state.value.copy(feedUrl = feedUrl)
+    override suspend fun save(configuration: PersistedFeedConfiguration) {
+        state.value = configuration
     }
 }
 

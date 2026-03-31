@@ -28,6 +28,7 @@ class LookTubeApplication : Application() {
             parser = RssVideoFeedParser(),
         )
         val librarySyncNotifier = LibrarySyncNotifier(this)
+        val backgroundMaintenanceNotifier = BackgroundMaintenanceNotifier(this)
         AppContainer(
             feedConfigurationStore = feedConfigurationStore,
             syncedLibraryStore = syncedLibraryStore,
@@ -38,6 +39,7 @@ class LookTubeApplication : Application() {
             localCaptionCastHttpServer = localCaptionCastHttpServer,
             videoFeedService = videoFeedService,
             librarySyncNotifier = librarySyncNotifier,
+            backgroundMaintenanceNotifier = backgroundMaintenanceNotifier,
             repository = ConfigurableLookTubeRepository(
                 feedConfigurationStore = feedConfigurationStore,
                 syncedLibraryStore = syncedLibraryStore,
@@ -54,6 +56,7 @@ class LookTubeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         appContainer.librarySyncNotifier.ensureNotificationChannel()
+        appContainer.backgroundMaintenanceNotifier.ensureNotificationChannel()
     }
 }
 
@@ -68,5 +71,6 @@ data class AppContainer(
     val localCaptionCastHttpServer: LocalCaptionCastUrlProvider,
     val videoFeedService: VideoFeedService,
     val librarySyncNotifier: LibrarySyncNotifier,
+    val backgroundMaintenanceNotifier: BackgroundMaintenanceNotifier,
     val repository: LookTubeRepository,
 )

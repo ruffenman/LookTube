@@ -22,6 +22,8 @@ import com.looktube.model.toRuntime
 import com.looktube.network.FeedSyncException
 import com.looktube.network.VideoFeedRequest
 import com.looktube.network.VideoFeedService
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +41,7 @@ class ConfigurableLookTubeRepository(
     private val localCaptionEngineRegistry: LocalCaptionEngineRegistry = NoOpLocalCaptionEngineRegistry,
     private val videoCaptionStore: VideoCaptionStore = NoOpVideoCaptionStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val currentTimeMillisProvider: () -> Long = System::currentTimeMillis,
 ) : LookTubeRepository {
     private val accountSessionState = MutableStateFlow(
         AccountSession(
@@ -113,6 +116,23 @@ class ConfigurableLookTubeRepository(
         localCaptionEngineRegistry.downloadSelectedModel()
     }
 
+    override suspend fun noteAppOpened() {
+        val persistedConfiguration = feedConfigurationStore.persistedConfiguration.value
+        val currentEpochDay = Instant.ofEpochMilli(currentTimeMillisProvider())
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .toEpochDay()
+        if (persistedConfiguration.lastOpenedLocalEpochDay == currentEpochDay) {
+            return
+        }
+        val updatedConfiguration = persistedConfiguration.copy(
+            dailyOpenPointCount = persistedConfiguration.dailyOpenPointCount + 1,
+            lastOpenedLocalEpochDay = currentEpochDay,
+        )
+        feedConfigurationStore.save(updatedConfiguration)
+        feedConfigurationState.value = updatedConfiguration.toRuntime()
+    }
+
     private fun statusAfterConfigurationChange(configuration: FeedConfiguration): LibrarySyncState =
         if (hasSuccessfulFeedSync && videosState.value.isNotEmpty()) {
             LibrarySyncState(
@@ -125,10 +145,19 @@ class ConfigurableLookTubeRepository(
         }
 
     override suspend fun updateFeedUrl(feedUrl: String) {
-        feedConfigurationStore.setFeedUrl(feedUrl)
-        feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
+        val updatedConfiguration = feedConfigurationStore.persistedConfiguration.value.copy(feedUrl = feedUrl)
+        feedConfigurationStore.save(updatedConfiguration)
+        feedConfigurationState.value = updatedConfiguration.toRuntime()
         updateBackgroundRefresh(feedUrl)
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
+    }
+
+    override suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
+        val updatedConfiguration = feedConfigurationStore.persistedConfiguration.value.copy(
+            autoGenerateCaptionsForNewVideos = enabled,
+        )
+        feedConfigurationStore.save(updatedConfiguration)
+        feedConfigurationState.value = updatedConfiguration.toRuntime()
     }
     override suspend fun signInToPremiumFeed() {
         hasSuccessfulFeedSync = false
@@ -155,6 +184,7 @@ class ConfigurableLookTubeRepository(
 
     override suspend fun refreshLibrary() {
         val configuration = feedConfigurationState.value
+        val previousSnapshot = syncedLibraryStore.persistedSnapshot.value
         when {
             configuration.feedUrl.isBlank() -> {
                 publishStatus(
@@ -201,19 +231,22 @@ class ConfigurableLookTubeRepository(
             }
             hasSuccessfulFeedSync = true
             val syncSummary = "Premium feed sync loaded ${syncedVideos.size} items."
-            syncedLibraryStore.save(
-                PersistedLibrarySnapshot(
-                    feedUrl = configuration.feedUrl,
-                    videos = syncedVideos,
-                    lastSuccessfulSyncSummary = syncSummary,
-                ),
+            val latestSnapshot = PersistedLibrarySnapshot(
+                feedUrl = configuration.feedUrl,
+                videos = syncedVideos,
+                lastSuccessfulSyncSummary = syncSummary,
             )
+            syncedLibraryStore.save(latestSnapshot)
             publishStatus(
                 LibrarySyncState(
                     phase = SyncPhase.Success,
                     message = "Synced ${syncedVideos.size} videos from the configured Premium feed. Background refresh will keep checking for new releases.",
                     lastSuccessfulSyncSummary = syncSummary,
                 ),
+            )
+            autoGenerateCaptionsForNewVideos(
+                newVideos = latestSnapshot.newVideosComparedTo(previousSnapshot),
+                autoGenerateEnabled = configuration.autoGenerateCaptionsForNewVideos,
             )
         } catch (exception: FeedSyncException) {
             publishStatus(
@@ -370,10 +403,34 @@ class ConfigurableLookTubeRepository(
             put(videoId, status)
         }
     }
+
+    private suspend fun autoGenerateCaptionsForNewVideos(
+        newVideos: List<VideoSummary>,
+        autoGenerateEnabled: Boolean,
+    ) {
+        if (!autoGenerateEnabled || newVideos.isEmpty() || !localCaptionEngineRegistry.modelState.value.isReady) {
+            return
+        }
+        val existingCaptionIds = videoCaptionStore.captions.value.keys
+        newVideos
+            .filter { video -> !video.playbackUrl.isNullOrBlank() && video.id !in existingCaptionIds }
+            .forEach { video ->
+                runCatching { generateCaptions(video.id) }
+            }
+    }
+}
+
+private fun PersistedLibrarySnapshot.newVideosComparedTo(
+    previousSnapshot: PersistedLibrarySnapshot?,
+): List<VideoSummary> {
+    if (previousSnapshot == null || previousSnapshot.feedUrl != feedUrl || previousSnapshot.videos.isEmpty()) {
+        return emptyList()
+    }
+    val previousIds = previousSnapshot.videos.asSequence().map(VideoSummary::id).toSet()
+    return videos.filterNot { video -> video.id in previousIds }
 }
 
 interface FeedConfigurationStore {
     val persistedConfiguration: StateFlow<PersistedFeedConfiguration>
-
-    suspend fun setFeedUrl(feedUrl: String)
+    suspend fun save(configuration: PersistedFeedConfiguration)
 }

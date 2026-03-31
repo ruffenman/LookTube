@@ -3,6 +3,7 @@ package com.looktube.feature.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,8 +20,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
@@ -42,6 +45,7 @@ fun AuthRoute(
     selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
     onFeedUrlChanged: (String) -> Unit,
+    onAutoGenerateCaptionsForNewVideosChanged: (Boolean) -> Unit,
     onSignInRequested: () -> Unit,
     onLocalCaptionEngineSelected: (String) -> Unit,
     onDownloadLocalCaptionModel: () -> Unit,
@@ -238,6 +242,44 @@ fun AuthRoute(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
+                    tonalElevation = 0.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.78f)),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = "Auto-generate captions for new videos",
+                                style = MaterialTheme.typography.titleSmall,
+                            )
+                            Text(
+                                text = if (localCaptionModelState.isReady) {
+                                    "When new feed videos are discovered, LookTube will generate offline captions automatically during sync or background refresh, including while the app is backgrounded or the device is locked."
+                                } else {
+                                    "Enable this now if you want future new videos to be captioned automatically once the offline caption model is ready on this device."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = feedConfiguration.autoGenerateCaptionsForNewVideos,
+                            onCheckedChange = onAutoGenerateCaptionsForNewVideosChanged,
+                        )
+                    }
+                }
                 if (localCaptionModelState.isDownloading) {
                     LinearProgressIndicator(
                         progress = { localCaptionModelState.downloadProgressFraction ?: 0f },

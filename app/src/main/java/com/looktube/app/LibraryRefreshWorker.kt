@@ -16,6 +16,13 @@ class LibraryRefreshWorker(
     override suspend fun doWork(): Result {
         val appContainer = (applicationContext as? LookTubeApplication)?.appContainer
             ?: return Result.failure()
+        appContainer.repository.bootstrap()
+        val autoCaptionEnabled = appContainer.repository.feedConfiguration.value.autoGenerateCaptionsForNewVideos
+        if (autoCaptionEnabled) {
+            setForeground(
+                appContainer.backgroundMaintenanceNotifier.foregroundInfo(),
+            )
+        }
         val previousSnapshot = appContainer.syncedLibraryStore.persistedSnapshot.value
 
         return runCatching {
@@ -48,6 +55,10 @@ class LibraryRefreshWorker(
                 Result.retry()
             } else {
                 Result.failure()
+            }
+        }.also {
+            if (autoCaptionEnabled) {
+                appContainer.backgroundMaintenanceNotifier.dismiss()
             }
         }
     }

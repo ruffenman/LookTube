@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Row
@@ -49,11 +50,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -96,6 +101,7 @@ fun LookTubeApp(
     val lookPointsSummary by viewModel.lookPointsSummary.collectAsStateWithLifecycle()
     val seriesCompletionSummaries by viewModel.seriesCompletionSummaries.collectAsStateWithLifecycle()
     val playbackController = rememberPlaybackController()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -193,6 +199,18 @@ fun LookTubeApp(
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                viewModel.noteAppOpened()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    val topBarPlaybackIndicatorVisible = rememberTopBarPlaybackIndicatorVisible(playbackController)
 
     LookTubeTheme {
         Box(
@@ -204,7 +222,18 @@ fun LookTubeApp(
                     if (!isPlayerFullscreen) {
                         TopAppBar(
                             title = {
-                                Text("LookTube")
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(end = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("LookTube")
+                                    if (topBarPlaybackIndicatorVisible) {
+                                        TopBarPlaybackIndicator()
+                                    }
+                                }
                             },
                             actions = {
                                 LookPointsTopBarBadge(
@@ -268,6 +297,7 @@ fun LookTubeApp(
                             selectedLocalCaptionEngine = selectedLocalCaptionEngine,
                             localCaptionModelState = localCaptionModelState,
                             onFeedUrlChanged = viewModel::updateFeedUrl,
+                            onAutoGenerateCaptionsForNewVideosChanged = viewModel::updateAutoGenerateCaptionsForNewVideos,
                             onSignInRequested = viewModel::signInToPremiumFeed,
                             onLocalCaptionEngineSelected = viewModel::selectLocalCaptionEngine,
                             onDownloadLocalCaptionModel = viewModel::downloadLocalCaptionModel,
@@ -405,6 +435,53 @@ private fun LookPointsTopBarBadge(
         }
     }
 }
+
+@Composable
+private fun TopBarPlaybackIndicator() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f),
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)),
+    ) {
+        Text(
+            text = "Playing",
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
+}
+
+@Composable
+private fun rememberTopBarPlaybackIndicatorVisible(
+    controller: MediaController?,
+): Boolean {
+    var visible by remember(controller) {
+        mutableStateOf(controller?.showsTopBarPlaybackIndicator() == true)
+    }
+    DisposableEffect(controller) {
+        if (controller == null) {
+            visible = false
+            onDispose { }
+        } else {
+            val listener = object : Player.Listener {
+                override fun onEvents(player: Player, events: Player.Events) {
+                    visible = controller.showsTopBarPlaybackIndicator()
+                }
+            }
+            visible = controller.showsTopBarPlaybackIndicator()
+            controller.addListener(listener)
+            onDispose {
+                controller.removeListener(listener)
+            }
+        }
+    }
+    return visible
+}
+
+private fun MediaController.showsTopBarPlaybackIndicator(): Boolean =
+    currentMediaItem != null && (isPlaying || (playWhenReady && playbackState != Player.STATE_IDLE))
 
 internal fun handoffSelectedPlaybackTarget(
     controller: PlaybackHandoffController,

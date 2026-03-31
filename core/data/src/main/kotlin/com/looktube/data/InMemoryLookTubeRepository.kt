@@ -67,9 +67,19 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         playbackProgressState.value = emptyMap()
         videoEngagementState.value = emptyMap()
     }
+    override suspend fun noteAppOpened() {
+        feedConfigurationState.value = feedConfigurationState.value.copy(
+            dailyOpenPointCount = feedConfigurationState.value.dailyOpenPointCount + 1,
+        )
+    }
 
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
+    }
+    override suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
+        feedConfigurationState.value = feedConfigurationState.value.copy(
+            autoGenerateCaptionsForNewVideos = enabled,
+        )
     }
     override suspend fun signInToPremiumFeed() {
         accountSessionState.value = accountSessionState.value.copy(

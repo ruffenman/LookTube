@@ -28,6 +28,7 @@ data class LookPointsSummary(
     val completedShowCount: Int,
     val totalShowCount: Int,
     val videoPoints: Int,
+    val dailyOpenPoints: Int,
 ) {
     companion object {
         val Empty = LookPointsSummary(
@@ -37,6 +38,7 @@ data class LookPointsSummary(
             completedShowCount = 0,
             totalShowCount = 0,
             videoPoints = 0,
+            dailyOpenPoints = 0,
         )
     }
 }
@@ -77,9 +79,13 @@ fun buildLookPointsSummary(
     videos: List<VideoSummary>,
     playbackProgress: Map<String, PlaybackProgress>,
     engagementRecords: Map<String, VideoEngagementRecord>,
+    dailyOpenPointCount: Int = 0,
 ): LookPointsSummary {
     if (videos.isEmpty()) {
-        return LookPointsSummary.Empty
+        return LookPointsSummary.Empty.copy(
+            totalPoints = dailyOpenPointCount.coerceAtLeast(0),
+            dailyOpenPoints = dailyOpenPointCount.coerceAtLeast(0),
+        )
     }
     val watchedVideoCount = videos.count { video ->
         engagementRecords[video.id].isWatched(playbackProgress[video.id])
@@ -91,13 +97,15 @@ fun buildLookPointsSummary(
     )
     val completedShowCount = seriesCompletionSummaries.values.count(SeriesCompletionSummary::isCompleted)
     val videoPoints = watchedVideoCount * LOOK_POINTS_PER_WATCHED_VIDEO
+    val dailyOpenPoints = dailyOpenPointCount.coerceAtLeast(0)
     return LookPointsSummary(
-        totalPoints = videoPoints,
+        totalPoints = videoPoints + dailyOpenPoints,
         watchedVideoCount = watchedVideoCount,
         totalVideoCount = videos.size,
         completedShowCount = completedShowCount,
         totalShowCount = seriesCompletionSummaries.size,
         videoPoints = videoPoints,
+        dailyOpenPoints = dailyOpenPoints,
     )
 }
 
@@ -127,7 +135,7 @@ fun buildRecentPlaybackVideos(
 }
 
 private const val WATCHED_PROGRESS_COMPLETION_PERCENT = 90L
-const val LOOK_POINTS_PER_WATCHED_VIDEO = 10
+const val LOOK_POINTS_PER_WATCHED_VIDEO = 12
 const val DEFAULT_RECENT_PLAYBACK_LIMIT = 6
 
 private fun VideoSummary.seriesCompletionTitle(): String =

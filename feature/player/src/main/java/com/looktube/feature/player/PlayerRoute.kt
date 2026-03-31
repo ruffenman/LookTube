@@ -56,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -474,6 +475,10 @@ private fun HistoryDropdownMenu(
     onExpandedChanged: (Boolean) -> Unit,
     onRecentVideoSelected: (String) -> Unit,
 ) {
+    val configuration = LocalConfiguration.current
+    val availableChromeAwareHeight = (configuration.screenHeightDp.dp - PLAYER_HISTORY_RESERVED_CHROME_HEIGHT)
+        .coerceAtLeast(180.dp)
+    val maxMenuHeight = availableChromeAwareHeight * (2f / 3f)
     var viewportHeightPx by remember { mutableStateOf(0) }
     val scrollState = rememberScrollState()
 
@@ -489,7 +494,7 @@ private fun HistoryDropdownMenu(
         ) {
             Column(
                 modifier = Modifier
-                    .heightIn(max = 320.dp)
+                    .heightIn(max = maxMenuHeight)
                     .verticalScroll(scrollState)
                     .padding(top = 6.dp, end = 14.dp, bottom = 6.dp)
             ) {
@@ -1157,6 +1162,7 @@ private val REMOTE_PLAYBACK_BADGE_STROKE_WIDTH = 1.dp
 private val REMOTE_PLAYBACK_BADGE_HORIZONTAL_PADDING = 14.dp
 private val REMOTE_PLAYBACK_BADGE_VERTICAL_PADDING = 10.dp
 private val REMOTE_PLAYBACK_BADGE_MAX_WIDTH = 240.dp
+private val PLAYER_HISTORY_RESERVED_CHROME_HEIGHT = 144.dp
 private const val REMOTE_PLAYBACK_BADGE_CONTAINER_TAG = "looktube.remote_playback_badge"
 private const val REMOTE_PLAYBACK_BADGE_TITLE_TAG = "looktube.remote_playback_badge_title"
 private const val REMOTE_PLAYBACK_BADGE_BODY_TAG = "looktube.remote_playback_badge_body"

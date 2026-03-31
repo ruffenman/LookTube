@@ -25,8 +25,8 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         persistedConfigurationState.asStateFlow()
 
 
-    override suspend fun setFeedUrl(feedUrl: String) {
-        writeToDisk(persistedConfigurationState.value.copy(feedUrl = feedUrl))
+    override suspend fun save(configuration: PersistedFeedConfiguration) {
+        writeToDisk(configuration)
         persistedConfigurationState.value = readFromDisk()
     }
 
@@ -100,6 +100,9 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         private fun serializePersistedFeedConfiguration(configuration: PersistedFeedConfiguration): String =
             listOf(
                 configuration.feedUrl,
+                configuration.autoGenerateCaptionsForNewVideos.toString(),
+                configuration.dailyOpenPointCount.toString(),
+                configuration.lastOpenedLocalEpochDay?.toString().orEmpty(),
             ).joinToString(SERIALIZED_SEPARATOR) { field ->
                 Base64.getEncoder().encodeToString(field.toByteArray(UTF_8))
             }
@@ -108,7 +111,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             serializedConfiguration: String,
         ): PersistedFeedConfiguration? {
             val parts = serializedConfiguration.split(SERIALIZED_SEPARATOR)
-            if (parts.size !in setOf(1, 2, 3, 4, 5)) {
+            if (parts.isEmpty()) {
                 return null
             }
             val decodedParts = parts.map { encodedField ->
@@ -119,10 +122,24 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             if (decodedParts.any { it == null }) {
                 return null
             }
-            val isLegacyPayload = decodedParts.size >= 3
-            val fieldOffset = if (isLegacyPayload) 1 else 0
+            val resolvedParts = decodedParts.filterNotNull()
+            val fieldOffset = if (
+                resolvedParts.firstOrNull()?.startsWith("http", ignoreCase = true) == true ||
+                resolvedParts.size == 1
+            ) {
+                0
+            } else {
+                1
+            }
             return PersistedFeedConfiguration(
-                feedUrl = decodedParts[fieldOffset].orEmpty(),
+                feedUrl = resolvedParts.getOrNull(fieldOffset).orEmpty(),
+                autoGenerateCaptionsForNewVideos = resolvedParts.getOrNull(fieldOffset + 1)?.toBooleanStrictOrNull()
+                    ?: false,
+                dailyOpenPointCount = resolvedParts.getOrNull(fieldOffset + 2)?.toIntOrNull()?.coerceAtLeast(0)
+                    ?: 0,
+                lastOpenedLocalEpochDay = resolvedParts.getOrNull(fieldOffset + 3)
+                    ?.takeIf(String::isNotBlank)
+                    ?.toLongOrNull(),
             )
         }
     }

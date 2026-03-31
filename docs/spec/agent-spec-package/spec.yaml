@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.11"
+  version: "0.2.12"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -13,8 +13,13 @@ spec:
 types:
   FeedConfiguration:
     feed_url: string (required, may be blank only before setup or after explicit clearing)
+    auto_generate_captions_for_new_videos: boolean (required)
+    daily_open_point_count: integer (required, >= 0)
   PersistedFeedConfiguration:
     feed_url: string (required)
+    auto_generate_captions_for_new_videos: boolean (required)
+    daily_open_point_count: integer (required, >= 0)
+    last_opened_local_epoch_day: integer (optional)
   AccountSession:
     is_signed_in: boolean (required)
     account_label: string (optional)
@@ -56,6 +61,7 @@ types:
     completed_show_count: integer (required, >= 0)
     total_show_count: integer (required, >= 0)
     video_points: integer (required, >= 0)
+    daily_open_points: integer (required, >= 0)
   LaunchIntent:
     open_video_id: string (optional)
     target_page: integer (optional, 0 | 1 | 2)
@@ -130,6 +136,17 @@ contract:
       returns:
         feed_configuration: FeedConfiguration
         library_sync_state: LibrarySyncState
+    - name: note_app_opened
+      description: Record a real foreground app open and award one Look Point once per local day.
+      parameters: {}
+      returns:
+        feed_configuration: FeedConfiguration
+    - name: update_auto_generate_captions_for_new_videos
+      description: Persist whether newly discovered playable videos should auto-generate local captions during sync and background refresh.
+      parameters:
+        enabled: boolean (required)
+      returns:
+        feed_configuration: FeedConfiguration
     - name: sync_premium_feed
       description: Load feed-backed videos directly from the copied Premium feed URL and replace the active library on success.
       parameters:
@@ -199,12 +216,12 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay, a global Look Points badge, and a compact playing indicator while playback is active.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
         - navigate between Settings, Library, and Player
     - name: settings
-      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, and local caption model readiness.
+      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, local caption model readiness, and the persistent auto-caption setting for newly discovered videos.
       visible_states:
         - setup required
         - ready
@@ -218,7 +235,7 @@ contract:
         - choose the active local caption engine when multiple engines are available for the current build target
         - download offline caption model
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, show-completion visualization, rich cards, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, distinct collapsed versus expanded header states, show-completion visualization, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -229,7 +246,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu, offline caption generation state, and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu that sizes to content with a chrome-aware cap, offline caption generation state, and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -242,14 +259,17 @@ contract:
         - enable or disable generated subtitle tracks from standard player controls
   processes:
     - name: library_refresh
-      description: Periodic refresh that stays registered while a non-blank saved feed URL exists.
+      description: Periodic refresh that stays registered while a non-blank saved feed URL exists and can auto-generate local captions for newly discovered playable videos when that setting is enabled and the local model is ready.
       inputs:
         saved_feed_url: string (required, non-empty)
         previous_snapshot: PersistedLibrarySnapshot (optional)
+        auto_generate_captions_for_new_videos: boolean (optional)
+        local_caption_model_ready: boolean (optional)
       outputs:
         latest_snapshot: PersistedLibrarySnapshot (optional)
         library_sync_state: LibrarySyncState
         notification: NotificationRecord (optional)
+        generated_caption_video_ids: array of string (optional)
     - name: notification_delivery
       description: Create a local notification entry for a newly discovered latest video and bind the notification tap to the player route.
       inputs:
@@ -324,6 +344,22 @@ scenarios:
       - visible status label == "Ready"
       - primary sync action is enabled
       - primary sync action label == "Sync Premium feed"
+  - id: settings_surface_exposes_auto_caption_toggle
+    description: Settings exposes a persistent toggle for automatically generating captions for newly discovered videos.
+    when:
+      surface: settings
+      state:
+        feed_configuration:
+          feed_url: "https://example.com/premium.xml"
+          auto_generate_captions_for_new_videos: true
+          daily_open_point_count: 1
+        local_caption_model_state:
+          is_ready: true
+          is_downloading: false
+          error_message: null
+    then:
+      - visible settings copy contains "Auto-generate captions for new videos"
+      - visible toggle is enabled
   - id: cold_start_intro_is_brief_and_skippable
     description: A true app cold start may show a short LookTube brand intro that can be dismissed instantly and does not replay on resume.
     when:
@@ -420,6 +456,13 @@ scenarios:
       - visible status label == "Syncing"
       - primary sync action is disabled
       - clear synced data action is hidden or disabled
+  - id: note_app_opened_awards_one_daily_point
+    description: Recording a real app open awards one Look Point once per local day.
+    when:
+      call: note_app_opened
+      args: {}
+    then:
+      - returns.feed_configuration.daily_open_point_count >= 1
   - id: sync_success_replaces_library_and_marks_session_synced
     description: A successful feed sync replaces the active library and marks the session as synced.
     when:
@@ -531,6 +574,24 @@ scenarios:
               feed_category: "Premium"
     then:
       - if latest snapshot contains "video-2" and not "video-1" only, returns.notification.latest_video_id == "video-2"
+  - id: background_refresh_can_auto_generate_captions_for_new_videos
+    description: Background refresh can auto-generate captions for newly discovered playable videos when the setting is enabled and the local model is ready.
+    when:
+      process: library_refresh
+      args:
+        saved_feed_url: "https://example.com/premium.xml"
+        auto_generate_captions_for_new_videos: true
+        local_caption_model_ready: true
+        previous_snapshot:
+          feed_url: "https://example.com/premium.xml"
+          videos:
+            - id: "video-1"
+              title: "Older item"
+              description: ""
+              is_premium: true
+              feed_category: "Premium"
+    then:
+      - if latest snapshot contains playable "video-2" without a saved caption, returns.generated_caption_video_ids contains "video-2"
   - id: feed_switches_do_not_generate_false_positive_notifications
     description: Switching to a different feed URL does not treat the first snapshot from the new feed as a new-release notification event.
     when:
@@ -738,17 +799,18 @@ scenarios:
       - visible card copy contains "Resume"
       - visible card shows a progress indicator
   - id: library_completion_and_points_are_visible_without_show_score_bonus
-    description: The visible shell score badge and show-group browsing expose watched/completion progress, but only watched videos affect the numeric Look Points score.
+    description: The visible shell score badge and show-group browsing expose watched/completion progress, while the numeric Look Points score reflects watched videos plus the daily app-open bonus without adding a show-completion bonus.
     when:
       surface: library
       state:
         look_points_summary:
-          total_points: 30
+          total_points: 37
           watched_video_count: 3
           total_video_count: 10
           completed_show_count: 1
           total_show_count: 4
-          video_points: 30
+          video_points: 36
+          daily_open_points: 1
         grouped_by_show: true
     then:
       - visible shell copy contains "Look Points"
@@ -794,10 +856,19 @@ scenarios:
           completed_show_count: 0
           total_show_count: 4
           video_points: 20
+          daily_open_points: 0
         is_fullscreen: false
     then:
       - visible shell copy contains "Look Points"
       - no separate page-local Look Points card is required below the Library or Player title
+  - id: app_shell_shows_playing_indicator_when_playback_active
+    description: The top app bar can show a compact playing indicator between the title and the Look Points badge while playback is active.
+    when:
+      surface: app_shell
+      state:
+        playback_active: true
+    then:
+      - visible shell copy contains "Playing"
   - id: look_points_surfaces_use_accent_outline
     description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
     when:
@@ -810,6 +881,7 @@ scenarios:
           completed_show_count: 0
           total_show_count: 4
           video_points: 20
+          daily_open_points: 0
     then:
       - visible Look Points surface uses the gold/yellow accent outline
   - id: library_truncated_descriptions_can_expand_to_dialog
@@ -1029,6 +1101,7 @@ scenarios:
           completed_show_count: 0
           total_show_count: 4
           video_points: 20
+          daily_open_points: 0
     then:
       - visible player copy contains "History"
       - visible player copy contains either "Mark as Watched" or "Mark as Unwatched"
@@ -1096,7 +1169,7 @@ scenarios:
       - visible player copy contains "Regenerate captions"
       - generated subtitle track is selectable from the standard player subtitle controls
   - id: player_history_menu_is_bounded_and_scrollable
-    description: The player History affordance opens a surfaced dropdown that stays bounded on screen and shows scroll feedback when the list grows long.
+    description: The player History affordance opens a surfaced dropdown that sizes to content, stays bounded on screen, and shows scroll feedback when the list grows long.
     when:
       surface: player
       state:
@@ -1112,7 +1185,7 @@ scenarios:
         open "History"
     then:
       - visible history panel is surfaced and visually distinct from surrounding controls
-      - visible history panel height stays bounded within the screen
+      - visible history panel height stays bounded within the screen and does not fill the whole surface
       - long history lists expose scroll feedback
   - id: cast_support_failure_does_not_block_local_playback
     description: Failure to initialize cast support does not prevent local playback from being available.
