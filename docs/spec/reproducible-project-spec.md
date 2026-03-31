@@ -152,8 +152,8 @@ An implementation that materially changes these choices can still be valid, but 
 ### Captions
 - Users can download a local caption model once and then generate captions for any playable video without configuring an external provider.
 - Users can enable a persistent setting that automatically generates captions for newly discovered playable videos once the local caption model is ready.
-- Caption generation extracts audio from the selected playback URL, runs the on-device transcription path locally, and stores the result as a per-video WebVTT sidecar.
-- Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including processed audio duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it.
+- Caption generation extracts audio from the selected playback URL into a file-backed 16 kHz mono PCM working copy, conservatively isolates speech-heavy spans from that audio, runs the on-device transcription path locally against those spans, and stores the result as a per-video WebVTT sidecar.
+- Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including speech-processed duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.
 - Cast playback preserves generated captions by mapping subtitle configurations into explicit Cast text tracks and serving local sidecars from the sender over a reachable local HTTP URL.
 - The default build target preserves a lower-spec whisper.cpp-based local caption path, while an opt-in higher-spec target may default to a faster local engine such as Moonshine behind stricter SDK or ABI assumptions and still retain Whisper.cpp as a compatibility fallback.

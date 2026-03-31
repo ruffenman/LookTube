@@ -90,7 +90,7 @@ Harden the path from copied feed sync to daily repeat use.
 - LookTube now treats offline-first captions as a supported product behavior rather than a future-only direction.
 - Settings exposes local caption model readiness and a download action for the built-in on-device English model, so captions can work without any external provider once the model is present.
 - Player exposes per-video on-device caption generation and regeneration, shows generation progress or errors, and enables the built-in CC control for turning generated captions on locally.
-- Long-running on-device caption jobs continue to report hard transcription progress during the transcription phase itself, including processed audio time, chunk counts, measured throughput, per-chunk wall time, and ETA once enough work has completed to estimate it.
+- Long-running on-device caption jobs keep extraction file-backed for memory safety, conservatively skip long silent stretches before transcription, and continue to report hard transcription progress during the transcription phase itself, including speech-processed time, chunk counts, measured throughput, per-chunk wall time, and ETA once enough work has completed to estimate it.
 - The default build target keeps whisper.cpp as the guaranteed local fallback, and the Moonshine-capable target defaults to Moonshine on compatible devices while still exposing Whisper.cpp as a compatibility fallback.
 - Generated captions are stored as per-video WebVTT sidecars instead of mutating feed-derived metadata.
 - Cast delivery treats captions as first-class text tracks through explicit Cast mapping and sender-hosted sidecar serving, rather than assuming default Media3 subtitle propagation is sufficient.

@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.13"
+  version: "0.2.14"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -174,7 +174,7 @@ contract:
       returns:
         local_caption_model_state: LocalCaptionModelState
     - name: generate_local_captions
-      description: Generate or regenerate local captions for a playable video and store them as a reusable text track.
+      description: Generate or regenerate local captions for a playable video by extracting a file-backed mono working copy, focusing transcription on speech-heavy spans, and storing the result as a reusable text track.
       parameters:
         video_id: string (required)
       returns:
@@ -411,10 +411,10 @@ scenarios:
           playback_url: "https://video.example.com/video-long.mp4"
         selected_caption_generation_status:
           phase: "Transcribing"
-          message: "Transcribing chunk 2 of 4… 0:45 of 2:00 processed • 38% complete • speed 0.25x realtime • ETA ~3:00 • last 0:30 chunk 2:30 wall (enc 1:36, dec 0:12)"
+          message: "Transcribing chunk 2 of 4… 0:45 of 2:00 speech processed • 38% complete • speed 0.25x realtime • ETA ~3:00 • last 0:30 chunk 2:30 wall (enc 1:36, dec 0:12)"
           progress_fraction: 0.60625
     then:
-      - visible player copy contains "0:45 of 2:00 processed"
+      - visible player copy contains "0:45 of 2:00 speech processed"
       - visible player copy contains "38% complete"
       - visible player copy contains "speed 0.25x realtime"
       - visible player copy contains "ETA ~3:00"
@@ -1321,6 +1321,7 @@ constraints:
     - implementation must not require browser automation, cookie harvesting, or unsupported website sign-in replay
     - no server-push notification backend is required; new-release notifications come from local background refresh diffs
     - offline caption generation must work without any external provider once the local caption model is present
+    - local caption generation may optimize by skipping obvious silence, but it must preserve timestamps for the spoken spans that remain
   security:
     - if feed URL is persisted, secure platform storage must be used when available
     - live feed URLs, cookies, and raw authenticated feed payloads must not be committed as fixtures or examples
@@ -1345,3 +1346,4 @@ constraints:
     - local playback must remain available even if cast support initialization fails
     - if a cast session ends or becomes unavailable, the last known item and position must remain recoverable for local playback
     - once generated, local captions should remain available as reusable text tracks for both local playback and cast handoff
+    - local caption generation should keep the extracted working audio file-backed instead of requiring whole-file PCM to be loaded into memory for long videos

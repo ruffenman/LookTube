@@ -113,6 +113,7 @@ Java_com_looktube_app_WhisperNativeBridge_nativeFullTranscribe(
     jobject /* thiz */,
     jlong context_pointer,
     jint num_threads,
+    jint audio_context_size,
     jfloatArray audio_data
 ) {
     whisper_context * context = reinterpret_cast<whisper_context *>(context_pointer);
@@ -135,6 +136,7 @@ Java_com_looktube_app_WhisperNativeBridge_nativeFullTranscribe(
     params.offset_ms = 0;
     params.no_context = true;
     params.single_segment = false;
+    params.audio_ctx = audio_context_size;
     if (ensure_progress_bridge(env)) {
         params.progress_callback = whisper_progress_bridge;
         params.progress_callback_user_data = nullptr;

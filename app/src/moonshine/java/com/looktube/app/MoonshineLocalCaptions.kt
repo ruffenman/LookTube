@@ -14,7 +14,6 @@ import com.looktube.model.MoonshineBaseEnglishCaptionModel
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -127,6 +126,11 @@ internal class MoonshineLocalCaptionGenerator(
     private val cacheDirectory = File(context.cacheDir, "captions")
     private val audioExtractor = RemoteMediaAudioExtractor()
 
+    private companion object {
+        private const val MOONSHINE_SAMPLE_RATE = 16_000
+        private const val TRANSCRIPTION_CHUNK_SECONDS = 30
+    }
+
     override suspend fun generate(
         request: LocalCaptionGenerationRequest,
         onProgress: (CaptionGenerationStatus) -> Unit,
@@ -143,33 +147,83 @@ internal class MoonshineLocalCaptionGenerator(
             audioExtractor.extractToPcm16MonoFile(
                 playbackUrl = request.playbackUrl,
                 outputFile = audioFile,
+                onProgress = { progress ->
+                    onProgress(extractionCaptionStatus(progress))
+                },
             )
+            val audioPlan = buildCaptionAudioPlan(audioFile)
             onProgress(
-                CaptionGenerationStatus(
-                    phase = CaptionGenerationPhase.Transcribing,
-                    message = "Transcribing audio with Moonshine on this device…",
-                    progressFraction = 0f,
+                captionAudioPlanStatus(
+                    engineLabel = "Moonshine",
+                    audioPlan = audioPlan,
                 ),
             )
-            val transcript = MoonshineTranscriberPool.transcribe(
-                modelPath = request.modelPath,
-                audioSamples = pcm16FileToFloatArray(audioFile),
+            val chunks = buildCaptionAudioChunks(
+                audioPlan = audioPlan,
+                maxChunkDurationSeconds = TRANSCRIPTION_CHUNK_SECONDS,
             )
-            val segments = transcript.lines
-                .orEmpty()
-                .mapNotNull { line ->
-                    val text = line.text?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
-                    if (text.isBlank()) {
-                        null
-                    } else {
-                        CaptionSegment(
-                            startMs = (line.startTime * 1_000f).toLong(),
-                            endMs = ((line.startTime + line.duration) * 1_000f).toLong(),
-                            text = text,
-                        )
-                    }
+            require(chunks.isNotEmpty()) {
+                "Moonshine caption generation could not plan any audio chunks."
+            }
+            val totalAudioDurationSeconds = audioPlan.speechDurationSeconds
+            val transcriptionStartedAtNanos = System.nanoTime()
+            var processedSpeechSamples = 0L
+            var lastCompletedChunkDurationSeconds: Long? = null
+            var lastCompletedChunkWallSeconds: Long? = null
+            val segments = mutableListOf<CaptionSegment>()
+            CaptionPcmChunkReader(audioFile).use { chunkReader ->
+                chunks.forEachIndexed { chunkIndex, chunk ->
+                    onProgress(
+                        transcriptionCaptionStatus(
+                            completedChunkCount = chunkIndex,
+                            totalChunks = chunks.size,
+                            processedAudioSeconds = processedSpeechSamples / MOONSHINE_SAMPLE_RATE.toLong(),
+                            totalAudioDurationSeconds = totalAudioDurationSeconds,
+                            elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
+                            lastCompletedChunkDurationSeconds = lastCompletedChunkDurationSeconds,
+                            lastCompletedChunkWallSeconds = lastCompletedChunkWallSeconds,
+                        ),
+                    )
+                    val chunkStartedAtNanos = System.nanoTime()
+                    val transcript = MoonshineTranscriberPool.transcribe(
+                        modelPath = request.modelPath,
+                        audioSamples = chunkReader.readChunk(chunk),
+                    )
+                    val chunkWallSeconds = elapsedSince(chunkStartedAtNanos)
+                    transcript.lines
+                        .orEmpty()
+                        .mapNotNull { line ->
+                            val text = line.text?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+                            if (text.isBlank()) {
+                                null
+                            } else {
+                                CaptionSegment(
+                                    startMs = chunk.startMs + (line.startTime * 1_000f).toLong(),
+                                    endMs = chunk.startMs + ((line.startTime + line.duration) * 1_000f).toLong(),
+                                    text = text,
+                                )
+                            }
+                        }
+                        .filter { segment -> segment.endMs > segment.startMs }
+                        .forEach { segment ->
+                            segments += segment
+                        }
+                    processedSpeechSamples += chunk.sampleCount.toLong()
+                    lastCompletedChunkDurationSeconds = chunk.durationSeconds
+                    lastCompletedChunkWallSeconds = chunkWallSeconds
+                    onProgress(
+                        transcriptionCaptionStatus(
+                            completedChunkCount = chunkIndex + 1,
+                            totalChunks = chunks.size,
+                            processedAudioSeconds = processedSpeechSamples / MOONSHINE_SAMPLE_RATE.toLong(),
+                            totalAudioDurationSeconds = totalAudioDurationSeconds,
+                            elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
+                            lastCompletedChunkDurationSeconds = lastCompletedChunkDurationSeconds,
+                            lastCompletedChunkWallSeconds = lastCompletedChunkWallSeconds,
+                        ),
+                    )
                 }
-                .filter { segment -> segment.endMs > segment.startMs }
+            }
             if (segments.isEmpty()) {
                 throw IOException("Moonshine did not return any caption segments.")
             }
@@ -266,12 +320,4 @@ private fun downloadFile(
     } finally {
         connection.disconnect()
     }
-}
-
-private fun pcm16FileToFloatArray(file: File): FloatArray {
-    val bytes = FileInputStream(file).use { input -> input.readBytes() }
-    return pcm16LeToFloatArray(
-        buffer = bytes,
-        length = bytes.size,
-    )
 }

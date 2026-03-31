@@ -21,10 +21,8 @@ import com.looktube.model.VideoCaptionTrack
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
-import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.InetAddress
@@ -438,9 +436,17 @@ internal class OnDeviceLocalCaptionGenerator(
                     onProgress(extractionCaptionStatus(progress))
                 },
             )
+            val audioPlan = buildCaptionAudioPlan(audioFile)
+            onProgress(
+                captionAudioPlanStatus(
+                    engineLabel = "Whisper.cpp",
+                    audioPlan = audioPlan,
+                ),
+            )
             val segments = transcribeAudioFile(
                 modelPath = request.modelPath,
                 audioFile = audioFile,
+                audioPlan = audioPlan,
                 onProgress = onProgress,
             )
             if (segments.isEmpty()) {
@@ -460,18 +466,21 @@ internal class OnDeviceLocalCaptionGenerator(
     private fun transcribeAudioFile(
         modelPath: String,
         audioFile: File,
+        audioPlan: CaptionAudioPlan,
         onProgress: (CaptionGenerationStatus) -> Unit,
     ): List<CaptionSegment> {
-        val totalChunks = max(
-            1,
-            ((audioFile.length() + (PCM_CHUNK_BYTES - 1)) / PCM_CHUNK_BYTES).toInt(),
+        val chunks = buildCaptionAudioChunks(
+            audioPlan = audioPlan,
+            maxChunkDurationSeconds = TRANSCRIPTION_CHUNK_SECONDS,
         )
-        val totalAudioDurationSeconds = max(
-            1L,
-            (audioFile.length() + (PCM_BYTES_PER_SECOND - 1)) / PCM_BYTES_PER_SECOND,
-        )
+        require(chunks.isNotEmpty()) {
+            "The offline caption pipeline could not plan any audio chunks."
+        }
+        val totalChunks = chunks.size
+        val totalAudioDurationSeconds = audioPlan.speechDurationSeconds
         val transcriptionStartedAtNanos = System.nanoTime()
         val segments = mutableListOf<CaptionSegment>()
+        var processedSpeechSamples = 0L
         var lastCompletedChunkDurationSeconds: Long? = null
         var lastCompletedChunkWallSeconds: Long? = null
         var lastCompletedChunkTimings: WhisperNativeTimings? = null
@@ -483,29 +492,17 @@ internal class OnDeviceLocalCaptionGenerator(
                 totalAudioDurationSeconds = totalAudioDurationSeconds,
             ),
         )
-        FileInputStream(audioFile).use { input ->
-            val chunkBuffer = ByteArray(PCM_CHUNK_BYTES)
-            var chunkIndex = 0
-            var chunkOffsetMs = 0L
-            while (true) {
-                val bytesRead = readChunk(input, chunkBuffer)
-                if (bytesRead <= 0) {
-                    break
-                }
-                val audioSamples = pcm16LeToFloatArray(
-                    buffer = chunkBuffer,
-                    length = bytesRead,
-                )
-                val currentChunkDurationSeconds = max(
-                    1L,
-                    (audioSamples.size.toLong() + (TARGET_SAMPLE_RATE - 1).toLong()) / TARGET_SAMPLE_RATE.toLong(),
-                )
-                val processedAudioSeconds = chunkOffsetMs / 1_000L
+        CaptionPcmChunkReader(audioFile).use { chunkReader ->
+            chunks.forEachIndexed { chunkIndex, chunk ->
+                val audioSamples = chunkReader.readChunk(chunk)
+                val currentChunkDurationSeconds = chunk.durationSeconds
+                val processedAudioSeconds = processedSpeechSamples / TARGET_SAMPLE_RATE.toLong()
                 val chunkStartedAtNanos = System.nanoTime()
                 val transcriptionResult = WhisperNativeBridge.transcribe(
                     modelPath = modelPath,
                     audioSamples = audioSamples,
-                    numThreads = recommendedThreadCount(),
+                    numThreads = preferredWhisperThreadCount(),
+                    audioContextSize = adaptiveWhisperAudioContextSize(currentChunkDurationSeconds),
                     onProgressPercent = { progressPercent ->
                         onProgress(
                             transcriptionCaptionStatus(
@@ -527,20 +524,19 @@ internal class OnDeviceLocalCaptionGenerator(
                 val chunkWallSeconds = elapsedSince(chunkStartedAtNanos)
                 chunkSegments.forEach { segment ->
                     segments += segment.copy(
-                        startMs = chunkOffsetMs + segment.startMs,
-                        endMs = chunkOffsetMs + segment.endMs,
+                        startMs = chunk.startMs + segment.startMs,
+                        endMs = chunk.startMs + segment.endMs,
                     )
                 }
-                chunkIndex += 1
-                chunkOffsetMs += (audioSamples.size * 1_000L) / TARGET_SAMPLE_RATE
+                processedSpeechSamples += audioSamples.size.toLong()
                 lastCompletedChunkDurationSeconds = currentChunkDurationSeconds
                 lastCompletedChunkWallSeconds = chunkWallSeconds
                 lastCompletedChunkTimings = transcriptionResult.timings
                 onProgress(
                     transcriptionCaptionStatus(
-                        completedChunkCount = chunkIndex,
+                        completedChunkCount = chunkIndex + 1,
                         totalChunks = totalChunks,
-                        processedAudioSeconds = chunkOffsetMs / 1_000L,
+                        processedAudioSeconds = processedSpeechSamples / TARGET_SAMPLE_RATE.toLong(),
                         totalAudioDurationSeconds = totalAudioDurationSeconds,
                         elapsedRealtimeSeconds = elapsedSince(transcriptionStartedAtNanos),
                         lastCompletedChunkDurationSeconds = lastCompletedChunkDurationSeconds,
@@ -559,19 +555,12 @@ internal class OnDeviceLocalCaptionGenerator(
             }
     }
 
-    private fun recommendedThreadCount(): Int =
-        Runtime.getRuntime().availableProcessors()
-            .coerceAtLeast(2)
-            .minus(1)
-            .coerceIn(1, 4)
 
     companion object {
         private const val TARGET_SAMPLE_RATE = 16_000
         // Whisper already decodes internally in roughly 30-second windows, so much larger
         // outer chunks increase wall time on-device without improving progress fidelity.
         private const val TRANSCRIPTION_CHUNK_SECONDS = 30
-        private const val PCM_CHUNK_BYTES = TARGET_SAMPLE_RATE * TRANSCRIPTION_CHUNK_SECONDS * 2
-        private const val PCM_BYTES_PER_SECOND = TARGET_SAMPLE_RATE * 2L
     }
 }
 
@@ -639,6 +628,23 @@ internal fun transcriptionProgressFraction(
             CAPTION_TRANSCRIPTION_PROGRESS_START + CAPTION_TRANSCRIPTION_PROGRESS_RANGE,
         )
 }
+internal fun captionAudioPlanStatus(
+    engineLabel: String,
+    audioPlan: CaptionAudioPlan,
+): CaptionGenerationStatus {
+    val message = if (audioPlan.speechCoverageFraction < 0.98f) {
+        "Preparing $engineLabel transcription from ${audioPlan.speechSpanCount} speech spans covering " +
+            "${formatCaptionProgressTime(audioPlan.speechDurationSeconds)} of " +
+            "${formatCaptionProgressTime(audioPlan.totalAudioDurationSeconds)} total audio…"
+    } else {
+        "Preparing $engineLabel transcription from ${formatCaptionProgressTime(audioPlan.totalAudioDurationSeconds)} of audio…"
+    }
+    return CaptionGenerationStatus(
+        phase = CaptionGenerationPhase.Transcribing,
+        message = message,
+        progressFraction = CAPTION_TRANSCRIPTION_PROGRESS_START,
+    )
+}
 
 internal fun transcriptionCaptionStatus(
     completedChunkCount: Int,
@@ -677,7 +683,7 @@ internal fun transcriptionCaptionStatus(
     if (effectiveProcessedAudioSeconds <= 0L) {
         return CaptionGenerationStatus(
             phase = CaptionGenerationPhase.Transcribing,
-            message = "Transcribing chunk $currentChunkNumber of $safeTotalChunks… 0:00 of ${formatCaptionProgressTime(totalAudioSeconds)} processed",
+            message = "Transcribing chunk $currentChunkNumber of $safeTotalChunks… 0:00 of ${formatCaptionProgressTime(totalAudioSeconds)} speech processed",
             progressFraction = null,
         )
     }
@@ -708,7 +714,7 @@ internal fun transcriptionCaptionStatus(
         append(formatCaptionProgressTime(effectiveProcessedAudioSeconds))
         append(" of ")
         append(formatCaptionProgressTime(totalAudioSeconds))
-        append(" processed")
+        append(" speech processed")
         append(" • ")
         append(overallCompletionPercent)
         append("% complete")
@@ -743,7 +749,7 @@ internal fun transcriptionCaptionStatus(
     )
 }
 
-private fun elapsedSince(startedAtNanos: Long): Long =
+internal fun elapsedSince(startedAtNanos: Long): Long =
     ((System.nanoTime() - startedAtNanos).coerceAtLeast(0L) / 1_000_000_000L)
 
 private fun formatRealtimeSpeed(speed: Double): String =
@@ -810,6 +816,7 @@ private object WhisperNativeBridge {
         modelPath: String,
         audioSamples: FloatArray,
         numThreads: Int,
+        audioContextSize: Int,
         onProgressPercent: (Int) -> Unit = {},
     ): WhisperTranscriptionResult {
         val contextPointer = obtainContext(modelPath)
@@ -820,6 +827,7 @@ private object WhisperNativeBridge {
             nativeFullTranscribe(
                 contextPointer = contextPointer,
                 numThreads = numThreads,
+                audioContextSize = audioContextSize,
                 audioData = audioSamples,
             )
         } finally {
@@ -883,6 +891,7 @@ private object WhisperNativeBridge {
     private external fun nativeFullTranscribe(
         contextPointer: Long,
         numThreads: Int,
+        audioContextSize: Int,
         audioData: FloatArray,
     )
     private external fun nativeResetTimings(contextPointer: Long)
@@ -1160,20 +1169,6 @@ internal fun pcm16LeToFloatArray(
     return samples
 }
 
-private fun readChunk(
-    input: InputStream,
-    buffer: ByteArray,
-): Int {
-    var totalBytesRead = 0
-    while (totalBytesRead < buffer.size) {
-        val bytesRead = input.read(buffer, totalBytesRead, buffer.size - totalBytesRead)
-        if (bytesRead <= 0) {
-            break
-        }
-        totalBytesRead += bytesRead
-    }
-    return totalBytesRead
-}
 
 internal fun buildWebVtt(segments: List<CaptionSegment>): String = buildString {
     appendLine("WEBVTT")
