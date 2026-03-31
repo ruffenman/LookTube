@@ -38,6 +38,7 @@ Stable-checkpoint policy:
 - after the full local gate passes for a stable slice, commit it immediately
 - push that checkpoint immediately
 - deploy the latest build immediately when a deployable app build exists
+- do those stable-checkpoint actions before finishing the response for the user, without pausing to ask for permission first
 
 ## Managed-device smoke lane
 The baseline app target is configured with a `pixel6Api36` managed virtual device. The smoke lane currently passes locally, though AGP still emits an ABI migration warning during setup:
@@ -86,6 +87,7 @@ Verify the current UI against committed baselines:
 Current committed baselines cover:
 - Library browse surface
 - Library empty state
+- shell top bar with active playback indicator
 - launch intro overlay
 - Settings setup-required state
 - Settings syncing state

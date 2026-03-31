@@ -16,11 +16,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.VideoLibrary
@@ -33,8 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +48,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -220,31 +224,9 @@ fun LookTubeApp(
                 modifier = Modifier.fillMaxSize(),
                 topBar = {
                     if (!isPlayerFullscreen) {
-                        TopAppBar(
-                            title = {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(end = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text("LookTube")
-                                    if (topBarPlaybackIndicatorVisible) {
-                                        TopBarPlaybackIndicator()
-                                    }
-                                }
-                            },
-                            actions = {
-                                LookPointsTopBarBadge(
-                                    lookPointsSummary = lookPointsSummary,
-                                    modifier = Modifier.padding(end = 4.dp),
-                                )
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                                titleContentColor = MaterialTheme.colorScheme.onSurface,
-                            ),
+                        LookTubeTopBar(
+                            playbackIndicatorVisible = topBarPlaybackIndicatorVisible,
+                            lookPointsSummary = lookPointsSummary,
                         )
                     }
                 },
@@ -397,6 +379,56 @@ private fun rememberPlaybackController(): MediaController? {
 }
 
 @Composable
+internal fun LookTubeTopBar(
+    playbackIndicatorVisible: Boolean,
+    lookPointsSummary: LookPointsSummary,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .height(64.dp)
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text = "LookTube",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+            Box(
+                modifier = Modifier.width(28.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (playbackIndicatorVisible) {
+                    TopBarPlaybackIndicator()
+                }
+            }
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                LookPointsTopBarBadge(
+                    lookPointsSummary = lookPointsSummary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun LookPointsTopBarBadge(
     lookPointsSummary: LookPointsSummary,
     modifier: Modifier = Modifier,
@@ -439,17 +471,23 @@ private fun LookPointsTopBarBadge(
 @Composable
 private fun TopBarPlaybackIndicator() {
     Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f),
+        modifier = Modifier.size(24.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.88f),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         tonalElevation = 0.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
     ) {
-        Text(
-            text = "Playing",
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelLarge,
-        )
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.PlayArrow,
+                contentDescription = "Playback active",
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 

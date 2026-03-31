@@ -20,7 +20,7 @@ Its central promise is deliberately narrow:
 ### App shell
 - keeps the standard top app bar and bottom navigation visible outside fullscreen playback
 - may show a short, cold-start-only LookTube intro overlay that auto-dismisses quickly, can be skipped immediately with any tap, and does not replay on background resume
-- exposes one global Look Points badge in the top app bar on Library and Player so score remains visible without being embedded into page-local control rows, and can show a compact playing indicator while playback is active
+- exposes one global Look Points badge in the top app bar on Library and Player so score remains visible without being embedded into page-local control rows, and can show a small centered icon-only playback indicator while playback is active
 ### Settings
 - sole user input for access is the copied Premium feed URL
 - communicates setup, ready, syncing, synced, and error-adjacent states
@@ -30,7 +30,7 @@ Its central promise is deliberately narrow:
 - combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
 - uses a clean empty-state panel before the first successful sync or after clearing synced data, instead of seeded placeholder library items
 - wraps status plus browse controls inside a default-collapsed Library Config element that sits above the scrolling episode list
-- grouped headers can collapse or expand independently with compact icon-based expand/collapse controls, allow the entire header to toggle expansion, use visibly different collapsed and expanded states, place their title and metadata beneath that control instead of offsetting them to its right, expose one whole-group watched-state toggle at a time, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
+- grouped headers can collapse or expand independently with compact icon-based expand/collapse controls, allow the entire header to toggle expansion, use a subdued neutral collapsed style and a subtle content-derived expanded backdrop, place their title and metadata beneath that control instead of offsetting them to its right, expose one whole-group watched-state toggle at a time, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
 - shows watched-versus-total progress for shows while Look Points scoring remains available from the global shell badge and reflects watched videos plus one daily app-open point without adding show-completion bonus points
 - uses explicit `Mark as Watched` and `Mark as Unwatched` wording for manual watch-state actions
 - should remain usable and informative even before a successful live sync by showing an intentional empty-state treatment and next-step guidance

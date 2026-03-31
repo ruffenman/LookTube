@@ -61,7 +61,7 @@ An implementation that materially changes these choices can still be valid, but 
 - app opens on the Settings page by default
 - true cold starts may show a brief LookTube intro overlay that can be skipped immediately and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
-- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, and can show a compact playing indicator between the title and badge when playback is active
+- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, and can show a small centered icon-only playback indicator between the title and badge when playback is active
 - notification launch intents can route directly to the Player page and optionally preselect a video
 
 ### Settings surface
@@ -81,7 +81,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, uses distinct collapsed and expanded visual states, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, uses a subdued neutral style when collapsed and a subtle content-derived backdrop when expanded, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -116,7 +116,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
 - The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
-- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, the title and header metadata stacked beneath that control instead of being offset to its right, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to.
+- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, the title and header metadata stacked beneath that control instead of being offset to its right, a neutral low-attention collapsed style, a subtle content-derived expanded backdrop, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to.
 - The jump rail becomes visible quickly when scrolling starts, fades back out roughly 0.2 seconds after passive scrolling stops, and only lingers longer after an explicit jump-rail selection.
 
 ### Background refresh and notifications

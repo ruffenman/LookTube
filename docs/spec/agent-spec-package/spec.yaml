@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.12"
+  version: "0.2.13"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -216,7 +216,7 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay, a global Look Points badge, and a compact playing indicator while playback is active.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay, a global Look Points badge, and a small centered icon-only playback indicator while playback is active.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
         - navigate between Settings, Library, and Player
@@ -235,7 +235,7 @@ contract:
         - choose the active local caption engine when multiple engines are available for the current build target
         - download offline caption model
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, distinct collapsed versus expanded header states, show-completion visualization, rich cards, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, a subdued neutral collapsed header style, a subtle content-derived expanded header backdrop, show-completion visualization, rich cards, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -831,7 +831,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, and visually nested episode cards inside one containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a subdued neutral collapsed style, a subtle content-derived expanded backdrop, and visually nested episode cards inside one containing card when expanded.
     when:
       surface: library
       state:
@@ -841,8 +841,8 @@ scenarios:
       - visible grouped header does not rely on tap-instruction copy to explain expand or collapse
       - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
       - visible grouped header uses iconography rather than text labels for expand/collapse
-      - visible grouped header places the expand or collapse control near the top right
-      - visible grouped header places the watched toggle near the bottom right
+      - visible grouped header places the expand or collapse control near the top left
+      - visible grouped header places the watched toggle above the nested episode cards
       - expanded videos appear visually nested under the grouped header they belong to
   - id: shell_look_points_are_global_on_library_and_player
     description: While normal shell chrome is visible, Look Points appear as one global top-bar badge on Library and Player instead of as page-local widgets.
@@ -862,13 +862,13 @@ scenarios:
       - visible shell copy contains "Look Points"
       - no separate page-local Look Points card is required below the Library or Player title
   - id: app_shell_shows_playing_indicator_when_playback_active
-    description: The top app bar can show a compact playing indicator between the title and the Look Points badge while playback is active.
+    description: The top app bar can show a small centered icon-only playback indicator between the title and the Look Points badge while playback is active.
     when:
       surface: app_shell
       state:
         playback_active: true
     then:
-      - visible shell copy contains "Playing"
+      - visible shell shows a playback-active icon between the title and Look Points badge
   - id: look_points_surfaces_use_accent_outline
     description: Any Library or Player UI element that presents Look Points uses the app's gold/yellow accent outline treatment.
     when:

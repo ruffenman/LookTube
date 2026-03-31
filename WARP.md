@@ -5,7 +5,7 @@
 - When Giant Bomb site-content conventions change, update the shared heuristics in `core/heuristics` instead of reintroducing local rule tables or one-off inference logic elsewhere.
 - Run `.\gradlew.bat verifyFast` after each thin Ralph loop slice.
 - Run `.\gradlew.bat verifyLocal -PskipManagedDevice=true` before committing unless you also validated the managed-device lane.
-- Once a slice reaches a stable checkpoint, commit it, push it, and deploy it without waiting for another approval prompt.
+- Once a slice reaches a stable checkpoint, finish the required validation, then commit it, push it, and deploy it before ending the response, without stopping to ask for permission first.
 - Never commit live Giant Bomb credentials, cookies, or raw authenticated feed responses.
 - Copied feed URLs persist through an encrypted-at-rest app store.
 - `Clear synced data` removes cached library data and playback progress while preserving the saved feed URL.
