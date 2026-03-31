@@ -15,6 +15,7 @@ import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
@@ -40,6 +41,7 @@ class ConfigurableLookTubeRepository(
     private val libraryRefreshScheduler: LibraryRefreshScheduler = NoOpLibraryRefreshScheduler,
     private val localCaptionEngineRegistry: LocalCaptionEngineRegistry = NoOpLocalCaptionEngineRegistry,
     private val videoCaptionStore: VideoCaptionStore = NoOpVideoCaptionStore,
+    private val captionDataStore: CaptionDataStore = NoOpCaptionDataStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val currentTimeMillisProvider: () -> Long = System::currentTimeMillis,
 ) : LookTubeRepository {
@@ -77,6 +79,7 @@ class ConfigurableLookTubeRepository(
     override val selectedLocalCaptionEngine: StateFlow<LocalCaptionEngine> = localCaptionEngineRegistry.selectedEngine
     override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionEngineRegistry.modelState
     override val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>> = videoCaptionStore.captions
+    override val captionData: StateFlow<Map<String, VideoCaptionData>> = captionDataStore.captionData
     override val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>> = captionGenerationState.asStateFlow()
 
     override suspend fun bootstrap() {
@@ -109,6 +112,33 @@ class ConfigurableLookTubeRepository(
             videosState.value = emptyList()
             selectedVideoIdState.value = null
             publishStatus(initialStatusFor(feedConfigurationState.value))
+        }
+    }
+
+    private fun upsertCaptionData(
+        videoId: String,
+        status: CaptionGenerationStatus,
+        savedTrack: VideoCaptionTrack? = null,
+    ) {
+        val existingTrack = savedTrack ?: videoCaptionStore.captions.value[videoId]
+        captionDataStore.upsert(
+            VideoCaptionData(
+                videoId = videoId,
+                updatedAtEpochMillis = currentTimeMillisProvider(),
+                lastPhase = status.phase,
+                lastMessage = status.message,
+                hasSavedCaptionTrack = existingTrack != null,
+                captionTrackPath = existingTrack?.filePath,
+                engineId = existingTrack?.engineId ?: localCaptionEngineRegistry.selectedEngine.value.id,
+            ),
+        )
+    }
+
+    override suspend fun deleteCaptionData(videoId: String) {
+        videoCaptionStore.delete(videoId)
+        captionDataStore.remove(videoId)
+        captionGenerationState.value = captionGenerationState.value.toMutableMap().apply {
+            remove(videoId)
         }
     }
 
@@ -169,10 +199,9 @@ class ConfigurableLookTubeRepository(
         syncedLibraryStore.clear()
         playbackBookmarkStore.clear()
         videoEngagementStore.clear()
-        videoCaptionStore.clear()
+        clearCaptionData()
         videosState.value = emptyList()
         selectedVideoIdState.value = null
-        captionGenerationState.value = emptyMap()
         publishStatus(
             LibrarySyncState(
                 phase = SyncPhase.Idle,
@@ -180,6 +209,12 @@ class ConfigurableLookTubeRepository(
                 lastSuccessfulSyncSummary = null,
             ),
         )
+    }
+
+    override suspend fun clearCaptionData() {
+        videoCaptionStore.clear()
+        captionDataStore.clear()
+        captionGenerationState.value = emptyMap()
     }
 
     override suspend fun refreshLibrary() {
@@ -324,7 +359,7 @@ class ConfigurableLookTubeRepository(
                     progressFraction = 0.98f,
                 ),
             )
-            videoCaptionStore.saveGeneratedCaption(
+            val savedTrack = videoCaptionStore.saveGeneratedCaption(
                 videoId = videoId,
                 document = document,
             )
@@ -335,6 +370,7 @@ class ConfigurableLookTubeRepository(
                     message = "Generated captions are ready on this device.",
                     progressFraction = 1f,
                 ),
+                savedTrack = savedTrack,
             )
         } catch (exception: Exception) {
             publishCaptionGenerationStatus(
@@ -354,6 +390,10 @@ class ConfigurableLookTubeRepository(
     override fun selectVideo(videoId: String) {
         selectedVideoIdState.value = videoId
         videoEngagementStore.recordPlayback(videoId)
+    }
+
+    override fun inspectVideo(videoId: String) {
+        selectedVideoIdState.value = videoId
     }
 
     override fun setManualWatchState(videoId: String, manualWatchState: ManualWatchState) {
@@ -398,9 +438,18 @@ class ConfigurableLookTubeRepository(
     private fun publishCaptionGenerationStatus(
         videoId: String,
         status: CaptionGenerationStatus,
+        savedTrack: VideoCaptionTrack? = null,
     ) {
+        val previousStatus = captionGenerationState.value[videoId]
         captionGenerationState.value = captionGenerationState.value.toMutableMap().apply {
             put(videoId, status)
+        }
+        if (previousStatus?.phase != status.phase || status.isTerminal || savedTrack != null) {
+            upsertCaptionData(
+                videoId = videoId,
+                status = status,
+                savedTrack = savedTrack,
+            )
         }
     }
 

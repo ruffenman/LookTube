@@ -14,6 +14,7 @@ import com.looktube.model.ManualWatchState
 import com.looktube.model.PersistedFeedConfiguration
 import com.looktube.model.PersistedLibrarySnapshot
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoSummary
 import com.looktube.network.RssVideoFeedParser
@@ -230,6 +231,25 @@ class ConfigurableLookTubeRepositoryTest {
     }
 
     @Test
+    fun inspectVideoDoesNotRecordPlaybackHistory() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+        )
+
+        repository.bootstrap()
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.signInToPremiumFeed()
+        repository.inspectVideo("live-1")
+
+        assertEquals("live-1", repository.selectedVideoId.value)
+        assertTrue(repository.videoEngagement.value["live-1"]?.lastPlayedAtEpochMillis == null)
+    }
+
+    @Test
     fun noteAppOpenedAwardsOnePointOnlyOncePerLocalDay() = runTest {
         val store = FakeFeedConfigurationStore()
         val repository = ConfigurableLookTubeRepository(
@@ -276,6 +296,36 @@ class ConfigurableLookTubeRepositoryTest {
         repository.refreshLibrary()
 
         assertEquals(listOf("live-app-2"), captionStore.savedVideoIds)
+    }
+
+    @Test
+    fun generateAndDeleteCaptionDataUpdatesTracksAndMetadata() = runTest {
+        val captionStore = RecordingVideoCaptionStore()
+        val captionDataStore = RecordingCaptionDataStore()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+            localCaptionEngineRegistry = FakeLocalCaptionEngineRegistry(),
+            videoCaptionStore = captionStore,
+            captionDataStore = captionDataStore,
+        )
+
+        repository.bootstrap()
+        repository.updateFeedUrl("https://example.com/premium.xml")
+        repository.signInToPremiumFeed()
+        repository.generateCaptions("live-1")
+
+        assertTrue(repository.videoCaptions.value.containsKey("live-1"))
+        assertTrue(repository.captionData.value["live-1"]?.hasSavedCaptionTrack == true)
+
+        repository.deleteCaptionData("live-1")
+
+        assertFalse(repository.videoCaptions.value.containsKey("live-1"))
+        assertFalse(repository.captionData.value.containsKey("live-1"))
+        assertFalse(repository.captionGenerationStatus.value.containsKey("live-1"))
     }
 }
 
@@ -332,9 +382,32 @@ private class RecordingVideoCaptionStore : VideoCaptionStore {
         return track
     }
 
+    override suspend fun delete(videoId: String) {
+        state.update { existing -> existing - videoId }
+        savedVideoIds.remove(videoId)
+    }
+
     override suspend fun clear() {
         state.value = emptyMap()
         savedVideoIds.clear()
+    }
+}
+
+private class RecordingCaptionDataStore : CaptionDataStore {
+    private val state = MutableStateFlow(emptyMap<String, VideoCaptionData>())
+
+    override val captionData: StateFlow<Map<String, VideoCaptionData>> = state.asStateFlow()
+
+    override fun upsert(data: VideoCaptionData) {
+        state.update { existing -> existing + (data.videoId to data) }
+    }
+
+    override fun remove(videoId: String) {
+        state.update { existing -> existing - videoId }
+    }
+
+    override fun clear() {
+        state.value = emptyMap()
     }
 }
 
@@ -446,3 +519,4 @@ private class ParserBackedVideoFeedService(
 
     override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> = parser.parse(xml)
 }
+

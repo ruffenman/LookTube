@@ -8,9 +8,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.player.PlayerRoute
+import com.looktube.model.CaptionGenerationPhase
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.PlaybackProgress
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoSummary
 import com.looktube.model.WhisperCppLocalCaptionEngine
 import org.junit.Rule
@@ -43,6 +45,7 @@ class PlayerVisualTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
                     selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
+                    selectedCaptionData = null,
                     selectedCaptionTrack = null,
                     selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
                     player = null,
@@ -52,6 +55,7 @@ class PlayerVisualTest {
                     onMarkVideoUnwatched = {},
                     onLocalCaptionEngineSelected = {},
                     onGenerateCaptionsRequested = {},
+                    onDeleteCaptionDataRequested = {},
                     onFullscreenChanged = {},
                 )
             }
@@ -87,6 +91,14 @@ class PlayerVisualTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
                     selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
+                    selectedCaptionData = VideoCaptionData(
+                        videoId = "bombcast-901",
+                        updatedAtEpochMillis = 1_743_428_400_000L,
+                        lastPhase = CaptionGenerationPhase.Transcribing,
+                        lastMessage = "Transcribing the most recent speech chunk.",
+                        hasSavedCaptionTrack = false,
+                        engineId = WhisperCppLocalCaptionEngine.id,
+                    ),
                     selectedCaptionTrack = null,
                     selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
                     player = null,
@@ -96,6 +108,7 @@ class PlayerVisualTest {
                     onMarkVideoUnwatched = {},
                     onLocalCaptionEngineSelected = {},
                     onGenerateCaptionsRequested = {},
+                    onDeleteCaptionDataRequested = {},
                     onFullscreenChanged = {},
                 )
             }
@@ -131,6 +144,7 @@ class PlayerVisualTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
                     selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
+                    selectedCaptionData = null,
                     selectedCaptionTrack = null,
                     selectedCaptionGenerationStatus = CaptionGenerationStatus.Idle,
                     player = null,
@@ -140,6 +154,7 @@ class PlayerVisualTest {
                     onMarkVideoUnwatched = {},
                     onLocalCaptionEngineSelected = {},
                     onGenerateCaptionsRequested = {},
+                    onDeleteCaptionDataRequested = {},
                     onFullscreenChanged = {},
                 )
             }

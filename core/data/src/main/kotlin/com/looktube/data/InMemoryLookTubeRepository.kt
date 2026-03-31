@@ -9,6 +9,7 @@ import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.SyncPhase
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
@@ -44,6 +45,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     private val selectedLocalCaptionEngineState = MutableStateFlow(WhisperCppLocalCaptionEngine)
     private val localCaptionModelStateFlow = MutableStateFlow(LocalCaptionModelState())
     private val videoCaptionsState = MutableStateFlow(emptyMap<String, VideoCaptionTrack>())
+    private val captionDataState = MutableStateFlow(emptyMap<String, VideoCaptionData>())
     private val captionGenerationState = MutableStateFlow(emptyMap<String, CaptionGenerationStatus>())
 
     override val accountSession: StateFlow<AccountSession> = accountSessionState.asStateFlow()
@@ -57,6 +59,7 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override val selectedLocalCaptionEngine: StateFlow<LocalCaptionEngine> = selectedLocalCaptionEngineState.asStateFlow()
     override val localCaptionModelState: StateFlow<LocalCaptionModelState> = localCaptionModelStateFlow.asStateFlow()
     override val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>> = videoCaptionsState.asStateFlow()
+    override val captionData: StateFlow<Map<String, VideoCaptionData>> = captionDataState.asStateFlow()
     override val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>> = captionGenerationState.asStateFlow()
 
     override suspend fun bootstrap() {
@@ -103,10 +106,17 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         playbackProgressState.value = emptyMap()
         videoEngagementState.value = emptyMap()
         videoCaptionsState.value = emptyMap()
+        captionDataState.value = emptyMap()
         captionGenerationState.value = emptyMap()
     }
 
     override suspend fun downloadLocalCaptionModel() = Unit
+
+    override suspend fun clearCaptionData() {
+        videoCaptionsState.value = emptyMap()
+        captionDataState.value = emptyMap()
+        captionGenerationState.value = emptyMap()
+    }
 
     override suspend fun refreshLibrary() {
         syncState.value = LibrarySyncState(
@@ -117,6 +127,18 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     }
 
     override suspend fun generateCaptions(videoId: String) = Unit
+
+    override suspend fun deleteCaptionData(videoId: String) {
+        videoCaptionsState.value = videoCaptionsState.value.toMutableMap().apply {
+            remove(videoId)
+        }
+        captionDataState.value = captionDataState.value.toMutableMap().apply {
+            remove(videoId)
+        }
+        captionGenerationState.value = captionGenerationState.value.toMutableMap().apply {
+            remove(videoId)
+        }
+    }
 
     override fun selectLocalCaptionEngine(engineId: String) {
         availableLocalCaptionEnginesState.value.firstOrNull { engine -> engine.id == engineId }
@@ -129,6 +151,10 @@ class InMemoryLookTubeRepository : LookTubeRepository {
             val existingRecord = get(videoId) ?: VideoEngagementRecord(videoId = videoId)
             put(videoId, existingRecord.copy(lastPlayedAtEpochMillis = System.currentTimeMillis()))
         }
+    }
+
+    override fun inspectVideo(videoId: String) {
+        selectedVideoIdState.value = videoId
     }
 
     override fun setManualWatchState(videoId: String, manualWatchState: ManualWatchState) {

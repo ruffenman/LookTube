@@ -3,6 +3,7 @@ package com.looktube.data
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.WhisperCppLocalCaptionEngine
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,8 +37,16 @@ interface VideoCaptionStore {
         document: GeneratedCaptionDocument,
         generatedAtEpochMillis: Long = System.currentTimeMillis(),
     ): VideoCaptionTrack
+    suspend fun delete(videoId: String)
 
     suspend fun clear()
+}
+
+interface CaptionDataStore {
+    val captionData: StateFlow<Map<String, VideoCaptionData>>
+    fun upsert(data: VideoCaptionData)
+    fun remove(videoId: String)
+    fun clear()
 }
 
 interface LocalCaptionGenerator {
@@ -89,7 +98,21 @@ object NoOpVideoCaptionStore : VideoCaptionStore {
         )
     }
 
+    override suspend fun delete(videoId: String) = Unit
+
     override suspend fun clear() = Unit
+}
+
+object NoOpCaptionDataStore : CaptionDataStore {
+    private val state = MutableStateFlow(emptyMap<String, VideoCaptionData>())
+
+    override val captionData: StateFlow<Map<String, VideoCaptionData>> = state.asStateFlow()
+
+    override fun upsert(data: VideoCaptionData) = Unit
+
+    override fun remove(videoId: String) = Unit
+
+    override fun clear() = Unit
 }
 
 object UnsupportedLocalCaptionGenerator : LocalCaptionGenerator {

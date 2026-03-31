@@ -139,6 +139,32 @@ class LookTubeAppPlaybackTest {
     }
 
     @Test
+    fun handoffCanLeavePreviewSelectionPaused() {
+        val controller = FakePlaybackHandoffController(
+            currentMediaId = "other-video",
+            currentPositionMs = 0L,
+        )
+
+        handoffSelectedPlaybackTarget(
+            controller = controller,
+            playbackTarget = SelectedPlaybackTarget(
+                video = video(id = "video-1"),
+                playbackProgress = PlaybackProgress(
+                    videoId = "video-1",
+                    positionSeconds = 125L,
+                    durationSeconds = 600L,
+                ),
+                captionTrack = null,
+            ),
+            requestedPlayWhenReady = false,
+        )
+
+        assertEquals(listOf("video-1"), controller.setMediaItemIds)
+        assertEquals(listOf(125_000L), controller.setMediaItemStartPositionsMs)
+        assertFalse(controller.playWhenReady)
+    }
+
+    @Test
     fun replaceDecisionOnlyForcesSameMediaWhenIdleEndedOrExplicit() {
         assertFalse(
             shouldReplaceMediaItemForPlaybackTarget(

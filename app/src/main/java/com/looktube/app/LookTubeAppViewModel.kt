@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.looktube.data.LookTubeRepository
 import com.looktube.model.CaptionGenerationStatus
+import com.looktube.model.VideoCaptionData
 import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
@@ -41,8 +42,11 @@ class LookTubeAppViewModel(
     val selectedLocalCaptionEngine = repository.selectedLocalCaptionEngine
     val localCaptionModelState = repository.localCaptionModelState
     val videoCaptions = repository.videoCaptions
+    val captionData = repository.captionData
     private val requestedPageState = MutableStateFlow<Int?>(null)
     val requestedPage: StateFlow<Int?> = requestedPageState.asStateFlow()
+    private val videoSelectionModeState = MutableStateFlow(VideoSelectionMode.Play)
+    val videoSelectionMode: StateFlow<VideoSelectionMode> = videoSelectionModeState.asStateFlow()
     private val playbackSelectionRequestState = MutableStateFlow(0L)
     val playbackSelectionRequest: StateFlow<Long> = playbackSelectionRequestState.asStateFlow()
 
@@ -214,6 +218,12 @@ class LookTubeAppViewModel(
         }
     }
 
+    fun clearCaptionData() {
+        viewModelScope.launch {
+            repository.clearCaptionData()
+        }
+    }
+
     fun downloadLocalCaptionModel() {
         viewModelScope.launch {
             repository.downloadLocalCaptionModel()
@@ -229,6 +239,12 @@ class LookTubeAppViewModel(
     fun generateCaptions(videoId: String) {
         viewModelScope.launch {
             repository.generateCaptions(videoId)
+        }
+    }
+
+    fun deleteCaptionData(videoId: String) {
+        viewModelScope.launch {
+            repository.deleteCaptionData(videoId)
         }
     }
 
@@ -260,8 +276,20 @@ class LookTubeAppViewModel(
     }
 
     fun selectVideo(videoId: String) {
+        videoSelectionModeState.value = VideoSelectionMode.Play
         repository.selectVideo(videoId)
         notePlaybackSelectionRequest()
+    }
+
+    fun inspectVideoInPlayer(videoId: String) {
+        videoSelectionModeState.value = VideoSelectionMode.Preview
+        repository.inspectVideo(videoId)
+        requestedPageState.value = LookTubeLaunchContract.PLAYER_PAGE_INDEX
+    }
+
+    fun syncVideoWithPlaybackSession(videoId: String) {
+        videoSelectionModeState.value = VideoSelectionMode.Passive
+        repository.inspectVideo(videoId)
     }
 
     fun markVideoWatched(videoId: String) {
@@ -299,3 +327,9 @@ data class SelectedPlaybackTarget(
     val playbackProgress: PlaybackProgress?,
     val captionTrack: VideoCaptionTrack? = null,
 )
+
+enum class VideoSelectionMode {
+    Play,
+    Preview,
+    Passive,
+}

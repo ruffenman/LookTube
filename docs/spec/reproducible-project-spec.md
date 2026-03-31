@@ -61,7 +61,7 @@ An implementation that materially changes these choices can still be valid, but 
 - app opens on the Settings page by default
 - true cold starts may show a brief LookTube intro overlay that can be skipped immediately and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
-- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, and can show a small centered icon-only playback indicator between the title and badge when playback is active
+- while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, can show a small centered icon-only playback indicator between the title and badge when playback is active, and lets that indicator route directly to Player while re-syncing selection with the active session when possible
 - notification launch intents can route directly to the Player page and optionally preselect a video
 
 ### Settings surface
@@ -70,6 +70,7 @@ An implementation that materially changes these choices can still be valid, but 
 - exposes `Clear synced data` only when a successful sync or cached summary exists
 - exposes offline caption model readiness plus a one-time download action for the local caption model
 - exposes a persistent toggle for automatically generating captions for newly discovered videos
+- exposes caption-data management for listing videos with partial or completed caption data, opening one in Player without autoplay, and clearing all caption data
 - communicates five practical user-visible states: setup required, ready, syncing, synced, and needs attention
 
 ### Library surface
@@ -81,7 +82,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, uses a subdued neutral style when collapsed and a subtle content-derived backdrop when expanded, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, keeps dimmed backdrop art visible while collapsed with stacked-card peeks at the bottom edge, uses a subdued neutral style when collapsed and a subtle content-derived backdrop when expanded, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -99,7 +100,7 @@ An implementation that materially changes these choices can still be valid, but 
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
 - exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that sizes to content, caps at roughly two-thirds of the usable shell height, and can scroll for longer histories
-- exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state, and enables standard subtitle controls when a generated text track exists
+- exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state, enables standard subtitle controls when a generated text track exists, and lets the user delete the selected video's saved or partial caption data
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets
@@ -139,6 +140,7 @@ An implementation that materially changes these choices can still be valid, but 
 - A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
 - Starting playback for a playable item remains reliable even if the device is locked immediately after the play request, without requiring the user to wait for the first visible rendered frame.
 - Entering or leaving fullscreen must not restart playback, swap back to a previously played item, or lose the current selection request boundary.
+- Opening a video from Settings for caption-data inspection must route to Player without forcing autoplay when the user only wants to review status.
 - Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
 - When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
@@ -152,6 +154,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### Captions
 - Users can download a local caption model once and then generate captions for any playable video without configuring an external provider.
 - Users can enable a persistent setting that automatically generates captions for newly discovered playable videos once the local caption model is ready.
+- Caption-generation state persists per video as partial or completed caption data so Settings can list those entries, clear them in bulk, and Player can delete the current video's entry directly.
 - Caption generation extracts audio from the selected playback URL into a file-backed 16 kHz mono PCM working copy, conservatively isolates speech-heavy spans from that audio, runs the on-device transcription path locally against those spans, and stores the result as a per-video WebVTT sidecar.
 - Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including speech-processed duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.

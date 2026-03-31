@@ -6,6 +6,7 @@ import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
 import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.ManualWatchState
 import com.looktube.model.PlaybackProgress
@@ -25,6 +26,7 @@ interface LookTubeRepository {
     val selectedLocalCaptionEngine: StateFlow<LocalCaptionEngine>
     val localCaptionModelState: StateFlow<LocalCaptionModelState>
     val videoCaptions: StateFlow<Map<String, VideoCaptionTrack>>
+    val captionData: StateFlow<Map<String, VideoCaptionData>>
     val captionGenerationStatus: StateFlow<Map<String, CaptionGenerationStatus>>
 
     suspend fun bootstrap()
@@ -35,11 +37,14 @@ interface LookTubeRepository {
     suspend fun signInToPremiumFeed()
     suspend fun clearSyncedData()
     suspend fun downloadLocalCaptionModel()
+    suspend fun clearCaptionData()
 
     suspend fun refreshLibrary()
     suspend fun generateCaptions(videoId: String)
+    suspend fun deleteCaptionData(videoId: String)
     fun selectLocalCaptionEngine(engineId: String)
 
     fun selectVideo(videoId: String)
+    fun inspectVideo(videoId: String)
     fun setManualWatchState(videoId: String, manualWatchState: ManualWatchState)
 }

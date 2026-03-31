@@ -48,6 +48,7 @@ class AppChromeVisualTest {
                             videoPoints = 48,
                             dailyOpenPoints = 1,
                         ),
+                        onPlaybackIndicatorClick = {},
                     )
                 }
             }

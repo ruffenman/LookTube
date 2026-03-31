@@ -2,6 +2,7 @@ package com.looktube.app
 
 import android.app.Application
 import com.looktube.data.ConfigurableLookTubeRepository
+import com.looktube.data.CaptionDataStore
 import com.looktube.data.FeedConfigurationStore
 import com.looktube.data.LocalCaptionEngineRegistry
 import com.looktube.data.LookTubeRepository
@@ -22,6 +23,7 @@ class LookTubeApplication : Application() {
         val playbackBookmarkStore = SharedPreferencesPlaybackBookmarkStore(this)
         val videoEngagementStore = SharedPreferencesVideoEngagementStore(this)
         val videoCaptionStore = FileVideoCaptionStore(this)
+        val captionDataStore = SharedPreferencesCaptionDataStore(this)
         val localCaptionEngineRegistry = createLocalCaptionEngineRegistry(this)
         val localCaptionCastHttpServer = LocalCaptionCastHttpServer(videoCaptionStore.rootDirectory)
         val videoFeedService = HttpRssVideoFeedService(
@@ -36,6 +38,7 @@ class LookTubeApplication : Application() {
             videoEngagementStore = videoEngagementStore,
             localCaptionEngineRegistry = localCaptionEngineRegistry,
             videoCaptionStore = videoCaptionStore,
+            captionDataStore = captionDataStore,
             localCaptionCastHttpServer = localCaptionCastHttpServer,
             videoFeedService = videoFeedService,
             librarySyncNotifier = librarySyncNotifier,
@@ -49,6 +52,7 @@ class LookTubeApplication : Application() {
                 libraryRefreshScheduler = WorkManagerLibraryRefreshScheduler(this),
                 localCaptionEngineRegistry = localCaptionEngineRegistry,
                 videoCaptionStore = videoCaptionStore,
+                captionDataStore = captionDataStore,
             ),
         )
     }
@@ -68,6 +72,7 @@ data class AppContainer(
     val videoEngagementStore: VideoEngagementStore,
     val localCaptionEngineRegistry: LocalCaptionEngineRegistry,
     val videoCaptionStore: VideoCaptionStore,
+    val captionDataStore: CaptionDataStore,
     val localCaptionCastHttpServer: LocalCaptionCastUrlProvider,
     val videoFeedService: VideoFeedService,
     val librarySyncNotifier: LibrarySyncNotifier,

@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.14"
+  version: "0.2.15"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -180,6 +180,24 @@ contract:
       returns:
         caption_generation_status: CaptionGenerationStatus
         caption_track: CaptionTrack (optional)
+    - name: inspect_video
+      description: Select a video for Player inspection without recording playback engagement or forcing autoplay.
+      parameters:
+        video_id: string (required)
+      returns:
+        selected_video: VideoSummary (optional)
+        target_page: integer (required, 2)
+    - name: clear_caption_data
+      description: Remove all saved and partial local caption data without clearing the synced library.
+      parameters: {}
+      returns:
+        caption_generation_status: CaptionGenerationStatus
+    - name: delete_caption_data
+      description: Remove the selected video's saved or partial local caption data.
+      parameters:
+        video_id: string (required)
+      returns:
+        caption_generation_status: CaptionGenerationStatus
     - name: select_video
       description: Select a video from the library and make it the active Player target.
       parameters:
@@ -216,12 +234,13 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay, a global Look Points badge, and a small centered icon-only playback indicator while playback is active.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
         - navigate between Settings, Library, and Player
+        - open Player from the active playback indicator in the top app bar
     - name: settings
-      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, local caption model readiness, and the persistent auto-caption setting for newly discovered videos.
+      description: Setup and repeat-use surface for feed URL entry, sync status, sync action, clearing synced data, local caption model readiness, the persistent auto-caption setting for newly discovered videos, and local caption-data management.
       visible_states:
         - setup required
         - ready
@@ -234,8 +253,10 @@ contract:
         - clear synced data
         - choose the active local caption engine when multiple engines are available for the current build target
         - download offline caption model
+        - open a video with saved caption data in Player without autoplay
+        - clear all caption data
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, a subdued neutral collapsed header style, a subtle content-derived expanded header backdrop, show-completion visualization, rich cards, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, dimmed collapsed header art with stacked-card peeks, a subtle content-derived expanded header backdrop, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -246,7 +267,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu that sizes to content with a chrome-aware cap, offline caption generation state, and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu that sizes to content with a chrome-aware cap, offline caption generation and deletion state, and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -256,6 +277,7 @@ contract:
         - manually mark the current video watched or unwatched
         - choose the active local caption engine when multiple engines are available for the current build target
         - generate or regenerate local captions for the selected video
+        - delete the selected video's saved or partial caption data
         - enable or disable generated subtitle tracks from standard player controls
   processes:
     - name: library_refresh
@@ -360,6 +382,18 @@ scenarios:
     then:
       - visible settings copy contains "Auto-generate captions for new videos"
       - visible toggle is enabled
+  - id: settings_caption_data_can_open_player_without_autoplay
+    description: Settings can list saved or partial caption data, open one item in Player for inspection, and do so without forcing playback to start.
+    when:
+      surface: settings
+      state:
+        caption_data_entries_exist: true
+      action:
+        open one saved caption-data entry in Player
+    then:
+      - target page is player
+      - selected video is updated
+      - autoplay does not begin solely because the item was opened from Settings
   - id: cold_start_intro_is_brief_and_skippable
     description: A true app cold start may show a short LookTube brand intro that can be dismissed instantly and does not replay on resume.
     when:

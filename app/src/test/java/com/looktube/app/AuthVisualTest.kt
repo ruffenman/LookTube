@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.auth.AuthRoute
+import com.looktube.feature.auth.CaptionDataManagementItem
 import com.looktube.model.AccountSession
 import com.looktube.model.FeedConfiguration
 import com.looktube.model.LibrarySyncState
@@ -30,6 +31,21 @@ class AuthVisualTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
+    private val sampleCaptionDataItems = listOf(
+        CaptionDataManagementItem(
+            videoId = "bombcast-901",
+            title = "Giant Bombcast 901: Handheld Hot Takes",
+            stateLabel = "Completed",
+            supportingText = "Giant Bombcast • Completed • Whisper.cpp • Updated Mar 31, 1:20 PM",
+        ),
+        CaptionDataManagementItem(
+            videoId = "dump-truck-88",
+            title = "Voicemail Dump Truck 88",
+            stateLabel = "Partial",
+            supportingText = "Voicemail Dump Truck • Partial • Whisper.cpp • Updated Mar 31, 12:48 PM",
+        ),
+    )
+
     @Test
     fun authSetupSurface() {
         composeRule.setContent {
@@ -51,12 +67,15 @@ class AuthVisualTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
                     selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
+                    captionDataItems = emptyList(),
                     onFeedUrlChanged = {},
                     onAutoGenerateCaptionsForNewVideosChanged = {},
                     onSignInRequested = {},
                     onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
+                    onOpenCaptionDataVideoRequested = {},
                     onClearSyncedDataRequested = {},
+                    onClearCaptionDataRequested = {},
                 )
             }
         }
@@ -88,12 +107,15 @@ class AuthVisualTest {
                     localCaptionModelState = LocalCaptionModelState(
                         localPath = "/data/user/0/com.looktube.app/files/captions/models/ggml-base.en-q5_1.bin",
                     ),
+                    captionDataItems = sampleCaptionDataItems,
                     onFeedUrlChanged = {},
                     onAutoGenerateCaptionsForNewVideosChanged = {},
                     onSignInRequested = {},
                     onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
+                    onOpenCaptionDataVideoRequested = {},
                     onClearSyncedDataRequested = {},
+                    onClearCaptionDataRequested = {},
                 )
             }
         }
@@ -123,12 +145,15 @@ class AuthVisualTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
                     selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
+                    captionDataItems = emptyList(),
                     onFeedUrlChanged = {},
                     onAutoGenerateCaptionsForNewVideosChanged = {},
                     onSignInRequested = {},
                     onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
+                    onOpenCaptionDataVideoRequested = {},
                     onClearSyncedDataRequested = {},
+                    onClearCaptionDataRequested = {},
                 )
             }
         }
@@ -157,12 +182,15 @@ class AuthVisualTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine),
                     selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
+                    captionDataItems = emptyList(),
                     onFeedUrlChanged = {},
                     onAutoGenerateCaptionsForNewVideosChanged = {},
                     onSignInRequested = {},
                     onLocalCaptionEngineSelected = {},
                     onDownloadLocalCaptionModel = {},
+                    onOpenCaptionDataVideoRequested = {},
                     onClearSyncedDataRequested = {},
+                    onClearCaptionDataRequested = {},
                 )
             }
         }

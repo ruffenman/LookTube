@@ -1,11 +1,14 @@
 package com.looktube.feature.auth
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,6 +17,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -23,8 +29,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
@@ -34,6 +45,12 @@ import com.looktube.model.LibrarySyncState
 import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.SyncPhase
+data class CaptionDataManagementItem(
+    val videoId: String,
+    val title: String,
+    val stateLabel: String,
+    val supportingText: String,
+)
 
 @Composable
 fun AuthRoute(
@@ -44,12 +61,15 @@ fun AuthRoute(
     availableLocalCaptionEngines: List<LocalCaptionEngine>,
     selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
+    captionDataItems: List<CaptionDataManagementItem>,
     onFeedUrlChanged: (String) -> Unit,
     onAutoGenerateCaptionsForNewVideosChanged: (Boolean) -> Unit,
     onSignInRequested: () -> Unit,
     onLocalCaptionEngineSelected: (String) -> Unit,
     onDownloadLocalCaptionModel: () -> Unit,
+    onOpenCaptionDataVideoRequested: (String) -> Unit,
     onClearSyncedDataRequested: () -> Unit,
+    onClearCaptionDataRequested: () -> Unit,
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
@@ -113,6 +133,7 @@ fun AuthRoute(
             ?: "Offline caption model setup needs attention."
         else -> "Download the ${selectedLocalCaptionEngine.displayName} model once to unlock offline-first caption generation in Player."
     }
+    var captionDataMenuExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -304,7 +325,138 @@ fun AuthRoute(
                         },
                     )
                 }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.54f),
+                )
+                CaptionDataManagementPanel(
+                    captionDataItems = captionDataItems,
+                    menuExpanded = captionDataMenuExpanded,
+                    onMenuExpandedChanged = { captionDataMenuExpanded = it },
+                    onOpenCaptionDataVideoRequested = onOpenCaptionDataVideoRequested,
+                    onClearCaptionDataRequested = onClearCaptionDataRequested,
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun CaptionDataManagementPanel(
+    captionDataItems: List<CaptionDataManagementItem>,
+    menuExpanded: Boolean,
+    onMenuExpandedChanged: (Boolean) -> Unit,
+    onOpenCaptionDataVideoRequested: (String) -> Unit,
+    onClearCaptionDataRequested: () -> Unit,
+) {
+    val hasCaptionData = captionDataItems.isNotEmpty()
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "Caption data",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = if (hasCaptionData) {
+                "${captionDataItems.size} ${if (captionDataItems.size == 1) "video has" else "videos have"} saved or partial caption-generation data. Open one in Player without autoplay to inspect or delete it there."
+            } else {
+                "No caption-generation data is saved on this device yet. Generate captions from Player or enable automatic generation for newly discovered videos."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(enabled = hasCaptionData) { onMenuExpandedChanged(true) },
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.78f)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = if (hasCaptionData) "Inspect caption data in Player" else "No caption data available",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (hasCaptionData) {
+                                "Completed and partial entries are listed here."
+                            } else {
+                                "This list will fill in after captions start or finish generating."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = if (menuExpanded && hasCaptionData) "▲" else "▼",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            DropdownMenu(
+                expanded = menuExpanded && hasCaptionData,
+                onDismissRequest = { onMenuExpandedChanged(false) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp),
+            ) {
+                captionDataItems.forEachIndexed { index, item ->
+                    DropdownMenuItem(
+                        text = {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = item.title,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = "${item.stateLabel} • ${item.supportingText}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        },
+                        onClick = {
+                            onMenuExpandedChanged(false)
+                            onOpenCaptionDataVideoRequested(item.videoId)
+                        },
+                    )
+                    if (index != captionDataItems.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 12.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
+                        )
+                    }
+                }
+            }
+        }
+        OutlinedButton(
+            onClick = onClearCaptionDataRequested,
+            enabled = hasCaptionData,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+        ) {
+            Text("Clear all caption data")
         }
     }
 }

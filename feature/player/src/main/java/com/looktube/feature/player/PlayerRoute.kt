@@ -79,6 +79,7 @@ import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.RecentPlaybackVideo
 import com.looktube.model.VideoCaptionTrack
+import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
@@ -95,6 +96,7 @@ fun PlayerRoute(
     availableLocalCaptionEngines: List<LocalCaptionEngine>,
     selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionData: VideoCaptionData?,
     selectedCaptionTrack: VideoCaptionTrack?,
     selectedCaptionGenerationStatus: CaptionGenerationStatus,
     player: Player?,
@@ -104,6 +106,7 @@ fun PlayerRoute(
     onMarkVideoUnwatched: (String) -> Unit,
     onLocalCaptionEngineSelected: (String) -> Unit,
     onGenerateCaptionsRequested: (String) -> Unit,
+    onDeleteCaptionDataRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val activity = rememberActivity(LocalContext.current)
@@ -178,6 +181,7 @@ fun PlayerRoute(
             availableLocalCaptionEngines = availableLocalCaptionEngines,
             selectedLocalCaptionEngine = selectedLocalCaptionEngine,
             localCaptionModelState = localCaptionModelState,
+            selectedCaptionData = selectedCaptionData,
             selectedCaptionTrack = selectedCaptionTrack,
             selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
             player = player,
@@ -186,6 +190,7 @@ fun PlayerRoute(
             onMarkVideoUnwatched = onMarkVideoUnwatched,
             onLocalCaptionEngineSelected = onLocalCaptionEngineSelected,
             onGenerateCaptionsRequested = onGenerateCaptionsRequested,
+            onDeleteCaptionDataRequested = onDeleteCaptionDataRequested,
             onFullscreenChanged = onFullscreenChanged,
         )
     }
@@ -197,21 +202,39 @@ private fun CaptionStatusCard(
     availableLocalCaptionEngines: List<LocalCaptionEngine>,
     selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionData: VideoCaptionData?,
     selectedCaptionTrack: VideoCaptionTrack?,
     selectedCaptionGenerationStatus: CaptionGenerationStatus,
     onLocalCaptionEngineSelected: (String) -> Unit,
     onGenerateCaptionsRequested: (String) -> Unit,
+    onDeleteCaptionDataRequested: (String) -> Unit,
 ) {
     val isGenerating = selectedCaptionGenerationStatus.phase in setOf(
         CaptionGenerationPhase.ExtractingAudio,
         CaptionGenerationPhase.Transcribing,
         CaptionGenerationPhase.Saving,
     )
+    val hasSavedCaptionTrack = selectedCaptionTrack != null || selectedCaptionData?.hasSavedCaptionTrack == true
+    val hasCaptionData = hasSavedCaptionTrack || selectedCaptionData != null
+    val latestCaptionMessage = selectedCaptionGenerationStatus.message
+        .takeIf(String::isNotBlank)
+        ?: selectedCaptionData?.lastMessage.orEmpty()
     val statusBody = when {
-        selectedCaptionTrack != null && selectedCaptionGenerationStatus.phase != CaptionGenerationPhase.Error ->
+        hasSavedCaptionTrack && selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error ->
+            "Saved captions are still available on this device. The latest generation attempt needs attention: $latestCaptionMessage"
+        hasSavedCaptionTrack ->
             "Generated captions are saved on this device. Use the CC button in the player controls to turn them on locally or during cast."
         isGenerating -> "${selectedCaptionGenerationStatus.message} CC will turn on as soon as the track finishes saving."
-        selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> selectedCaptionGenerationStatus.message
+        hasCaptionData ->
+            buildString {
+                append("Caption generation data exists for this video but it is not complete yet.")
+                if (latestCaptionMessage.isNotBlank()) {
+                    append(" Last status: ")
+                    append(latestCaptionMessage)
+                }
+                append(" Regenerate to continue or delete the partial data below.")
+            }
+        selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> latestCaptionMessage
         !localCaptionModelState.isReady -> "Download the ${selectedLocalCaptionEngine.displayName} model from Settings before generating captions on-device."
         else -> "Generate captions for this video with ${selectedLocalCaptionEngine.displayName} so subtitles stay available even without an external provider."
     }
@@ -267,21 +290,42 @@ private fun CaptionStatusCard(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            FilterChip(
-                selected = selectedCaptionTrack != null,
-                enabled = localCaptionModelState.isReady && !isGenerating,
-                onClick = { onGenerateCaptionsRequested(selectedVideo.id) },
-                label = {
-                    Text(
-                        when {
-                            isGenerating -> "Generating captions…"
-                            selectedCaptionTrack != null -> "Regenerate captions"
-                            localCaptionModelState.isReady -> "Generate with ${selectedLocalCaptionEngine.displayName}"
-                            else -> "Model required in Settings"
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FilterChip(
+                    selected = hasSavedCaptionTrack,
+                    enabled = localCaptionModelState.isReady && !isGenerating,
+                    onClick = { onGenerateCaptionsRequested(selectedVideo.id) },
+                    label = {
+                        Text(
+                            when {
+                                isGenerating -> "Generating captions…"
+                                hasSavedCaptionTrack -> "Regenerate captions"
+                                localCaptionModelState.isReady -> "Generate with ${selectedLocalCaptionEngine.displayName}"
+                                else -> "Model required in Settings"
+                            },
+                        )
+                    },
+                )
+                if (hasCaptionData) {
+                    FilterChip(
+                        selected = false,
+                        enabled = !isGenerating,
+                        onClick = { onDeleteCaptionDataRequested(selectedVideo.id) },
+                        label = {
+                            Text(
+                                if (hasSavedCaptionTrack) {
+                                    "Delete caption data"
+                                } else {
+                                    "Delete partial data"
+                                },
+                            )
                         },
                     )
-                },
-            )
+                }
+            }
         }
     }
 }
@@ -669,6 +713,7 @@ private fun ActivePlayerContent(
     availableLocalCaptionEngines: List<LocalCaptionEngine>,
     selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionData: VideoCaptionData?,
     selectedCaptionTrack: VideoCaptionTrack?,
     selectedCaptionGenerationStatus: CaptionGenerationStatus,
     player: Player,
@@ -677,6 +722,7 @@ private fun ActivePlayerContent(
     onMarkVideoUnwatched: (String) -> Unit,
     onLocalCaptionEngineSelected: (String) -> Unit,
     onGenerateCaptionsRequested: (String) -> Unit,
+    onDeleteCaptionDataRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -732,10 +778,12 @@ private fun ActivePlayerContent(
                 availableLocalCaptionEngines = availableLocalCaptionEngines,
                 selectedLocalCaptionEngine = selectedLocalCaptionEngine,
                 localCaptionModelState = localCaptionModelState,
+                selectedCaptionData = selectedCaptionData,
                 selectedCaptionTrack = selectedCaptionTrack,
                 selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
                 onLocalCaptionEngineSelected = onLocalCaptionEngineSelected,
                 onGenerateCaptionsRequested = onGenerateCaptionsRequested,
+                onDeleteCaptionDataRequested = onDeleteCaptionDataRequested,
             )
         }
         item {

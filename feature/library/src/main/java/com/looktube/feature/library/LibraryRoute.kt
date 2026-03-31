@@ -40,7 +40,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -453,6 +452,142 @@ fun LibraryRoute(
 }
 
 @Composable
+private fun SeriesSectionBackdropSlices(
+    section: SeriesSection,
+    artAlpha: Float,
+) {
+    val backdropVideos = section.videos.take(GROUP_HEADER_BACKDROP_SLICE_COUNT)
+    if (backdropVideos.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)),
+        )
+        return
+    }
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        val sliceCount = backdropVideos.size.coerceAtLeast(1)
+        val sliceWidth = if (sliceCount == 1) {
+            maxWidth
+        } else {
+            (maxWidth + (GROUP_HEADER_BACKDROP_SLICE_OVERLAP * (sliceCount - 1))) / sliceCount
+        }
+        backdropVideos.forEachIndexed { index, video ->
+            val xOffset = if (sliceCount == 1) {
+                0.dp
+            } else {
+                (sliceWidth - GROUP_HEADER_BACKDROP_SLICE_OVERLAP) * index
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .offset(x = xOffset)
+                    .width(sliceWidth)
+                    .fillMaxHeight(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(groupHeaderBackdropColor(section.key, video.id, index)),
+                )
+                if (!video.thumbnailUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = video.thumbnailUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(alpha = artAlpha),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollapsedHeaderCardPeeks(
+    section: SeriesSection,
+    modifier: Modifier = Modifier,
+) {
+    val peekVideos = section.videos.take(3)
+    if (peekVideos.isEmpty()) {
+        return
+    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(GROUP_HEADER_PEEK_STACK_HEIGHT),
+    ) {
+        peekVideos.forEachIndexed { index, video ->
+            SectionPeekCard(
+                video = video,
+                sectionKey = section.key,
+                colorIndex = index,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .offset(
+                        x = ((index - 1) * 10).dp,
+                        y = ((peekVideos.lastIndex - index) * 4).dp,
+                    )
+                    .fillMaxWidth((0.76f + (index * 0.08f)).coerceAtMost(0.94f))
+                    .height(GROUP_HEADER_PEEK_CARD_HEIGHT),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SectionPeekCard(
+    video: VideoSummary,
+    sectionKey: String,
+    colorIndex: Int,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(groupHeaderBackdropColor(sectionKey, video.id, colorIndex)),
+            )
+            if (!video.thumbnailUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = video.thumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(alpha = 0.18f),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
+                            ),
+                        ),
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
 private fun LibraryEmptyStatePanel(
     syncState: LibrarySyncState,
     hasSavedFeedUrl: Boolean,
@@ -568,76 +703,44 @@ private fun SeriesSectionHeaderBackdrop(
             .fillMaxSize()
             .clip(shape),
     ) {
-        if (isExpanded) {
-            Row(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                section.videos
-                    .take(GROUP_HEADER_BACKDROP_SLICE_COUNT)
-                    .forEachIndexed { index, video ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight(),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(groupHeaderBackdropColor(section.key, video.id, index)),
-                            )
-                            if (!video.thumbnailUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = video.thumbnailUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer(alpha = 0.24f),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            }
-                        }
-                    }
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
+        SeriesSectionBackdropSlices(
+            section = section,
+            artAlpha = if (isExpanded) 0.24f else 0.14f,
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = if (isExpanded) {
+                            listOf(
                                 baseSurface.copy(alpha = 0.84f),
                                 baseSurface.copy(alpha = 0.72f),
                                 baseSurfaceVariant.copy(alpha = 0.92f),
-                            ),
-                        ),
-                    ),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                baseSurface.copy(alpha = 0.18f),
-                                Color.Transparent,
-                                baseSurface.copy(alpha = 0.24f),
-                            ),
-                        ),
-                    ),
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
+                            )
+                        } else {
+                            listOf(
                                 baseSurface.copy(alpha = 0.94f),
-                                baseSurfaceVariant.copy(alpha = 0.82f),
-                            ),
+                                baseSurface.copy(alpha = 0.86f),
+                                baseSurfaceVariant.copy(alpha = 0.94f),
+                            )
+                        },
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            baseSurface.copy(alpha = if (isExpanded) 0.18f else 0.26f),
+                            Color.Transparent,
+                            baseSurface.copy(alpha = if (isExpanded) 0.24f else 0.3f),
                         ),
                     ),
-            )
-        }
+                ),
+        )
     }
 }
 
@@ -917,6 +1020,10 @@ internal data class DisplayedSeriesSection(
 )
 
 private const val GROUP_HEADER_BACKDROP_SLICE_COUNT = 4
+private val GROUP_HEADER_BACKDROP_SLICE_OVERLAP = 18.dp
+private val GROUP_HEADER_COLLAPSED_PEEK_REVEAL = 12.dp
+private val GROUP_HEADER_PEEK_STACK_HEIGHT = 24.dp
+private val GROUP_HEADER_PEEK_CARD_HEIGHT = 20.dp
 private val GroupHeaderBackdropPalette = listOf(
     Color(0xFF44556B),
     Color(0xFF6A503C),
@@ -1309,16 +1416,31 @@ private fun GroupedSeriesSectionCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            SeriesSectionHeader(
-                section = section,
-                watchedVideoCount = watchedVideoCount,
-                completionSummary = completionSummary,
-                isExpanded = isExpanded,
-                onToggleExpanded = onToggleExpanded,
-                onMarkSectionWatched = onMarkSectionWatched,
-                onMarkSectionUnwatched = onMarkSectionUnwatched,
-                textEndPadding = headerTextEndPadding,
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = if (isExpanded) 0.dp else GROUP_HEADER_COLLAPSED_PEEK_REVEAL),
+            ) {
+                if (!isExpanded) {
+                    CollapsedHeaderCardPeeks(
+                        section = section,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 14.dp),
+                    )
+                }
+                SeriesSectionHeader(
+                    section = section,
+                    watchedVideoCount = watchedVideoCount,
+                    completionSummary = completionSummary,
+                    isExpanded = isExpanded,
+                    onToggleExpanded = onToggleExpanded,
+                    onMarkSectionWatched = onMarkSectionWatched,
+                    onMarkSectionUnwatched = onMarkSectionUnwatched,
+                    textEndPadding = headerTextEndPadding,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            }
             if (isExpanded) {
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
@@ -1354,6 +1476,7 @@ private fun SeriesSectionHeader(
     onMarkSectionWatched: () -> Unit,
     onMarkSectionUnwatched: () -> Unit,
     textEndPadding: Dp,
+    modifier: Modifier = Modifier,
 ) {
     val supportingText = buildList {
         add("${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}")
@@ -1365,7 +1488,7 @@ private fun SeriesSectionHeader(
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
     val shape = RoundedCornerShape(22.dp)
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(shape)
             .clickable(onClick = onToggleExpanded),
@@ -1545,7 +1668,7 @@ private fun VideoListCard(
                             style = MaterialTheme.typography.labelLarge,
                             color = Color.White,
                         )
-                        buildMetadataLine(video, progress).takeIf(String::isNotBlank)?.let { metadataLine ->
+                        buildMetadataLine(video, displayedProgress).takeIf(String::isNotBlank)?.let { metadataLine ->
                             Text(
                                 text = metadataLine,
                                 style = MaterialTheme.typography.labelMedium,
@@ -1556,8 +1679,8 @@ private fun VideoListCard(
                 }
             }
             if (progressFraction != null) {
-                LinearProgressIndicator(
-                    progress = { progressFraction },
+                LibraryCardProgressBar(
+                    progressFraction = progressFraction,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -1684,6 +1807,26 @@ private fun VideoListCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LibraryCardProgressBar(
+    progressFraction: Float,
+    modifier: Modifier = Modifier,
+) {
+    val clampedProgress = progressFraction.coerceIn(0f, 1f)
+    Box(
+        modifier = modifier
+            .height(4.dp)
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.32f)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(clampedProgress)
+                .background(MaterialTheme.colorScheme.primary),
+        )
     }
 }
 
@@ -1985,3 +2128,4 @@ private fun LazyListState.targetItemIndexForFraction(fraction: Float): Int {
     }
     return (fraction.coerceIn(0f, 1f) * (targetItemCount - 1)).toInt()
 }
+

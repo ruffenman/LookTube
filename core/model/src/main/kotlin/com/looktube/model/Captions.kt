@@ -84,6 +84,19 @@ data class CaptionGenerationStatus(
     }
 }
 
+data class VideoCaptionData(
+    val videoId: String,
+    val updatedAtEpochMillis: Long,
+    val lastPhase: CaptionGenerationPhase,
+    val lastMessage: String,
+    val hasSavedCaptionTrack: Boolean,
+    val captionTrackPath: String? = null,
+    val engineId: String? = null,
+) {
+    val stateLabel: String
+        get() = if (hasSavedCaptionTrack) "Completed" else "Partial"
+}
+
 data class VideoCaptionTrack(
     val videoId: String,
     val filePath: String,

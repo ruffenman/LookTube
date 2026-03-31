@@ -238,6 +238,13 @@ internal class FileVideoCaptionStore(
         captionsState.value = emptyMap()
     }
 
+    override suspend fun delete(videoId: String) = withContext(ioDispatcher) {
+        fileForVideo(videoId).delete()
+        captionsState.value = captionsState.value.toMutableMap().apply {
+            remove(videoId)
+        }
+    }
+
     private fun loadExistingTracks(): Map<String, VideoCaptionTrack> {
         if (!rootDirectory.exists()) {
             return emptyMap()
