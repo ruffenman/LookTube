@@ -25,8 +25,7 @@ class LibraryGroupedHeaderGeometryTest {
     @Test
     fun backdropTileSpecsStayWithinExpectedBounds() {
         val specs = groupHeaderBackdropTileSpecs("show:Portal Pals")
-
-        assertEquals(16, specs.size)
+        assertEquals(11, specs.size)
         assertTrue(specs.all { it.xFraction in -0.12f..0.86f })
         assertTrue(specs.all { it.yFraction in -0.12f..0.72f })
         assertTrue(specs.all { it.widthFraction in 0.18f..0.32f })
