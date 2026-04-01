@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -158,6 +160,74 @@ class LibraryVisualTest {
             }
         }
 
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    @Test
+    fun libraryCollapsedGroupedHeaderPeeksSurface() {
+        val videos = listOf(
+            VideoSummary(
+                id = "bombcast-1",
+                title = "Giant Bombcast 901: Handheld Hot Takes",
+                description = "The crew debates portable hardware and revisits a few recent releases.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/bombcast-1.m3u8",
+                seriesTitle = "Giant Bombcast",
+                durationSeconds = 4_200,
+            ),
+            VideoSummary(
+                id = "bombcast-2",
+                title = "Giant Bombcast 902: Portable Follow-Up",
+                description = "A second Bombcast episode to validate grouped section nesting in the browse surface.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/bombcast-2.m3u8",
+                seriesTitle = "Giant Bombcast",
+                durationSeconds = 4_050,
+            ),
+            VideoSummary(
+                id = "bombcast-3",
+                title = "Giant Bombcast 903: More Portable Discourse",
+                description = "A third Bombcast entry to validate the collapsed stacked-card peeks.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/bombcast-3.m3u8",
+                seriesTitle = "Giant Bombcast",
+                durationSeconds = 4_000,
+            ),
+        )
+
+        composeRule.setContent {
+            LookTubeTheme {
+                Box(
+                    modifier = Modifier
+                        .width(412.dp)
+                        .fillMaxWidth(),
+                ) {
+                    LibraryRoute(
+                        paddingValues = PaddingValues(),
+                        syncState = LibrarySyncState(
+                            phase = SyncPhase.Success,
+                            message = "Synced 42 Premium videos. Last refresh completed successfully.",
+                            lastSuccessfulSyncSummary = "42 videos • 12 shows",
+                        ),
+                        hasSavedFeedUrl = true,
+                        videos = videos,
+                        playbackProgress = emptyMap(),
+                        videoEngagement = emptyMap(),
+                        seriesCompletionSummaries = emptyMap(),
+                        onVideoSelected = {},
+                        onMarkVideoWatched = {},
+                        onMarkVideoUnwatched = {},
+                        onMarkVideosWatched = {},
+                        onMarkVideosUnwatched = {},
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("3 videos • 0/3 watched").performClick()
         composeRule.onRoot().captureRoboImage()
     }
 }

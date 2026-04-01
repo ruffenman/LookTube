@@ -256,7 +256,7 @@ contract:
         - open a video with saved caption data in Player without autoplay
         - clear all caption data
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, dimmed collapsed header art with stacked-card peeks, a subtle content-derived expanded header backdrop, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, dimmed collapsed header art with only the staggered bottom edges of up to three full-size stacked cards visible, a subtle content-derived expanded header backdrop, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -267,7 +267,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, a bounded surfaced History menu that sizes to content with a chrome-aware cap, offline caption generation and deletion state, and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, visible double-tap skip confirmation feedback, roomier fullscreen-landscape controls, a bounded surfaced History menu that sizes to content with a chrome-aware cap, offline caption generation and deletion state, and remote indicators kept non-blocking.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -865,7 +865,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a subdued neutral collapsed style, a subtle content-derived expanded backdrop, and visually nested episode cards inside one containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a subdued neutral collapsed style, full-size stacked-card bottom-edge peeks while collapsed, a subtle content-derived expanded backdrop, and visually nested episode cards inside one containing card when expanded.
     when:
       surface: library
       state:
@@ -876,6 +876,7 @@ scenarios:
       - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
       - visible grouped header uses iconography rather than text labels for expand/collapse
       - visible grouped header places the expand or collapse control near the top left
+      - collapsed grouped header shows only the bottom edges of up to three full-size stacked cards, capped by the group's actual video count
       - visible grouped header places the watched toggle above the nested episode cards
       - expanded videos appear visually nested under the grouped header they belong to
   - id: shell_look_points_are_global_on_library_and_player
@@ -1057,15 +1058,17 @@ scenarios:
       - reconnecting to an already-active cast session does not needlessly reload the same remote item
       - player does not remain stuck on an unexplained black surface
   - id: player_supports_fullscreen_toggle_and_landscape_behavior
-    description: Player supports fullscreen from controls and landscape, while double taps on the left or right side seek backward or forward during playback.
+    description: Player supports fullscreen from controls and landscape, while double taps on the left or right side seek backward or forward during playback with visible skip confirmation feedback.
     when:
       surface: player
       action:
         use the fullscreen control, rotate device to landscape, or double tap the left or right side of the player during active playback
     then:
       - player enters fullscreen presentation
+      - fullscreen landscape controls become larger and more spread out than the embedded layout
       - double tapping the left side seeks backward
       - double tapping the right side seeks forward
+      - each double tap shows a brief direction-aware skip confirmation on the player surface
       - leaving fullscreen restores the standard shell presentation
   - id: player_fullscreen_rotation_keeps_active_item
     description: Entering or leaving fullscreen by rotation keeps the current video active and does not rewind or switch back to a previously played item.

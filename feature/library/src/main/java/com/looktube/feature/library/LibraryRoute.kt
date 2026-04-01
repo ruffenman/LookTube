@@ -512,16 +512,17 @@ private fun CollapsedHeaderCardPeeks(
     section: SeriesSection,
     modifier: Modifier = Modifier,
 ) {
-    val peekVideos = section.videos.take(3)
+    val peekVideos = section.videos.take(collapsedHeaderPeekCount(section.videos.size))
     if (peekVideos.isEmpty()) {
         return
     }
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(GROUP_HEADER_PEEK_STACK_HEIGHT),
+            .height(collapsedHeaderPeekStackHeight(peekVideos.size)),
     ) {
         peekVideos.forEachIndexed { index, video ->
+            val centeredIndex = index - (peekVideos.lastIndex / 2f)
             SectionPeekCard(
                 video = video,
                 sectionKey = section.key,
@@ -529,10 +530,10 @@ private fun CollapsedHeaderCardPeeks(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .offset(
-                        x = ((index - 1) * 10).dp,
-                        y = ((peekVideos.lastIndex - index) * 4).dp,
+                        x = GROUP_HEADER_PEEK_HORIZONTAL_STAGGER * centeredIndex,
+                        y = GROUP_HEADER_PEEK_VERTICAL_STAGGER * index,
                     )
-                    .fillMaxWidth((0.76f + (index * 0.08f)).coerceAtMost(0.94f))
+                    .fillMaxWidth()
                     .height(GROUP_HEADER_PEEK_CARD_HEIGHT),
             )
         }
@@ -548,7 +549,7 @@ private fun SectionPeekCard(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
         tonalElevation = 0.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
@@ -1018,12 +1019,31 @@ internal data class DisplayedSeriesSection(
     val section: SeriesSection,
     val isExpanded: Boolean,
 )
+internal fun collapsedHeaderPeekCount(videoCount: Int): Int = videoCount.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
+
+internal fun collapsedHeaderPeekReveal(videoCount: Int): Dp {
+    val peekCount = collapsedHeaderPeekCount(videoCount)
+    if (peekCount == 0) {
+        return 0.dp
+    }
+    return GROUP_HEADER_PEEK_BOTTOM_EDGE_REVEAL + (GROUP_HEADER_PEEK_VERTICAL_STAGGER * (peekCount - 1))
+}
+
+internal fun collapsedHeaderPeekStackHeight(videoCount: Int): Dp {
+    val peekCount = collapsedHeaderPeekCount(videoCount)
+    if (peekCount == 0) {
+        return 0.dp
+    }
+    return GROUP_HEADER_PEEK_CARD_HEIGHT + (GROUP_HEADER_PEEK_VERTICAL_STAGGER * (peekCount - 1))
+}
 
 private const val GROUP_HEADER_BACKDROP_SLICE_COUNT = 4
 private val GROUP_HEADER_BACKDROP_SLICE_OVERLAP = 18.dp
-private val GROUP_HEADER_COLLAPSED_PEEK_REVEAL = 12.dp
-private val GROUP_HEADER_PEEK_STACK_HEIGHT = 24.dp
-private val GROUP_HEADER_PEEK_CARD_HEIGHT = 20.dp
+private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
+private val GROUP_HEADER_PEEK_BOTTOM_EDGE_REVEAL = 8.dp
+private val GROUP_HEADER_PEEK_VERTICAL_STAGGER = 6.dp
+private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 8.dp
+private val GROUP_HEADER_PEEK_CARD_HEIGHT = 148.dp
 private val GroupHeaderBackdropPalette = listOf(
     Color(0xFF44556B),
     Color(0xFF6A503C),
@@ -1419,7 +1439,7 @@ private fun GroupedSeriesSectionCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = if (isExpanded) 0.dp else GROUP_HEADER_COLLAPSED_PEEK_REVEAL),
+                    .padding(bottom = if (isExpanded) 0.dp else collapsedHeaderPeekReveal(section.videos.size)),
             ) {
                 if (!isExpanded) {
                     CollapsedHeaderCardPeeks(

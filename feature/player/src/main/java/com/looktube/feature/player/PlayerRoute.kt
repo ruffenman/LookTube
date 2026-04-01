@@ -9,7 +9,9 @@ import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.foundation.BorderStroke
@@ -65,6 +67,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.children
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import androidx.media3.cast.MediaRouteButtonViewProvider
@@ -84,6 +87,8 @@ import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import com.looktube.model.isWatched
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 @Composable
 fun PlayerRoute(
@@ -826,11 +831,13 @@ private fun FullscreenPlayerSurface(
     remotePlaybackStatus: RemotePlaybackStatus?,
     onFullscreenToggle: (Boolean) -> Unit,
 ) {
+    val configuration = LocalConfiguration.current
     PlayerSurface(
         player = player,
         modifier = Modifier.fillMaxSize(),
         overlayInset = 16.dp,
         remotePlaybackStatus = remotePlaybackStatus,
+        isFullscreenLandscape = configuration.screenWidthDp > configuration.screenHeightDp,
         onFullscreenToggle = onFullscreenToggle,
     )
 }
@@ -841,6 +848,7 @@ private fun PlayerSurface(
     modifier: Modifier,
     overlayInset: Dp,
     remotePlaybackStatus: RemotePlaybackStatus?,
+    isFullscreenLandscape: Boolean = false,
     onFullscreenToggle: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
@@ -856,6 +864,29 @@ private fun PlayerSurface(
     val remoteBadgeOutlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f).toArgb()
     val remoteBadgeTitleColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val remoteBadgeBodyColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+    val skipFeedbackHorizontalPaddingPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_HORIZONTAL_PADDING.roundToPx() }
+    val skipFeedbackVerticalPaddingPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_VERTICAL_PADDING.roundToPx() }
+    val skipFeedbackCornerRadiusPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_CORNER_RADIUS.toPx() }
+    val skipFeedbackStrokeWidthPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_STROKE_WIDTH.roundToPx() }
+    val skipFeedbackArrowSpacingPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_ARROW_SPACING.roundToPx() }
+    val skipFeedbackTravelPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_TRAVEL.roundToPx() }
+    val skipFeedbackBackgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f).toArgb()
+    val skipFeedbackOutlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.84f).toArgb()
+    val skipFeedbackTextColor = MaterialTheme.colorScheme.onSurface.toArgb()
+    val skipFeedbackAccentColor = MaterialTheme.colorScheme.primary.toArgb()
+    val fullscreenCenterButtonSizePx = with(density) { FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SIZE.roundToPx() }
+    val fullscreenPlayPauseButtonSizePx = with(density) { FULLSCREEN_LANDSCAPE_PLAY_PAUSE_BUTTON_SIZE.roundToPx() }
+    val fullscreenBottomButtonSizePx = with(density) { FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SIZE.roundToPx() }
+    val fullscreenButtonPaddingPx = with(density) { FULLSCREEN_LANDSCAPE_BUTTON_PADDING.roundToPx() }
+    val fullscreenCenterSpacingPx = with(density) { FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SPACING.roundToPx() }
+    val fullscreenBottomSpacingPx = with(density) { FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SPACING.roundToPx() }
+    val fullscreenCenterControlsPaddingPx = with(density) { FULLSCREEN_LANDSCAPE_CENTER_CONTROLS_PADDING.roundToPx() }
+    val fullscreenBottomBarHeightPx = with(density) { FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HEIGHT.roundToPx() }
+    val fullscreenBottomBarHorizontalPaddingPx = with(density) { FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HORIZONTAL_PADDING.roundToPx() }
+    val fullscreenBottomBarVerticalPaddingPx = with(density) { FULLSCREEN_LANDSCAPE_BOTTOM_BAR_VERTICAL_PADDING.roundToPx() }
+    val fullscreenProgressHeightPx = with(density) { FULLSCREEN_LANDSCAPE_PROGRESS_HEIGHT.roundToPx() }
+    val fullscreenProgressBottomMarginPx = with(density) { FULLSCREEN_LANDSCAPE_PROGRESS_BOTTOM_MARGIN.roundToPx() }
+    val fullscreenTimePaddingPx = with(density) { FULLSCREEN_LANDSCAPE_TIME_PADDING.roundToPx() }
     var playerView by remember { mutableStateOf<PlayerView?>(null) }
     val doubleTapGestureDetector = remember(context, player) {
         GestureDetector(
@@ -864,13 +895,46 @@ private fun PlayerSurface(
                 override fun onDown(event: MotionEvent): Boolean = true
 
                 override fun onDoubleTap(event: MotionEvent): Boolean {
-                    return when (doubleTapSeekDirection(event.x, playerView?.width ?: 0)) {
+                    val hostPlayerView = playerView ?: return false
+                    return when (val direction = doubleTapSeekDirection(event.x, hostPlayerView.width)) {
                         DoubleTapSeekDirection.Backward -> {
+                            val feedbackSeconds = player.doubleTapSeekFeedbackSeconds(direction)
                             player.seekBack()
+                            hostPlayerView.showDoubleTapSeekFeedback(
+                                direction = direction,
+                                seconds = feedbackSeconds,
+                                insetPx = overlayInsetPx,
+                                backgroundColor = skipFeedbackBackgroundColor,
+                                outlineColor = skipFeedbackOutlineColor,
+                                textColor = skipFeedbackTextColor,
+                                accentColor = skipFeedbackAccentColor,
+                                cornerRadiusPx = skipFeedbackCornerRadiusPx,
+                                strokeWidthPx = skipFeedbackStrokeWidthPx,
+                                horizontalPaddingPx = skipFeedbackHorizontalPaddingPx,
+                                verticalPaddingPx = skipFeedbackVerticalPaddingPx,
+                                arrowSpacingPx = skipFeedbackArrowSpacingPx,
+                                travelPx = skipFeedbackTravelPx,
+                            )
                             true
                         }
                         DoubleTapSeekDirection.Forward -> {
+                            val feedbackSeconds = player.doubleTapSeekFeedbackSeconds(direction)
                             player.seekForward()
+                            hostPlayerView.showDoubleTapSeekFeedback(
+                                direction = direction,
+                                seconds = feedbackSeconds,
+                                insetPx = overlayInsetPx,
+                                backgroundColor = skipFeedbackBackgroundColor,
+                                outlineColor = skipFeedbackOutlineColor,
+                                textColor = skipFeedbackTextColor,
+                                accentColor = skipFeedbackAccentColor,
+                                cornerRadiusPx = skipFeedbackCornerRadiusPx,
+                                strokeWidthPx = skipFeedbackStrokeWidthPx,
+                                horizontalPaddingPx = skipFeedbackHorizontalPaddingPx,
+                                verticalPaddingPx = skipFeedbackVerticalPaddingPx,
+                                arrowSpacingPx = skipFeedbackArrowSpacingPx,
+                                travelPx = skipFeedbackTravelPx,
+                            )
                             true
                         }
                         null -> false
@@ -937,6 +1001,23 @@ private fun PlayerSurface(
                     horizontalPaddingPx = remoteBadgePaddingHorizontalPx,
                     verticalPaddingPx = remoteBadgePaddingVerticalPx,
                 )
+                syncControllerLayout(
+                    isFullscreenLandscape = isFullscreenLandscape,
+                    overlayInsetPx = overlayInsetPx,
+                    centerButtonSizePx = fullscreenCenterButtonSizePx,
+                    playPauseButtonSizePx = fullscreenPlayPauseButtonSizePx,
+                    bottomButtonSizePx = fullscreenBottomButtonSizePx,
+                    buttonPaddingPx = fullscreenButtonPaddingPx,
+                    centerSpacingPx = fullscreenCenterSpacingPx,
+                    bottomSpacingPx = fullscreenBottomSpacingPx,
+                    centerControlsPaddingPx = fullscreenCenterControlsPaddingPx,
+                    bottomBarHeightPx = fullscreenBottomBarHeightPx,
+                    bottomBarHorizontalPaddingPx = fullscreenBottomBarHorizontalPaddingPx,
+                    bottomBarVerticalPaddingPx = fullscreenBottomBarVerticalPaddingPx,
+                    progressHeightPx = fullscreenProgressHeightPx,
+                    progressBottomMarginPx = fullscreenProgressBottomMarginPx,
+                    timePaddingPx = fullscreenTimePaddingPx,
+                )
                 setFullscreenButtonClickListener { isFullscreen ->
                     onFullscreenToggle(isFullscreen)
                 }
@@ -968,6 +1049,23 @@ private fun PlayerSurface(
                 strokeWidthPx = remoteBadgeStrokeWidthPx,
                 horizontalPaddingPx = remoteBadgePaddingHorizontalPx,
                 verticalPaddingPx = remoteBadgePaddingVerticalPx,
+            )
+            hostPlayerView.syncControllerLayout(
+                isFullscreenLandscape = isFullscreenLandscape,
+                overlayInsetPx = overlayInsetPx,
+                centerButtonSizePx = fullscreenCenterButtonSizePx,
+                playPauseButtonSizePx = fullscreenPlayPauseButtonSizePx,
+                bottomButtonSizePx = fullscreenBottomButtonSizePx,
+                buttonPaddingPx = fullscreenButtonPaddingPx,
+                centerSpacingPx = fullscreenCenterSpacingPx,
+                bottomSpacingPx = fullscreenBottomSpacingPx,
+                centerControlsPaddingPx = fullscreenCenterControlsPaddingPx,
+                bottomBarHeightPx = fullscreenBottomBarHeightPx,
+                bottomBarHorizontalPaddingPx = fullscreenBottomBarHorizontalPaddingPx,
+                bottomBarVerticalPaddingPx = fullscreenBottomBarVerticalPaddingPx,
+                progressHeightPx = fullscreenProgressHeightPx,
+                progressBottomMarginPx = fullscreenProgressBottomMarginPx,
+                timePaddingPx = fullscreenTimePaddingPx,
             )
             hostPlayerView.setFullscreenButtonClickListener { isFullscreen ->
                 onFullscreenToggle(isFullscreen)
@@ -1096,6 +1194,24 @@ internal fun doubleTapSeekDirection(
     else -> DoubleTapSeekDirection.Forward
 }
 
+internal fun resolveDoubleTapSeekIncrementSeconds(seekIncrementMs: Long): Long =
+    if (seekIncrementMs <= 0L) {
+        DEFAULT_DOUBLE_TAP_SEEK_SECONDS
+    } else {
+        ceil(seekIncrementMs / 1_000.0).toLong()
+    }
+
+internal fun doubleTapSeekFeedbackLabel(seconds: Long): String =
+    "$seconds ${if (seconds == 1L) "second" else "seconds"}"
+
+private fun Player.doubleTapSeekFeedbackSeconds(direction: DoubleTapSeekDirection): Long =
+    resolveDoubleTapSeekIncrementSeconds(
+        when (direction) {
+            DoubleTapSeekDirection.Backward -> seekBackIncrement
+            DoubleTapSeekDirection.Forward -> seekForwardIncrement
+        },
+    )
+
 internal fun remotePlaybackTitle(deviceName: String?): String =
     deviceName?.takeIf(String::isNotBlank)?.let { "Casting to $it" } ?: "Casting video"
 internal fun remotePlaybackBadgeBody(
@@ -1199,10 +1315,363 @@ private fun PlayerView.syncRemotePlaybackBadge(
     }
 }
 
+private fun PlayerView.showDoubleTapSeekFeedback(
+    direction: DoubleTapSeekDirection,
+    seconds: Long,
+    insetPx: Int,
+    backgroundColor: Int,
+    outlineColor: Int,
+    textColor: Int,
+    accentColor: Int,
+    cornerRadiusPx: Float,
+    strokeWidthPx: Int,
+    horizontalPaddingPx: Int,
+    verticalPaddingPx: Int,
+    arrowSpacingPx: Int,
+    travelPx: Int,
+) {
+    val overlay = overlayFrameLayout ?: return
+    val container = overlay.findViewWithTag<LinearLayout>(doubleTapSeekFeedbackContainerTag(direction))
+        ?: LinearLayout(context).apply {
+            tag = doubleTapSeekFeedbackContainerTag(direction)
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            isClickable = false
+            isFocusable = false
+            isEnabled = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            visibility = View.GONE
+            alpha = 0f
+            setOnTouchListener { _, _ -> false }
+            addView(
+                LinearLayout(context).apply {
+                    tag = doubleTapSeekFeedbackArrowRowTag(direction)
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER
+                    repeat(DOUBLE_TAP_SEEK_FEEDBACK_ARROW_COUNT) { index ->
+                        addView(
+                            TextView(context).apply {
+                                text = if (direction == DoubleTapSeekDirection.Backward) "❮" else "❯"
+                                textSize = 18f
+                                alpha = DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA
+                                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                                layoutParams = LinearLayout.LayoutParams(
+                                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                                ).apply {
+                                    if (index > 0) {
+                                        marginStart = arrowSpacingPx
+                                    }
+                                }
+                            },
+                        )
+                    }
+                },
+            )
+            addView(
+                TextView(context).apply {
+                    tag = doubleTapSeekFeedbackLabelTag(direction)
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    textSize = 13f
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                },
+            )
+            overlay.addView(this)
+        }
+    val sideMarginPx = maxOf(insetPx, (width * DOUBLE_TAP_SEEK_FEEDBACK_SIDE_MARGIN_FRACTION).roundToInt())
+    container.layoutParams = FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.WRAP_CONTENT,
+        FrameLayout.LayoutParams.WRAP_CONTENT,
+        Gravity.CENTER_VERTICAL or if (direction == DoubleTapSeekDirection.Backward) Gravity.START else Gravity.END,
+    ).apply {
+        if (direction == DoubleTapSeekDirection.Backward) {
+            leftMargin = sideMarginPx
+        } else {
+            rightMargin = sideMarginPx
+        }
+    }
+    container.setPadding(horizontalPaddingPx, verticalPaddingPx, horizontalPaddingPx, verticalPaddingPx)
+    container.background = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = cornerRadiusPx
+        setColor(backgroundColor)
+        setStroke(strokeWidthPx, outlineColor)
+    }
+    container.findViewWithTag<TextView>(doubleTapSeekFeedbackLabelTag(direction))?.apply {
+        text = doubleTapSeekFeedbackLabel(seconds)
+        setTextColor(textColor)
+    }
+    val arrowViews = container.findViewWithTag<LinearLayout>(doubleTapSeekFeedbackArrowRowTag(direction))
+        ?.children
+        ?.mapNotNull { it as? TextView }
+        ?.toList()
+        .orEmpty()
+    arrowViews.forEachIndexed { index, arrowView ->
+        arrowView.animate().cancel()
+        arrowView.alpha = DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA
+        arrowView.translationX = if (direction == DoubleTapSeekDirection.Backward) {
+            DOUBLE_TAP_SEEK_FEEDBACK_ARROW_TRAVEL_PX * (index + 1)
+        } else {
+            -DOUBLE_TAP_SEEK_FEEDBACK_ARROW_TRAVEL_PX * (index + 1)
+        }
+        arrowView.setTextColor(accentColor)
+        arrowView.animate()
+            .alpha(1f)
+            .translationX(0f)
+            .setStartDelay(index * DOUBLE_TAP_SEEK_FEEDBACK_ARROW_STAGGER_MS)
+            .setDuration(DOUBLE_TAP_SEEK_FEEDBACK_ARROW_ANIMATION_MS)
+            .withEndAction {
+                arrowView.animate()
+                    .alpha(DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA)
+                    .setDuration(DOUBLE_TAP_SEEK_FEEDBACK_ARROW_FADE_MS)
+                    .start()
+            }
+            .start()
+    }
+    (container.getTag(PLAYER_VIEW_HIDE_RUNNABLE_TAG) as? Runnable)?.let(container::removeCallbacks)
+    container.animate().cancel()
+    container.visibility = View.VISIBLE
+    container.bringToFront()
+    container.alpha = 0f
+    container.translationX = if (direction == DoubleTapSeekDirection.Backward) {
+        -travelPx.toFloat()
+    } else {
+        travelPx.toFloat()
+    }
+    container.scaleX = 0.96f
+    container.scaleY = 0.96f
+    container.animate()
+        .alpha(1f)
+        .translationX(0f)
+        .scaleX(1f)
+        .scaleY(1f)
+        .setDuration(DOUBLE_TAP_SEEK_FEEDBACK_ENTER_MS)
+        .start()
+    val hideRunnable = Runnable {
+        container.animate()
+            .alpha(0f)
+            .translationX(
+                if (direction == DoubleTapSeekDirection.Backward) {
+                    -(travelPx / 2f)
+                } else {
+                    travelPx / 2f
+                },
+            )
+            .setDuration(DOUBLE_TAP_SEEK_FEEDBACK_EXIT_MS)
+            .withEndAction {
+                container.visibility = View.GONE
+            }
+            .start()
+    }
+    container.setTag(PLAYER_VIEW_HIDE_RUNNABLE_TAG, hideRunnable)
+    container.postDelayed(hideRunnable, DOUBLE_TAP_SEEK_FEEDBACK_VISIBLE_MS)
+}
+
+private fun PlayerView.syncControllerLayout(
+    isFullscreenLandscape: Boolean,
+    overlayInsetPx: Int,
+    centerButtonSizePx: Int,
+    playPauseButtonSizePx: Int,
+    bottomButtonSizePx: Int,
+    buttonPaddingPx: Int,
+    centerSpacingPx: Int,
+    bottomSpacingPx: Int,
+    centerControlsPaddingPx: Int,
+    bottomBarHeightPx: Int,
+    bottomBarHorizontalPaddingPx: Int,
+    bottomBarVerticalPaddingPx: Int,
+    progressHeightPx: Int,
+    progressBottomMarginPx: Int,
+    timePaddingPx: Int,
+) {
+    val bottomBar = findViewById<FrameLayout>(androidx.media3.ui.R.id.exo_bottom_bar)
+    val timeGroup = findViewById<LinearLayout>(androidx.media3.ui.R.id.exo_time)
+    val centerControls = findViewById<LinearLayout>(androidx.media3.ui.R.id.exo_center_controls)
+    val basicControls = findViewById<LinearLayout>(androidx.media3.ui.R.id.exo_basic_controls)
+    val minimalControls = findViewById<LinearLayout>(androidx.media3.ui.R.id.exo_minimal_controls)
+    val topControls = findViewById<LinearLayout>(androidx.media3.ui.R.id.exo_top_controls)
+    val progressPlaceholder = findViewById<View>(androidx.media3.ui.R.id.exo_progress_placeholder)
+    val progress = findViewById<View>(androidx.media3.ui.R.id.exo_progress)
+    val centerButtons = listOf(
+        androidx.media3.ui.R.id.exo_prev,
+        androidx.media3.ui.R.id.exo_rew,
+        androidx.media3.ui.R.id.exo_play_pause,
+        androidx.media3.ui.R.id.exo_ffwd,
+        androidx.media3.ui.R.id.exo_next,
+    ).mapNotNull { findViewById<View>(it) }
+    val bottomButtons = listOf(
+        androidx.media3.ui.R.id.exo_subtitle,
+        androidx.media3.ui.R.id.exo_settings,
+        androidx.media3.ui.R.id.exo_fullscreen,
+        androidx.media3.ui.R.id.exo_overflow_show,
+        androidx.media3.ui.R.id.exo_overflow_hide,
+        androidx.media3.ui.R.id.exo_repeat_toggle,
+        androidx.media3.ui.R.id.exo_shuffle,
+        androidx.media3.ui.R.id.exo_vr,
+        androidx.media3.ui.R.id.exo_minimal_fullscreen,
+    ).mapNotNull { findViewById<View>(it) }
+    val controllerViews = buildList {
+        addAll(listOfNotNull(bottomBar, timeGroup, centerControls, basicControls, minimalControls, topControls, progressPlaceholder, progress))
+        centerControls?.children?.forEach(::add)
+        basicControls?.children?.forEach(::add)
+        minimalControls?.children?.forEach(::add)
+        topControls?.children?.forEach(::add)
+        addAll(centerButtons)
+        addAll(bottomButtons)
+    }.distinct()
+    controllerViews.forEach(View::captureLayoutSnapshotIfNeeded)
+    if (!isFullscreenLandscape) {
+        controllerViews.forEach(View::restoreLayoutSnapshotIfNeeded)
+        return
+    }
+    bottomBar?.apply {
+        setHeightPx(bottomBarHeightPx)
+        setPadding(
+            bottomBarHorizontalPaddingPx,
+            bottomBarVerticalPaddingPx,
+            bottomBarHorizontalPaddingPx,
+            bottomBarVerticalPaddingPx,
+        )
+    }
+    timeGroup?.setPadding(timePaddingPx, timeGroup.paddingTop, timePaddingPx, timeGroup.paddingBottom)
+    centerControls?.apply {
+        setPadding(
+            centerControlsPaddingPx,
+            centerControlsPaddingPx,
+            centerControlsPaddingPx,
+            centerControlsPaddingPx,
+        )
+        children.forEach { child -> child.setHorizontalMargins(centerSpacingPx / 2) }
+    }
+    basicControls?.children?.forEach { child -> child.setHorizontalMargins(bottomSpacingPx / 2) }
+    minimalControls?.children?.forEach { child -> child.setHorizontalMargins(bottomSpacingPx / 2) }
+    topControls?.apply {
+        setPadding(overlayInsetPx, overlayInsetPx, overlayInsetPx, 0)
+        children.forEach { child -> child.setHorizontalMargins(bottomSpacingPx / 2) }
+    }
+    progressPlaceholder?.setHeightAndBottomMarginPx(progressHeightPx, progressBottomMarginPx)
+    progress?.setHeightAndBottomMarginPx(progressHeightPx, progressBottomMarginPx)
+    centerButtons.forEach { button ->
+        button.setSquareSizePx(
+            if (button.id == androidx.media3.ui.R.id.exo_play_pause) {
+                playPauseButtonSizePx
+            } else {
+                centerButtonSizePx
+            },
+        )
+        if (button is ImageButton) {
+            button.setPadding(buttonPaddingPx, buttonPaddingPx, buttonPaddingPx, buttonPaddingPx)
+        }
+    }
+    bottomButtons.forEach { button ->
+        button.setSquareSizePx(bottomButtonSizePx)
+        if (button is ImageButton) {
+            button.setPadding(buttonPaddingPx, buttonPaddingPx, buttonPaddingPx, buttonPaddingPx)
+        }
+    }
+}
+
+private fun View.captureLayoutSnapshotIfNeeded() {
+    if (getTag(PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG) != null) {
+        return
+    }
+    val marginLayoutParams = layoutParams as? ViewGroup.MarginLayoutParams
+    setTag(
+        PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG,
+        ViewLayoutSnapshot(
+            width = layoutParams?.width,
+            height = layoutParams?.height,
+            leftMargin = marginLayoutParams?.leftMargin,
+            topMargin = marginLayoutParams?.topMargin,
+            rightMargin = marginLayoutParams?.rightMargin,
+            bottomMargin = marginLayoutParams?.bottomMargin,
+            paddingLeft = paddingLeft,
+            paddingTop = paddingTop,
+            paddingRight = paddingRight,
+            paddingBottom = paddingBottom,
+        ),
+    )
+}
+
+private fun View.restoreLayoutSnapshotIfNeeded() {
+    val snapshot = getTag(PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG) as? ViewLayoutSnapshot ?: return
+    layoutParams?.let { params ->
+        snapshot.width?.let { params.width = it }
+        snapshot.height?.let { params.height = it }
+        if (params is ViewGroup.MarginLayoutParams) {
+            params.leftMargin = snapshot.leftMargin ?: params.leftMargin
+            params.topMargin = snapshot.topMargin ?: params.topMargin
+            params.rightMargin = snapshot.rightMargin ?: params.rightMargin
+            params.bottomMargin = snapshot.bottomMargin ?: params.bottomMargin
+        }
+        layoutParams = params
+    }
+    setPadding(snapshot.paddingLeft, snapshot.paddingTop, snapshot.paddingRight, snapshot.paddingBottom)
+}
+
+private fun View.setHorizontalMargins(horizontalMarginPx: Int) {
+    val params = layoutParams as? ViewGroup.MarginLayoutParams ?: return
+    params.leftMargin = horizontalMarginPx
+    params.rightMargin = horizontalMarginPx
+    layoutParams = params
+}
+
+private fun View.setHeightAndBottomMarginPx(heightPx: Int, bottomMarginPx: Int) {
+    setHeightPx(heightPx)
+    val params = layoutParams as? ViewGroup.MarginLayoutParams ?: return
+    params.bottomMargin = bottomMarginPx
+    layoutParams = params
+}
+
+private fun View.setHeightPx(heightPx: Int) {
+    val params = layoutParams ?: return
+    params.height = heightPx
+    layoutParams = params
+}
+
+private fun View.setSquareSizePx(sizePx: Int) {
+    val params = layoutParams ?: return
+    params.width = sizePx
+    params.height = sizePx
+    layoutParams = params
+}
+
+private fun doubleTapSeekFeedbackContainerTag(direction: DoubleTapSeekDirection): String =
+    when (direction) {
+        DoubleTapSeekDirection.Backward -> DOUBLE_TAP_SEEK_FEEDBACK_BACKWARD_CONTAINER_TAG
+        DoubleTapSeekDirection.Forward -> DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_CONTAINER_TAG
+    }
+
+private fun doubleTapSeekFeedbackArrowRowTag(direction: DoubleTapSeekDirection): String =
+    when (direction) {
+        DoubleTapSeekDirection.Backward -> DOUBLE_TAP_SEEK_FEEDBACK_BACKWARD_ARROW_ROW_TAG
+        DoubleTapSeekDirection.Forward -> DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_ARROW_ROW_TAG
+    }
+
+private fun doubleTapSeekFeedbackLabelTag(direction: DoubleTapSeekDirection): String =
+    when (direction) {
+        DoubleTapSeekDirection.Backward -> DOUBLE_TAP_SEEK_FEEDBACK_BACKWARD_LABEL_TAG
+        DoubleTapSeekDirection.Forward -> DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_LABEL_TAG
+    }
+
 private data class RemotePlaybackStatus(
     val title: String,
     val badgeBody: String,
     val detailsBody: String,
+)
+
+private data class ViewLayoutSnapshot(
+    val width: Int?,
+    val height: Int?,
+    val leftMargin: Int?,
+    val topMargin: Int?,
+    val rightMargin: Int?,
+    val bottomMargin: Int?,
+    val paddingLeft: Int,
+    val paddingTop: Int,
+    val paddingRight: Int,
+    val paddingBottom: Int,
 )
 
 private val REMOTE_PLAYBACK_BADGE_CORNER_RADIUS = 18.dp
@@ -1210,7 +1679,45 @@ private val REMOTE_PLAYBACK_BADGE_STROKE_WIDTH = 1.dp
 private val REMOTE_PLAYBACK_BADGE_HORIZONTAL_PADDING = 14.dp
 private val REMOTE_PLAYBACK_BADGE_VERTICAL_PADDING = 10.dp
 private val REMOTE_PLAYBACK_BADGE_MAX_WIDTH = 240.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_CORNER_RADIUS = 20.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_STROKE_WIDTH = 1.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_HORIZONTAL_PADDING = 16.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_VERTICAL_PADDING = 12.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_SPACING = 4.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_TRAVEL = 20.dp
+private val FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SIZE = 72.dp
+private val FULLSCREEN_LANDSCAPE_PLAY_PAUSE_BUTTON_SIZE = 92.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SIZE = 52.dp
+private val FULLSCREEN_LANDSCAPE_BUTTON_PADDING = 10.dp
+private val FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SPACING = 18.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SPACING = 10.dp
+private val FULLSCREEN_LANDSCAPE_CENTER_CONTROLS_PADDING = 16.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HEIGHT = 72.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HORIZONTAL_PADDING = 18.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_VERTICAL_PADDING = 10.dp
+private val FULLSCREEN_LANDSCAPE_PROGRESS_HEIGHT = 36.dp
+private val FULLSCREEN_LANDSCAPE_PROGRESS_BOTTOM_MARGIN = 56.dp
+private val FULLSCREEN_LANDSCAPE_TIME_PADDING = 10.dp
 private val PLAYER_HISTORY_RESERVED_CHROME_HEIGHT = 144.dp
+private val PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG = View.generateViewId()
+private val PLAYER_VIEW_HIDE_RUNNABLE_TAG = View.generateViewId()
+private const val DEFAULT_DOUBLE_TAP_SEEK_SECONDS = 10L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_VISIBLE_MS = 720L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ENTER_MS = 180L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_EXIT_MS = 280L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_COUNT = 3
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_STAGGER_MS = 80L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_ANIMATION_MS = 180L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_FADE_MS = 240L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA = 0.42f
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_TRAVEL_PX = 10f
+private const val DOUBLE_TAP_SEEK_FEEDBACK_SIDE_MARGIN_FRACTION = 0.16f
 private const val REMOTE_PLAYBACK_BADGE_CONTAINER_TAG = "looktube.remote_playback_badge"
 private const val REMOTE_PLAYBACK_BADGE_TITLE_TAG = "looktube.remote_playback_badge_title"
 private const val REMOTE_PLAYBACK_BADGE_BODY_TAG = "looktube.remote_playback_badge_body"
+private const val DOUBLE_TAP_SEEK_FEEDBACK_BACKWARD_CONTAINER_TAG = "looktube.double_tap_seek_feedback.backward"
+private const val DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_CONTAINER_TAG = "looktube.double_tap_seek_feedback.forward"
+private const val DOUBLE_TAP_SEEK_FEEDBACK_BACKWARD_ARROW_ROW_TAG = "looktube.double_tap_seek_feedback.backward.arrow_row"
+private const val DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_ARROW_ROW_TAG = "looktube.double_tap_seek_feedback.forward.arrow_row"
+private const val DOUBLE_TAP_SEEK_FEEDBACK_BACKWARD_LABEL_TAG = "looktube.double_tap_seek_feedback.backward.label"
+private const val DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_LABEL_TAG = "looktube.double_tap_seek_feedback.forward.label"

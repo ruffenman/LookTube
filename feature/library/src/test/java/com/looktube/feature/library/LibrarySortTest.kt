@@ -1,5 +1,6 @@
 package com.looktube.feature.library
 
+import androidx.compose.ui.unit.dp
 import com.looktube.model.PlaybackProgress
 import com.looktube.model.VideoSummary
 import org.junit.Assert.assertEquals
@@ -451,6 +452,21 @@ class LibrarySortTest {
     fun jumpRailFadeDelayIsShortAfterScrollingAndLongerAfterRailSelections() {
         assertEquals(200L, jumpRailFadeDelayMs(JumpRailInteraction.Scroll))
         assertEquals(1_000L, jumpRailFadeDelayMs(JumpRailInteraction.TargetSelection))
+    }
+
+    @Test
+    fun collapsedHeaderPeekCountCapsAtThreeAndRespectsGroupSize() {
+        assertEquals(0, collapsedHeaderPeekCount(0))
+        assertEquals(2, collapsedHeaderPeekCount(2))
+        assertEquals(3, collapsedHeaderPeekCount(5))
+    }
+
+    @Test
+    fun collapsedHeaderPeekRevealOnlyUsesNeededDepth() {
+        assertEquals(0.dp, collapsedHeaderPeekReveal(0))
+        assertEquals(8.dp, collapsedHeaderPeekReveal(1))
+        assertEquals(20.dp, collapsedHeaderPeekReveal(3))
+        assertEquals(20.dp, collapsedHeaderPeekReveal(5))
     }
 
     @Test

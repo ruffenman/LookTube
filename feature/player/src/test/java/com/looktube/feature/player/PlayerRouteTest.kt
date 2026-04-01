@@ -83,6 +83,22 @@ class PlayerRouteTest {
     }
 
     @Test
+    fun invalidSeekIncrementFallsBackToDefaultFeedbackDuration() {
+        assertEquals(10L, resolveDoubleTapSeekIncrementSeconds(0L))
+    }
+
+    @Test
+    fun seekIncrementRoundsUpToWholeSecondsForFeedback() {
+        assertEquals(11L, resolveDoubleTapSeekIncrementSeconds(10_001L))
+    }
+
+    @Test
+    fun skipFeedbackLabelUsesPluralization() {
+        assertEquals("1 second", doubleTapSeekFeedbackLabel(1L))
+        assertEquals("10 seconds", doubleTapSeekFeedbackLabel(10L))
+    }
+
+    @Test
     fun detectsRemotePlaybackFromDeviceInfo() {
         assertTrue(
             isRemotePlayback(

@@ -82,7 +82,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, keeps dimmed backdrop art visible while collapsed with stacked-card peeks at the bottom edge, uses a subdued neutral style when collapsed and a subtle content-derived backdrop when expanded, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, keeps the expand/collapse control in the top left of the group card, lets the whole header toggle expansion, keeps dimmed backdrop art visible while collapsed with only the staggered bottom edges of up to three full-size stacked cards peeking beneath the header, uses a subdued neutral style when collapsed and a subtle content-derived backdrop when expanded, places the title block and group info beneath that affordance so the control can hug the left edge without pushing text to the right, places the single group watched-state toggle immediately above the child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -94,8 +94,8 @@ An implementation that materially changes these choices can still be valid, but 
 - shows clear empty, unavailable, preparing, and active playback states
 - keeps the player frame pinned above the supporting metadata when a video is selected from Library or a launch intent
 - resumes playback from saved progress when available
-- supports fullscreen entry from the player control and landscape-driven presentation
-- uses left-side and right-side double taps to seek backward or forward 10 seconds during playback
+- supports fullscreen entry from the player control and landscape-driven presentation with larger, more spread-out controls in fullscreen landscape
+- uses left-side and right-side double taps to seek backward or forward 10 seconds during playback and shows a brief on-player confirmation animation for each skip
 - keeps playback on the same active item when entering or leaving fullscreen, including activity recreation from rotation
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
@@ -117,7 +117,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
 - The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
-- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, the title and header metadata stacked beneath that control instead of being offset to its right, a neutral low-attention collapsed style, a subtle content-derived expanded backdrop, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to.
+- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, the title and header metadata stacked beneath that control instead of being offset to its right, a neutral low-attention collapsed style, a subtle content-derived expanded backdrop, collapsed-state peeks that show only the bottom edges of up to three full-size cards, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to.
 - The jump rail becomes visible quickly when scrolling starts, fades back out roughly 0.2 seconds after passive scrolling stops, and only lingers longer after an explicit jump-rail selection.
 
 ### Background refresh and notifications
@@ -143,6 +143,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Opening a video from Settings for caption-data inspection must route to Player without forcing autoplay when the user only wants to review status.
 - Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
 - When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
+- Double-tap skip gestures show brief direction-aware skip confirmation feedback, and fullscreen landscape uses visibly roomier playback controls than embedded playback.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 
 ### Engagement, history, and completion
