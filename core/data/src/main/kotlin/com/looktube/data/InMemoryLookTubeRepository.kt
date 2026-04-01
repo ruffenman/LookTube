@@ -76,6 +76,21 @@ class InMemoryLookTubeRepository : LookTubeRepository {
         )
     }
 
+    override suspend fun consumeLaunchIntroQuote(deckSize: Int) {
+        if (deckSize <= 0) {
+            return
+        }
+        val nextIndex = feedConfigurationState.value.launchIntroQuoteDeckIndex + 1
+        feedConfigurationState.value = if (nextIndex >= deckSize) {
+            feedConfigurationState.value.copy(
+                launchIntroQuoteDeckSeed = System.currentTimeMillis(),
+                launchIntroQuoteDeckIndex = 0,
+            )
+        } else {
+            feedConfigurationState.value.copy(launchIntroQuoteDeckIndex = nextIndex)
+        }
+    }
+
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
     }

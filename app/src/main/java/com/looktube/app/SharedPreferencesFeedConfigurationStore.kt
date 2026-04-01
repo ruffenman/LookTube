@@ -103,6 +103,8 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                 configuration.autoGenerateCaptionsForNewVideos.toString(),
                 configuration.dailyOpenPointCount.toString(),
                 configuration.lastOpenedLocalEpochDay?.toString().orEmpty(),
+                configuration.launchIntroQuoteDeckSeed.toString(),
+                configuration.launchIntroQuoteDeckIndex.toString(),
             ).joinToString(SERIALIZED_SEPARATOR) { field ->
                 Base64.getEncoder().encodeToString(field.toByteArray(UTF_8))
             }
@@ -140,6 +142,13 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                 lastOpenedLocalEpochDay = resolvedParts.getOrNull(fieldOffset + 3)
                     ?.takeIf(String::isNotBlank)
                     ?.toLongOrNull(),
+                launchIntroQuoteDeckSeed = resolvedParts.getOrNull(fieldOffset + 4)
+                    ?.toLongOrNull()
+                    ?: 1L,
+                launchIntroQuoteDeckIndex = resolvedParts.getOrNull(fieldOffset + 5)
+                    ?.toIntOrNull()
+                    ?.coerceAtLeast(0)
+                    ?: 0,
             )
         }
     }

@@ -202,6 +202,12 @@ class LookTubeAppViewModel(
         }
     }
 
+    fun consumeLaunchIntroQuote(deckSize: Int) {
+        viewModelScope.launch {
+            repository.consumeLaunchIntroQuote(deckSize)
+        }
+    }
+
     fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
         viewModelScope.launch {
             repository.updateAutoGenerateCaptionsForNewVideos(enabled)

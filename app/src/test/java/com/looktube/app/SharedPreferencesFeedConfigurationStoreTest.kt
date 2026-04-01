@@ -85,6 +85,8 @@ class SharedPreferencesFeedConfigurationStoreTest {
                 autoGenerateCaptionsForNewVideos = true,
                 dailyOpenPointCount = 7,
                 lastOpenedLocalEpochDay = 20_177L,
+                launchIntroQuoteDeckSeed = 88L,
+                launchIntroQuoteDeckIndex = 5,
             ),
         )
 
@@ -92,6 +94,8 @@ class SharedPreferencesFeedConfigurationStoreTest {
         assertTrue(store.persistedConfiguration.value.autoGenerateCaptionsForNewVideos)
         assertEquals(7, store.persistedConfiguration.value.dailyOpenPointCount)
         assertEquals(20_177L, store.persistedConfiguration.value.lastOpenedLocalEpochDay)
+        assertEquals(88L, store.persistedConfiguration.value.launchIntroQuoteDeckSeed)
+        assertEquals(5, store.persistedConfiguration.value.launchIntroQuoteDeckIndex)
     }
 
     private fun createPreferences(nameSuffix: String): SharedPreferences {

@@ -269,6 +269,35 @@ class ConfigurableLookTubeRepositoryTest {
     }
 
     @Test
+    fun consumeLaunchIntroQuoteAdvancesDeckAndReshufflesAfterFullPass() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(
+                PersistedFeedConfiguration(
+                    feedUrl = "https://example.com/feed.xml",
+                    launchIntroQuoteDeckSeed = 17L,
+                    launchIntroQuoteDeckIndex = 0,
+                ),
+            ),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+            currentTimeMillisProvider = { 1_744_761_600_000L },
+        )
+
+        repository.bootstrap()
+        repository.consumeLaunchIntroQuote(deckSize = 3)
+        assertEquals(1, repository.feedConfiguration.value.launchIntroQuoteDeckIndex)
+        assertEquals(17L, repository.feedConfiguration.value.launchIntroQuoteDeckSeed)
+
+        repository.consumeLaunchIntroQuote(deckSize = 3)
+        repository.consumeLaunchIntroQuote(deckSize = 3)
+
+        assertEquals(0, repository.feedConfiguration.value.launchIntroQuoteDeckIndex)
+        assertEquals(1_744_761_600_000L, repository.feedConfiguration.value.launchIntroQuoteDeckSeed)
+    }
+
+    @Test
     fun refreshAutoGeneratesCaptionsForNewVideosWhenEnabled() = runTest {
         val captionStore = RecordingVideoCaptionStore()
         val repository = ConfigurableLookTubeRepository(

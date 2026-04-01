@@ -3,6 +3,7 @@
 - Giant Bomb currently exposes feed surfaces, including Premium feed surfaces, from the feeds page.
 - Current Premium feed links should be treated as copyable RSS inputs first; some copied feed URLs already carry the access key material needed for direct sync.
 - Giant Bomb also states that legacy structured APIs for games, people, companies, and related content are not currently available.
+- Official Giant Bomb-authored staff posts, announcements, and GOTY list pages provide a credible source for short attributable cast quotes, which is strong enough for lightweight celebratory product copy such as the launch intro without depending on community transcript archives.
 
 ## 2026-03-16 live probe result
 - A real `premium-videos` 1080p feed URL succeeded in `feed-url-only` mode with HTTP 200 and `application/rss+xml; charset=utf-8`.

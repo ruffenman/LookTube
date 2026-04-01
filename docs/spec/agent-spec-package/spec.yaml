@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.15"
+  version: "0.2.16"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -234,7 +234,7 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that rotates through sourced Giant Bomb cast quotes and auto-dismisses with a short fade, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
         - navigate between Settings, Library, and Player
@@ -256,7 +256,7 @@ contract:
         - open a video with saved caption data in Player without autoplay
         - clear all caption data
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, dimmed collapsed header art with only the staggered bottom edges of up to three full-size stacked cards visible, a subtle content-derived expanded header backdrop, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, dimmed collapsed header art with only the staggered bottom edges of up to three same-width full-size stacked cards visible, a full-card content-derived expanded mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest

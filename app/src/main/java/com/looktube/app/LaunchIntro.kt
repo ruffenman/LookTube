@@ -35,40 +35,64 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-
-private const val LOOKTUBE_LAUNCH_INTRO_DURATION_MS = 2_000L
+private const val LOOKTUBE_LAUNCH_INTRO_DURATION_MS = 2_600L
 private const val LOOKTUBE_LAUNCH_INTRO_ENTER_DURATION_MS = 550
+private const val LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS = 320
 
 @Composable
-fun LookTubeLaunchIntroOverlay(
+internal fun LookTubeLaunchIntroOverlay(
+    quote: LaunchIntroQuote,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     shouldAutoDismiss: Boolean = true,
 ) {
     var animateIn by remember { mutableStateOf(false) }
+    var animateOut by remember { mutableStateOf(false) }
+    var dismissHandled by remember { mutableStateOf(false) }
     val brandScale by animateFloatAsState(
-        targetValue = if (animateIn) 1f else 0.88f,
+        targetValue = when {
+            animateOut -> 0.98f
+            animateIn -> 1f
+            else -> 0.88f
+        },
         animationSpec = tween(
-            durationMillis = LOOKTUBE_LAUNCH_INTRO_ENTER_DURATION_MS,
+            durationMillis = if (animateOut) {
+                LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS
+            } else {
+                LOOKTUBE_LAUNCH_INTRO_ENTER_DURATION_MS
+            },
             easing = FastOutSlowInEasing,
         ),
         label = "launchIntroScale",
     )
     val brandAlpha by animateFloatAsState(
-        targetValue = if (animateIn) 1f else 0f,
+        targetValue = when {
+            animateOut -> 0f
+            animateIn -> 1f
+            else -> 0f
+        },
         animationSpec = tween(
-            durationMillis = 400,
+            durationMillis = if (animateOut) LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS else 400,
             easing = FastOutSlowInEasing,
         ),
         label = "launchIntroAlpha",
     )
     val brandOffsetY by animateDpAsState(
-        targetValue = if (animateIn) 0.dp else 20.dp,
+        targetValue = when {
+            animateOut -> (-10).dp
+            animateIn -> 0.dp
+            else -> 20.dp
+        },
         animationSpec = tween(
-            durationMillis = LOOKTUBE_LAUNCH_INTRO_ENTER_DURATION_MS,
+            durationMillis = if (animateOut) {
+                LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS
+            } else {
+                LOOKTUBE_LAUNCH_INTRO_ENTER_DURATION_MS
+            },
             easing = FastOutSlowInEasing,
         ),
         label = "launchIntroOffset",
@@ -80,7 +104,14 @@ fun LookTubeLaunchIntroOverlay(
     LaunchedEffect(shouldAutoDismiss) {
         if (shouldAutoDismiss) {
             delay(LOOKTUBE_LAUNCH_INTRO_DURATION_MS)
-            onDismiss()
+            if (!dismissHandled) {
+                animateOut = true
+                delay(LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS.toLong())
+                if (!dismissHandled) {
+                    dismissHandled = true
+                    onDismiss()
+                }
+            }
         }
     }
 
@@ -98,7 +129,10 @@ fun LookTubeLaunchIntroOverlay(
             .pointerInput(onDismiss) {
                 detectTapGestures(
                     onTap = {
-                        onDismiss()
+                        if (!dismissHandled) {
+                            dismissHandled = true
+                            onDismiss()
+                        }
                     },
                 )
             }
@@ -130,13 +164,40 @@ fun LookTubeLaunchIntroOverlay(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = brandAlpha),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Premium videos, ready when you are.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = brandAlpha),
-                    textAlign = TextAlign.Center,
-                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f * brandAlpha),
+                    tonalElevation = 0.dp,
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "“${quote.text}”",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = brandAlpha),
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = "— ${quote.speaker}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = brandAlpha),
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
+                            text = quote.sourceTitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = brandAlpha),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
         }
         Text(
@@ -145,7 +206,7 @@ fun LookTubeLaunchIntroOverlay(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 12.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f * brandAlpha),
         )
     }
 }

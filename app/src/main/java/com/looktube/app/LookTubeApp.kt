@@ -126,6 +126,12 @@ fun LookTubeApp(
     var showLaunchIntro by rememberSaveable { mutableStateOf(showLaunchIntroOnStart) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
+    val launchIntroQuote = remember(
+        feedConfiguration.launchIntroQuoteDeckSeed,
+        feedConfiguration.launchIntroQuoteDeckIndex,
+    ) {
+        currentLaunchIntroQuote(feedConfiguration)
+    }
     val selectedCaptionData = selectedPlaybackTarget?.video?.id?.let(captionData::get)
     val captionDataManagementItems = remember(
         videos,
@@ -426,7 +432,13 @@ fun LookTubeApp(
             }
             if (showLaunchIntro) {
                 LookTubeLaunchIntroOverlay(
-                    onDismiss = { showLaunchIntro = false },
+                    quote = launchIntroQuote,
+                    onDismiss = {
+                        if (showLaunchIntro) {
+                            showLaunchIntro = false
+                            viewModel.consumeLaunchIntroQuote(LaunchIntroQuoteDeckSize)
+                        }
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

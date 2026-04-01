@@ -19,6 +19,7 @@ import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
+import com.looktube.model.advanceLaunchIntroQuoteDeck
 import com.looktube.model.toRuntime
 import com.looktube.network.FeedSyncException
 import com.looktube.network.VideoFeedRequest
@@ -53,9 +54,7 @@ class ConfigurableLookTubeRepository(
         ),
     )
     private val feedConfigurationState = MutableStateFlow(
-        FeedConfiguration(
-            feedUrl = "",
-        ),
+        feedConfigurationStore.persistedConfiguration.value.toRuntime(),
     )
     private val syncState = MutableStateFlow(
         LibrarySyncState(
@@ -159,6 +158,19 @@ class ConfigurableLookTubeRepository(
             dailyOpenPointCount = persistedConfiguration.dailyOpenPointCount + 1,
             lastOpenedLocalEpochDay = currentEpochDay,
         )
+        feedConfigurationStore.save(updatedConfiguration)
+        feedConfigurationState.value = updatedConfiguration.toRuntime()
+    }
+
+    override suspend fun consumeLaunchIntroQuote(deckSize: Int) {
+        if (deckSize <= 0) {
+            return
+        }
+        val updatedConfiguration = feedConfigurationStore.persistedConfiguration.value
+            .advanceLaunchIntroQuoteDeck(
+                deckSize = deckSize,
+                nextDeckSeed = currentTimeMillisProvider(),
+            )
         feedConfigurationStore.save(updatedConfiguration)
         feedConfigurationState.value = updatedConfiguration.toRuntime()
     }
