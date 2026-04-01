@@ -38,7 +38,7 @@ An implementation that materially changes these choices can still be valid, but 
 ## Core user flows
 ### First-use setup
 1. User opens the app.
-2. App may show a brief cold-start-only brand intro that auto-dismisses quickly and can be skipped immediately with any tap.
+2. App may show a brief cold-start-only brand intro that keeps the selected quote visible slightly longer before fading and can still be skipped immediately with any tap.
 3. User pastes a copied Giant Bomb Premium feed URL.
 4. App persists that feed URL locally with encrypted-at-rest protection where available.
 5. User triggers sync.
@@ -47,7 +47,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### Daily repeat use
 1. App restores the saved feed URL, cached library snapshot, playback progress, and local engagement state for recent history and watched/unwatched tracking.
 2. User can browse and resume without re-entering the feed URL.
-3. WorkManager keeps periodic background refresh active while a non-blank feed URL remains saved.
+3. WorkManager keeps periodic background refresh active while a non-blank feed URL remains saved and may enqueue a catch-up refresh alongside that stable periodic registration.
 4. If a later successful refresh finds previously unseen video IDs for the same feed URL, the app posts a local notification that opens the newest discovered video.
 5. If automatic caption generation for new videos is enabled and the on-device model is ready, newly discovered playable videos can be captioned automatically during sync or background refresh.
 
@@ -59,7 +59,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### App shell
 - three top-level destinations: `Settings`, `Library`, and `Player`
 - app opens on the Settings page by default
-- true cold starts may show a brief LookTube intro overlay that rotates through sourced Giant Bomb cast quotes, auto-dismisses with a short fade, can be skipped immediately, and does not replay when resuming from background
+- true cold starts may show a brief LookTube intro overlay that rotates through sourced Giant Bomb cast quotes, keeps the quote visible slightly longer before fading, can be skipped immediately, and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
 - while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, can show a small centered icon-only playback indicator between the title and badge when playback is active, and lets that indicator route directly to Player while re-syncing selection with the active session when possible
 - notification launch intents can route directly to the Player page and optionally preselect a video
@@ -82,7 +82,7 @@ An implementation that materially changes these choices can still be valid, but 
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, lets the whole header toggle expansion, uses a solid readable collapsed header whose front card shows the lead video's thumbnail while only the staggered bottom edges of up to three same-width full-size subsequent-video cards peek from a clipped reveal beneath it in equal reveal steps, uses a thumbnail-forward content-derived frame-tile mosaic only on the expanded group header itself, keeps the expanded affordance visually separated from the tighter bottom info plate instead of crowding that plate, keeps the child episode cards on their normal single-thumbnail treatment, places the single group watched-state toggle immediately above the child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, lets the whole header toggle expansion, keeps one stable outer containing card in both states, keeps the expand/collapse affordance pinned in the top-left corner in both states, uses subdued collapsed mosaic art behind a readable info plate while the staggered bottom edges of up to three subsequent-video cards peek from beneath the lead header card, uses a more vibrant thumbnail-forward content-derived frame-tile mosaic on the expanded header itself, keeps the child episode cards on their normal single-thumbnail treatment, places the single group watched-state toggle immediately above the child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -100,7 +100,7 @@ An implementation that materially changes these choices can still be valid, but 
 - omits next/previous transport controls because there is no implicit app-owned queue
 - exposes exactly one cast route control as part of the player controls
 - exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that sizes to content, caps at roughly two-thirds of the usable shell height, and can scroll for longer histories
-- exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state, enables standard subtitle controls when a generated text track exists, and lets the user delete the selected video's saved or partial caption data
+- exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state with a compact default view plus expandable detailed metrics, enables standard subtitle controls when a generated text track exists, and lets the user delete the selected video's saved or partial caption data
 - explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
 
 ## Functional targets
@@ -117,11 +117,11 @@ An implementation that materially changes these choices can still be valid, but 
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
 - The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
 - Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
-- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances, a solid low-attention collapsed style whose front card uses the lead video's thumbnail while collapsed-state peeks show only the clipped bottom-edge reveal of up to three same-width full-size subsequent-video cards in equal reveal steps, a thumbnail-forward content-derived expanded full-card frame-tile mosaic that is limited to the grouped header itself and paired with a tighter readable bottom info plate that stays visually separate from the expand/collapse affordance, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to while keeping their own single-thumbnail art.
+- Grouped sections read as containing cards, with compact header controls that use icon-only expand/collapse affordances pinned top-left in both states, a subdued collapsed style whose front card uses the lead video's thumbnail while collapsed-state peeks show only the clipped bottom-edge reveal of up to three slightly staggered subsequent-video cards beneath it, a thumbnail-forward content-derived expanded full-card frame-tile mosaic that is limited to the grouped header itself and paired with a stable readable info plate, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to while keeping their own single-thumbnail art.
 - The jump rail becomes visible quickly when scrolling starts, fades back out roughly 0.2 seconds after passive scrolling stops, and only lingers longer after an explicit jump-rail selection.
 
 ### Background refresh and notifications
-- Saving a non-blank feed URL results in one active periodic background refresh registration.
+- Saving a non-blank feed URL results in one active periodic background refresh registration and may enqueue a catch-up refresh request without resetting the long-lived periodic cadence.
 - Clearing the saved feed URL cancels that registration.
 - The initial successful sync for a feed URL is silent.
 - Notification detection compares the latest persisted snapshot only against the immediately previous persisted snapshot for the same feed URL.
@@ -143,7 +143,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Opening a video from Settings for caption-data inspection must route to Player without forcing autoplay when the user only wants to review status.
 - Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
 - When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
-- Double-tap skip gestures show brief direction-aware skip confirmation feedback, and fullscreen landscape uses visibly roomier playback controls than embedded playback.
+- Double-tap skip gestures show brief direction-aware skip confirmation feedback that avoids overlapping the main control clusters, and fullscreen landscape uses visibly roomier playback controls than embedded playback.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 
 ### Engagement, history, and completion
@@ -157,7 +157,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Users can enable a persistent setting that automatically generates captions for newly discovered playable videos once the local caption model is ready.
 - Caption-generation state persists per video as partial or completed caption data so Settings can list those entries, clear them in bulk, and Player can delete the current video's entry directly.
 - Caption generation extracts audio from the selected playback URL into a file-backed 16 kHz mono PCM working copy, conservatively isolates speech-heavy spans from that audio, runs the on-device transcription path locally against those spans, and stores the result as a per-video WebVTT sidecar.
-- Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including speech-processed duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it.
+- Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including speech-processed duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it, while Player keeps the default caption UI compact and exposes the full metric set through an expandable stats section.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.
 - Cast playback preserves generated captions by mapping subtitle configurations into explicit Cast text tracks and serving local sidecars from the sender over a reachable local HTTP URL.
 - The default build target preserves a lower-spec whisper.cpp-based local caption path, while an opt-in higher-spec target may default to a faster local engine such as Moonshine behind stricter SDK or ABI assumptions and still retain Whisper.cpp as a compatibility fallback.

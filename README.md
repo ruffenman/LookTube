@@ -48,6 +48,48 @@ Use the opt-in high-spec lane when validating the Moonshine-capable target:
 .\gradlew.bat verifyMoonshine
 ```
 
+## Connected-device deployment
+Use this standard flow when deploying either app target to a physical Android device.
+
+1. Confirm at least one device is attached:
+
+```powershell path=null start=null
+adb devices
+```
+
+2. If more than one device is attached, pick the serial you want and pass `-s <serial>` to later `adb` commands.
+
+### Baseline target
+Use this for the default deployable app build. It supports the repository's normal lower-spec baseline target.
+
+```powershell path=null start=null
+.\\gradlew.bat :app:installBaselineDebug
+adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+```
+
+### Moonshine target
+Use this only on a connected device that satisfies the Moonshine flavor requirements:
+- API level 35 or newer
+- `arm64-v8a` device ABI
+
+The Moonshine build installs as a separate app package, so it can live alongside the baseline app.
+
+```powershell path=null start=null
+.\\gradlew.bat :app:installMoonshineDebug
+adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+```
+
+### Optional targeted-device form
+If multiple devices are attached, use the same install task and launch command, but target one serial explicitly:
+
+```powershell path=null start=null
+$DEVICE_SERIAL = "{{DEVICE_SERIAL}}"
+.\\gradlew.bat :app:installBaselineDebug
+adb -s $DEVICE_SERIAL shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+```
+
+Swap `installBaselineDebug` and `com.looktube.app` for `installMoonshineDebug` and `com.looktube.app.moonshine` when deploying the Moonshine flavor.
+
 ## Documentation map
 - `WARP.md` - short operational instructions for future dev-agent sessions
 - `docs/spec/product-spec.md` - living scope, milestones, acceptance criteria, and the required source of truth for current design changes

@@ -39,7 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-private const val LOOKTUBE_LAUNCH_INTRO_DURATION_MS = 2_600L
+private const val LOOKTUBE_LAUNCH_INTRO_DURATION_MS = 3_600L
 private const val LOOKTUBE_LAUNCH_INTRO_ENTER_DURATION_MS = 550
 private const val LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS = 320
 

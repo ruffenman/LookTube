@@ -13,6 +13,7 @@ import com.looktube.data.LocalCaptionGenerator
 import com.looktube.data.LocalCaptionModelManager
 import com.looktube.data.VideoCaptionStore
 import com.looktube.model.CaptionGenerationPhase
+import com.looktube.model.CaptionGenerationMetric
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.DefaultLocalCaptionModel
 import com.looktube.model.LocalCaptionEngine
@@ -618,6 +619,19 @@ internal fun extractionCaptionStatus(progress: AudioExtractionProgress): Caption
         phase = CaptionGenerationPhase.ExtractingAudio,
         message = message,
         progressFraction = progressFraction,
+        detailMetrics = buildList {
+            add(CaptionGenerationMetric("Phase", "Extracting audio"))
+            add(CaptionGenerationMetric("Decoded", formatCaptionProgressTime(currentPositionSeconds)))
+            durationSeconds?.let { totalSeconds ->
+                add(CaptionGenerationMetric("Total", formatCaptionProgressTime(totalSeconds)))
+                add(
+                    CaptionGenerationMetric(
+                        "Progress",
+                        "${((currentPositionSeconds.toFloat() / totalSeconds.toFloat()).coerceIn(0f, 1f) * 100f).roundToInt()}%",
+                    ),
+                )
+            }
+        },
     )
 }
 
@@ -650,6 +664,19 @@ internal fun captionAudioPlanStatus(
         phase = CaptionGenerationPhase.Transcribing,
         message = message,
         progressFraction = CAPTION_TRANSCRIPTION_PROGRESS_START,
+        detailMetrics = buildList {
+            add(CaptionGenerationMetric("Phase", "Planning"))
+            add(CaptionGenerationMetric("Engine", engineLabel))
+            add(CaptionGenerationMetric("Speech spans", audioPlan.speechSpanCount.toString()))
+            add(CaptionGenerationMetric("Speech", formatCaptionProgressTime(audioPlan.speechDurationSeconds)))
+            add(CaptionGenerationMetric("Total audio", formatCaptionProgressTime(audioPlan.totalAudioDurationSeconds)))
+            add(
+                CaptionGenerationMetric(
+                    "Coverage",
+                    "${(audioPlan.speechCoverageFraction * 100f).roundToInt()}%",
+                ),
+            )
+        },
     )
 }
 
@@ -692,6 +719,12 @@ internal fun transcriptionCaptionStatus(
             phase = CaptionGenerationPhase.Transcribing,
             message = "Transcribing chunk $currentChunkNumber of $safeTotalChunks… 0:00 of ${formatCaptionProgressTime(totalAudioSeconds)} speech processed",
             progressFraction = null,
+            detailMetrics = listOf(
+                CaptionGenerationMetric("Phase", "Transcribing"),
+                CaptionGenerationMetric("Chunk", "$currentChunkNumber/$safeTotalChunks"),
+                CaptionGenerationMetric("Speech", "0:00 / ${formatCaptionProgressTime(totalAudioSeconds)}"),
+                CaptionGenerationMetric("Progress", "0%"),
+            ),
         )
     }
     val overallCompletionPercent = (overallCompletionFraction * 100f).roundToInt()
@@ -753,6 +786,35 @@ internal fun transcriptionCaptionStatus(
                 CAPTION_TRANSCRIPTION_PROGRESS_START,
                 CAPTION_TRANSCRIPTION_PROGRESS_START + CAPTION_TRANSCRIPTION_PROGRESS_RANGE,
             ),
+        detailMetrics = buildList {
+            add(CaptionGenerationMetric("Phase", "Transcribing"))
+            add(CaptionGenerationMetric("Chunk", "$currentChunkNumber/$safeTotalChunks"))
+            add(
+                CaptionGenerationMetric(
+                    "Speech",
+                    "${formatCaptionProgressTime(effectiveProcessedAudioSeconds)} / ${formatCaptionProgressTime(totalAudioSeconds)}",
+                ),
+            )
+            add(CaptionGenerationMetric("Progress", "$overallCompletionPercent%"))
+            measuredRealtimeSpeed?.let { speed ->
+                add(CaptionGenerationMetric("Speed", formatRealtimeSpeed(speed)))
+            }
+            estimatedRemainingSeconds?.let { remainingSeconds ->
+                add(CaptionGenerationMetric("ETA", formatCaptionProgressTime(remainingSeconds)))
+            }
+            if (lastCompletedChunkDurationSeconds != null && lastCompletedChunkWallSeconds != null) {
+                add(
+                    CaptionGenerationMetric(
+                        "Last chunk",
+                        "${formatCaptionProgressTime(lastCompletedChunkDurationSeconds)} / ${formatCaptionProgressTime(lastCompletedChunkWallSeconds)} wall",
+                    ),
+                )
+            }
+            lastCompletedChunkTimings?.let { timings ->
+                add(CaptionGenerationMetric("Encode", formatTimingMillis(timings.encodeMs)))
+                add(CaptionGenerationMetric("Decode", formatTimingMillis(timings.decodeMs)))
+            }
+        },
     )
 }
 

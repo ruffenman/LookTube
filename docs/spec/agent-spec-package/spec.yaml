@@ -234,7 +234,7 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that rotates through sourced Giant Bomb cast quotes and auto-dismisses with a short fade, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that rotates through sourced Giant Bomb cast quotes, keeps the quote visible slightly longer before fading, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
         - navigate between Settings, Library, and Player
@@ -256,7 +256,7 @@ contract:
         - open a video with saved caption data in Player without autoplay
         - clear all caption data
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards whose title and metadata stack beneath the expand/collapse affordance, full-header expansion tap targets, dimmed collapsed header art with only the staggered bottom edges of up to three same-width full-size stacked cards visible, a full-card content-derived expanded mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards that keep one stable outer container in both states, full-header expansion tap targets, a consistent top-left expand/collapse affordance, subdued collapsed header mosaic art with stacked card peeks beneath the lead header card, a more vibrant expanded full-card content-derived mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
         - group by none, show, cast, or topic
         - sort by latest, show, or oldest
@@ -267,7 +267,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, visible double-tap skip confirmation feedback, roomier fullscreen-landscape controls, a bounded surfaced History menu that sizes to content with a chrome-aware cap, offline caption generation and deletion state, and remote indicators kept non-blocking.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, visible double-tap skip confirmation feedback that avoids overlapping the main control clusters, roomier fullscreen-landscape controls, a bounded surfaced History menu that sizes to content with a chrome-aware cap, and an offline-caption card that defaults to selected-engine plus progress while exposing detailed metrics through an expandable stats section.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -281,7 +281,7 @@ contract:
         - enable or disable generated subtitle tracks from standard player controls
   processes:
     - name: library_refresh
-      description: Periodic refresh that stays registered while a non-blank saved feed URL exists and can auto-generate local captions for newly discovered playable videos when that setting is enabled and the local model is ready.
+      description: Stable periodic refresh that stays registered while a non-blank saved feed URL exists, may enqueue a catch-up refresh when scheduling is refreshed, and can auto-generate local captions for newly discovered playable videos when that setting is enabled and the local model is ready.
       inputs:
         saved_feed_url: string (required, non-empty)
         previous_snapshot: PersistedLibrarySnapshot (optional)
@@ -404,7 +404,7 @@ scenarios:
     then:
       - visible copy contains "LookTube"
       - visible copy contains "Tap anywhere to skip"
-      - intro auto-dismisses after about 2 seconds
+      - intro auto-dismisses after about 4 seconds
       - any tap dismisses the intro immediately
       - resuming from background does not show the intro again
   - id: synced_auth_state_relabels_primary_action_and_shows_clear_action
@@ -432,7 +432,7 @@ scenarios:
       - visible settings copy contains "Offline captions"
       - visible settings copy contains "Download Whisper.cpp model"
   - id: long_running_caption_generation_keeps_reporting_transcription_progress
-    description: Multi-minute offline caption generation continues to show visible progress after audio extraction finishes instead of appearing frozen during transcription.
+    description: Multi-minute offline caption generation continues to show visible progress after audio extraction finishes instead of appearing frozen during transcription, while keeping the default player card compact until the user expands detailed stats.
     when:
       surface: player
       state:
@@ -447,13 +447,16 @@ scenarios:
           phase: "Transcribing"
           message: "Transcribing chunk 2 of 4… 0:45 of 2:00 speech processed • 38% complete • speed 0.25x realtime • ETA ~3:00 • last 0:30 chunk 2:30 wall (enc 1:36, dec 0:12)"
           progress_fraction: 0.60625
+      action:
+        expand "Detailed stats"
     then:
-      - visible player copy contains "0:45 of 2:00 speech processed"
-      - visible player copy contains "38% complete"
-      - visible player copy contains "speed 0.25x realtime"
-      - visible player copy contains "ETA ~3:00"
-      - visible player copy contains "last 0:30 chunk 2:30 wall"
+      - visible player copy contains "Selected engine:"
       - visible caption progress indicator remains determinate during transcription
+      - expanded player stats contain "0:45 / 2:00"
+      - expanded player stats contain "38%"
+      - expanded player stats contain "0.25x realtime"
+      - expanded player stats contain "3:00"
+      - expanded player stats contain "0:30 / 2:30 wall"
   - id: auth_surface_can_switch_local_caption_engine_when_available
     description: A higher-spec build target may expose multiple local caption engines from Settings without changing the feed-first access flow.
     when:
@@ -568,7 +571,7 @@ scenarios:
     then:
       - app does not request notification permission
   - id: background_refresh_scheduled_while_feed_url_exists
-    description: Saving a non-blank feed URL keeps periodic background refresh registered.
+    description: Saving a non-blank feed URL keeps periodic background refresh registered and may enqueue a catch-up refresh without resetting the periodic cadence.
     when:
       call: update_feed_url
       args:
@@ -865,7 +868,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a solid subdued collapsed style with the lead thumbnail on the front card plus clipped bottom-edge stacked-card peeks from subsequent videos in equal reveal steps, a thumbnail-forward content-derived expanded frame-tile backdrop that is limited to the header itself, and visually nested episode cards inside one containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances pinned top-left in both states, one stable outer containing card, a subdued collapsed style with the lead thumbnail on the front card plus clipped bottom-edge stacked-card peeks from subsequent videos beneath it, a thumbnail-forward content-derived expanded frame-tile backdrop that is limited to the header itself, and visually nested episode cards inside that containing card when expanded.
     when:
       surface: library
       state:
@@ -876,6 +879,7 @@ scenarios:
       - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
       - visible grouped header uses iconography rather than text labels for expand/collapse
       - expanded grouped header keeps the expand or collapse control visually separated from the bottom info plate
+      - collapsed grouped header keeps the expand or collapse control in the same top-left position as the expanded state
       - collapsed grouped header front card uses the lead video's thumbnail
       - collapsed grouped header shows only the bottom edges of up to three full-size stacked cards sourced from later videos in the group, capped by the group's actual video count
       - collapsed grouped header stages the visible stacked-card bottom reveals in even steps
@@ -1072,7 +1076,7 @@ scenarios:
       - fullscreen landscape controls become larger and more spread out than the embedded layout
       - double tapping the left side seeks backward
       - double tapping the right side seeks forward
-      - each double tap shows a brief direction-aware skip confirmation on the player surface
+      - each double tap shows a brief direction-aware skip confirmation on the player surface without overlapping the main control clusters
       - leaving fullscreen restores the standard shell presentation
   - id: player_fullscreen_rotation_keeps_active_item
     description: Entering or leaving fullscreen by rotation keeps the current video active and does not rewind or switch back to a previously played item.

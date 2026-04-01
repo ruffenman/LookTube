@@ -14,6 +14,7 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -77,6 +78,7 @@ import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.model.CaptionGenerationPhase
+import com.looktube.model.CaptionGenerationMetric
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.LocalCaptionEngine
 import com.looktube.model.LocalCaptionModelState
@@ -221,28 +223,27 @@ private fun CaptionStatusCard(
     )
     val hasSavedCaptionTrack = selectedCaptionTrack != null || selectedCaptionData?.hasSavedCaptionTrack == true
     val hasCaptionData = hasSavedCaptionTrack || selectedCaptionData != null
-    val latestCaptionMessage = selectedCaptionGenerationStatus.message
-        .takeIf(String::isNotBlank)
-        ?: selectedCaptionData?.lastMessage.orEmpty()
-    val statusBody = when {
-        hasSavedCaptionTrack && selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error ->
-            "Saved captions are still available on this device. The latest generation attempt needs attention: $latestCaptionMessage"
-        hasSavedCaptionTrack ->
-            "Generated captions are saved on this device. Use the CC button in the player controls to turn them on locally or during cast."
-        isGenerating -> "${selectedCaptionGenerationStatus.message} CC will turn on as soon as the track finishes saving."
-        hasCaptionData ->
-            buildString {
-                append("Caption generation data exists for this video but it is not complete yet.")
-                if (latestCaptionMessage.isNotBlank()) {
-                    append(" Last status: ")
-                    append(latestCaptionMessage)
-                }
-                append(" Regenerate to continue or delete the partial data below.")
-            }
-        selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> latestCaptionMessage
-        !localCaptionModelState.isReady -> "Download the ${selectedLocalCaptionEngine.displayName} model from Settings before generating captions on-device."
-        else -> "Generate captions for this video with ${selectedLocalCaptionEngine.displayName} so subtitles stay available even without an external provider."
+    val progressFraction = captionStatusProgressFraction(
+        selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
+        hasSavedCaptionTrack = hasSavedCaptionTrack,
+        hasCaptionData = hasCaptionData,
+    )
+    val detailMetrics = remember(
+        selectedLocalCaptionEngine.id,
+        localCaptionModelState.isReady,
+        selectedCaptionData,
+        selectedCaptionTrack,
+        selectedCaptionGenerationStatus,
+    ) {
+        captionStatusDetailMetrics(
+            selectedLocalCaptionEngine = selectedLocalCaptionEngine,
+            localCaptionModelState = localCaptionModelState,
+            selectedCaptionData = selectedCaptionData,
+            selectedCaptionTrack = selectedCaptionTrack,
+            selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
+        )
     }
+    var statsExpanded by rememberSaveable(selectedVideo.id) { mutableStateOf(false) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -265,35 +266,69 @@ private fun CaptionStatusCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (availableLocalCaptionEngines.size > 1) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    availableLocalCaptionEngines.forEach { engine ->
-                        FilterChip(
-                            selected = engine.id == selectedLocalCaptionEngine.id,
-                            onClick = { onLocalCaptionEngineSelected(engine.id) },
-                            label = {
-                                Text(engine.displayName)
-                            },
-                        )
-                    }
-                }
-            }
-            Text(
-                text = statusBody,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (isGenerating) {
-                selectedCaptionGenerationStatus.progressFraction?.let { progressFraction ->
-                    LinearProgressIndicator(
-                        progress = { progressFraction },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } ?: LinearProgressIndicator(
+            progressFraction?.let { determinateProgress ->
+                LinearProgressIndicator(
+                    progress = { determinateProgress },
                     modifier = Modifier.fillMaxWidth(),
                 )
+            } ?: LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .clickable { statsExpanded = !statsExpanded },
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .animateContentSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Detailed stats",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = if (statsExpanded) "Hide" else "Show",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    if (statsExpanded) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            detailMetrics.forEach { metric ->
+                                CaptionMetricRow(metric = metric)
+                            }
+                            if (availableLocalCaptionEngines.size > 1) {
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
+                                )
+                                availableLocalCaptionEngines.forEach { engine ->
+                                    FilterChip(
+                                        selected = engine.id == selectedLocalCaptionEngine.id,
+                                        onClick = { onLocalCaptionEngineSelected(engine.id) },
+                                        label = { Text(engine.displayName) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -333,6 +368,108 @@ private fun CaptionStatusCard(
             }
         }
     }
+}
+
+@Composable
+private fun CaptionMetricRow(
+    metric: CaptionGenerationMetric,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            text = metric.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = metric.value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+private fun captionStatusProgressFraction(
+    selectedCaptionGenerationStatus: CaptionGenerationStatus,
+    hasSavedCaptionTrack: Boolean,
+    hasCaptionData: Boolean,
+): Float? = when {
+    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Completed || hasSavedCaptionTrack -> 1f
+    selectedCaptionGenerationStatus.progressFraction != null -> selectedCaptionGenerationStatus.progressFraction
+    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Saving -> 0.96f
+    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> 0f
+    hasCaptionData -> 0.45f
+    else -> 0f
+}
+
+private fun captionStatusDetailMetrics(
+    selectedLocalCaptionEngine: LocalCaptionEngine,
+    localCaptionModelState: LocalCaptionModelState,
+    selectedCaptionData: VideoCaptionData?,
+    selectedCaptionTrack: VideoCaptionTrack?,
+    selectedCaptionGenerationStatus: CaptionGenerationStatus,
+): List<CaptionGenerationMetric> {
+    val lastMessage = selectedCaptionGenerationStatus.message
+        .takeIf(String::isNotBlank)
+        ?: selectedCaptionData?.lastMessage
+    val generatedTrack = selectedCaptionTrack
+    return buildList {
+        add(
+            CaptionGenerationMetric(
+                "State",
+                when {
+                    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Completed ||
+                        generatedTrack != null ||
+                        selectedCaptionData?.hasSavedCaptionTrack == true -> "Completed"
+                    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Error -> "Error"
+                    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Idle && !localCaptionModelState.isReady -> "Model required"
+                    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Idle && selectedCaptionData != null -> "Partial"
+                    selectedCaptionGenerationStatus.phase == CaptionGenerationPhase.Idle -> "Ready"
+                    else -> selectedCaptionGenerationStatus.phase.name
+                },
+            ),
+        )
+        add(
+            CaptionGenerationMetric(
+                "Engine",
+                captionEngineDisplayName(
+                    engineId = generatedTrack?.engineId ?: selectedCaptionData?.engineId,
+                    selectedLocalCaptionEngine = selectedLocalCaptionEngine,
+                ),
+            ),
+        )
+        selectedCaptionGenerationStatus.detailMetrics.forEach(::add)
+        generatedTrack?.let { track ->
+            add(CaptionGenerationMetric("Track", track.label))
+            add(CaptionGenerationMetric("Language", track.languageTag))
+        }
+        if (selectedCaptionData != null) {
+            add(CaptionGenerationMetric("Data", selectedCaptionData.stateLabel))
+        }
+        add(
+            CaptionGenerationMetric(
+                "Model",
+                if (localCaptionModelState.isReady) "Ready" else "Not ready",
+            ),
+        )
+        lastMessage?.takeIf(String::isNotBlank)?.let { message ->
+            add(CaptionGenerationMetric("Last event", message))
+        }
+    }.distinctBy { metric -> metric.label to metric.value }
+}
+
+private fun captionEngineDisplayName(
+    engineId: String?,
+    selectedLocalCaptionEngine: LocalCaptionEngine,
+): String = when (engineId) {
+    null -> selectedLocalCaptionEngine.displayName
+    selectedLocalCaptionEngine.id -> selectedLocalCaptionEngine.displayName
+    "whisper_cpp" -> "Whisper.cpp"
+    "moonshine" -> "Moonshine"
+    else -> engineId
 }
 
 @Composable
@@ -778,20 +915,6 @@ private fun ActivePlayerContent(
             )
         }
         item {
-            CaptionStatusCard(
-                selectedVideo = selectedVideo,
-                availableLocalCaptionEngines = availableLocalCaptionEngines,
-                selectedLocalCaptionEngine = selectedLocalCaptionEngine,
-                localCaptionModelState = localCaptionModelState,
-                selectedCaptionData = selectedCaptionData,
-                selectedCaptionTrack = selectedCaptionTrack,
-                selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
-                onLocalCaptionEngineSelected = onLocalCaptionEngineSelected,
-                onGenerateCaptionsRequested = onGenerateCaptionsRequested,
-                onDeleteCaptionDataRequested = onDeleteCaptionDataRequested,
-            )
-        }
-        item {
             LookTubeCard(
                 title = selectedVideo.title,
                 body = buildString {
@@ -803,6 +926,20 @@ private fun ActivePlayerContent(
                         append(selectedVideo.description)
                     }
                 },
+            )
+        }
+        item {
+            CaptionStatusCard(
+                selectedVideo = selectedVideo,
+                availableLocalCaptionEngines = availableLocalCaptionEngines,
+                selectedLocalCaptionEngine = selectedLocalCaptionEngine,
+                localCaptionModelState = localCaptionModelState,
+                selectedCaptionData = selectedCaptionData,
+                selectedCaptionTrack = selectedCaptionTrack,
+                selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
+                onLocalCaptionEngineSelected = onLocalCaptionEngineSelected,
+                onGenerateCaptionsRequested = onGenerateCaptionsRequested,
+                onDeleteCaptionDataRequested = onDeleteCaptionDataRequested,
             )
         }
     }
@@ -870,8 +1007,8 @@ private fun PlayerSurface(
     val skipFeedbackStrokeWidthPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_STROKE_WIDTH.roundToPx() }
     val skipFeedbackArrowSpacingPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_ARROW_SPACING.roundToPx() }
     val skipFeedbackTravelPx = with(density) { DOUBLE_TAP_SEEK_FEEDBACK_TRAVEL.roundToPx() }
-    val skipFeedbackBackgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f).toArgb()
-    val skipFeedbackOutlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.84f).toArgb()
+    val skipFeedbackBackgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f).toArgb()
+    val skipFeedbackOutlineColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.92f).toArgb()
     val skipFeedbackTextColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val skipFeedbackAccentColor = MaterialTheme.colorScheme.primary.toArgb()
     val fullscreenCenterButtonSizePx = with(density) { FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SIZE.roundToPx() }
@@ -1352,7 +1489,7 @@ private fun PlayerView.showDoubleTapSeekFeedback(
                         addView(
                             TextView(context).apply {
                                 text = if (direction == DoubleTapSeekDirection.Backward) "❮" else "❯"
-                                textSize = 18f
+                                textSize = 24f
                                 alpha = DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA
                                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                                 layoutParams = LinearLayout.LayoutParams(
@@ -1373,18 +1510,20 @@ private fun PlayerView.showDoubleTapSeekFeedback(
                     tag = doubleTapSeekFeedbackLabelTag(direction)
                     maxLines = 1
                     ellipsize = TextUtils.TruncateAt.END
-                    textSize = 13f
+                    textSize = 15f
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 },
             )
             overlay.addView(this)
         }
-    val sideMarginPx = maxOf(insetPx, (width * DOUBLE_TAP_SEEK_FEEDBACK_SIDE_MARGIN_FRACTION).roundToInt())
+    val sideMarginPx = doubleTapSeekFeedbackSideMarginPx(width, insetPx)
+    val topMarginPx = doubleTapSeekFeedbackTopMarginPx(height, insetPx)
     container.layoutParams = FrameLayout.LayoutParams(
         FrameLayout.LayoutParams.WRAP_CONTENT,
         FrameLayout.LayoutParams.WRAP_CONTENT,
-        Gravity.CENTER_VERTICAL or if (direction == DoubleTapSeekDirection.Backward) Gravity.START else Gravity.END,
+        Gravity.TOP or if (direction == DoubleTapSeekDirection.Backward) Gravity.START else Gravity.END,
     ).apply {
+        topMargin = topMarginPx
         if (direction == DoubleTapSeekDirection.Backward) {
             leftMargin = sideMarginPx
         } else {
@@ -1523,6 +1662,7 @@ private fun PlayerView.syncControllerLayout(
     controllerViews.forEach(View::captureLayoutSnapshotIfNeeded)
     if (!isFullscreenLandscape) {
         controllerViews.forEach(View::restoreLayoutSnapshotIfNeeded)
+        centerControls?.translationY = 0f
         return
     }
     bottomBar?.apply {
@@ -1542,6 +1682,7 @@ private fun PlayerView.syncControllerLayout(
             centerControlsPaddingPx,
             centerControlsPaddingPx,
         )
+        translationY = -(bottomBarHeightPx * FULLSCREEN_LANDSCAPE_CENTER_CONTROLS_VERTICAL_SHIFT_FRACTION)
         children.forEach { child -> child.setHorizontalMargins(centerSpacingPx / 2) }
     }
     basicControls?.children?.forEach { child -> child.setHorizontalMargins(bottomSpacingPx / 2) }
@@ -1655,6 +1796,16 @@ private fun doubleTapSeekFeedbackLabelTag(direction: DoubleTapSeekDirection): St
         DoubleTapSeekDirection.Forward -> DOUBLE_TAP_SEEK_FEEDBACK_FORWARD_LABEL_TAG
     }
 
+internal fun doubleTapSeekFeedbackSideMarginPx(
+    surfaceWidthPx: Int,
+    insetPx: Int,
+): Int = maxOf(insetPx, (surfaceWidthPx * DOUBLE_TAP_SEEK_FEEDBACK_SIDE_MARGIN_FRACTION).roundToInt())
+
+internal fun doubleTapSeekFeedbackTopMarginPx(
+    surfaceHeightPx: Int,
+    insetPx: Int,
+): Int = maxOf(insetPx, (surfaceHeightPx * DOUBLE_TAP_SEEK_FEEDBACK_TOP_MARGIN_FRACTION).roundToInt())
+
 private data class RemotePlaybackStatus(
     val title: String,
     val badgeBody: String,
@@ -1681,37 +1832,39 @@ private val REMOTE_PLAYBACK_BADGE_VERTICAL_PADDING = 10.dp
 private val REMOTE_PLAYBACK_BADGE_MAX_WIDTH = 240.dp
 private val DOUBLE_TAP_SEEK_FEEDBACK_CORNER_RADIUS = 20.dp
 private val DOUBLE_TAP_SEEK_FEEDBACK_STROKE_WIDTH = 1.dp
-private val DOUBLE_TAP_SEEK_FEEDBACK_HORIZONTAL_PADDING = 16.dp
-private val DOUBLE_TAP_SEEK_FEEDBACK_VERTICAL_PADDING = 12.dp
-private val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_SPACING = 4.dp
-private val DOUBLE_TAP_SEEK_FEEDBACK_TRAVEL = 20.dp
-private val FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SIZE = 72.dp
-private val FULLSCREEN_LANDSCAPE_PLAY_PAUSE_BUTTON_SIZE = 92.dp
-private val FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SIZE = 52.dp
-private val FULLSCREEN_LANDSCAPE_BUTTON_PADDING = 10.dp
-private val FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SPACING = 18.dp
-private val FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SPACING = 10.dp
-private val FULLSCREEN_LANDSCAPE_CENTER_CONTROLS_PADDING = 16.dp
-private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HEIGHT = 72.dp
-private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HORIZONTAL_PADDING = 18.dp
-private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_VERTICAL_PADDING = 10.dp
-private val FULLSCREEN_LANDSCAPE_PROGRESS_HEIGHT = 36.dp
-private val FULLSCREEN_LANDSCAPE_PROGRESS_BOTTOM_MARGIN = 56.dp
-private val FULLSCREEN_LANDSCAPE_TIME_PADDING = 10.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_HORIZONTAL_PADDING = 18.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_VERTICAL_PADDING = 14.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_SPACING = 6.dp
+private val DOUBLE_TAP_SEEK_FEEDBACK_TRAVEL = 24.dp
+private val FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SIZE = 88.dp
+private val FULLSCREEN_LANDSCAPE_PLAY_PAUSE_BUTTON_SIZE = 112.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SIZE = 60.dp
+private val FULLSCREEN_LANDSCAPE_BUTTON_PADDING = 12.dp
+private val FULLSCREEN_LANDSCAPE_CENTER_BUTTON_SPACING = 28.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BUTTON_SPACING = 16.dp
+private val FULLSCREEN_LANDSCAPE_CENTER_CONTROLS_PADDING = 20.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HEIGHT = 88.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_HORIZONTAL_PADDING = 24.dp
+private val FULLSCREEN_LANDSCAPE_BOTTOM_BAR_VERTICAL_PADDING = 12.dp
+private val FULLSCREEN_LANDSCAPE_PROGRESS_HEIGHT = 44.dp
+private val FULLSCREEN_LANDSCAPE_PROGRESS_BOTTOM_MARGIN = 72.dp
+private val FULLSCREEN_LANDSCAPE_TIME_PADDING = 14.dp
 private val PLAYER_HISTORY_RESERVED_CHROME_HEIGHT = 144.dp
 private val PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG = R.id.player_view_layout_snapshot_tag
 private val PLAYER_VIEW_HIDE_RUNNABLE_TAG = R.id.player_view_hide_runnable_tag
 private const val DEFAULT_DOUBLE_TAP_SEEK_SECONDS = 10L
-private const val DOUBLE_TAP_SEEK_FEEDBACK_VISIBLE_MS = 720L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_VISIBLE_MS = 840L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_ENTER_MS = 180L
-private const val DOUBLE_TAP_SEEK_FEEDBACK_EXIT_MS = 280L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_EXIT_MS = 220L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_COUNT = 3
 private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_STAGGER_MS = 80L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_ANIMATION_MS = 180L
-private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_FADE_MS = 240L
-private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA = 0.42f
-private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_TRAVEL_PX = 10f
-private const val DOUBLE_TAP_SEEK_FEEDBACK_SIDE_MARGIN_FRACTION = 0.16f
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_FADE_MS = 180L
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_IDLE_ALPHA = 0.72f
+private const val DOUBLE_TAP_SEEK_FEEDBACK_ARROW_TRAVEL_PX = 14f
+private const val DOUBLE_TAP_SEEK_FEEDBACK_SIDE_MARGIN_FRACTION = 0.22f
+private const val DOUBLE_TAP_SEEK_FEEDBACK_TOP_MARGIN_FRACTION = 0.24f
+private const val FULLSCREEN_LANDSCAPE_CENTER_CONTROLS_VERTICAL_SHIFT_FRACTION = 0.18f
 private const val REMOTE_PLAYBACK_BADGE_CONTAINER_TAG = "looktube.remote_playback_badge"
 private const val REMOTE_PLAYBACK_BADGE_TITLE_TAG = "looktube.remote_playback_badge_title"
 private const val REMOTE_PLAYBACK_BADGE_BODY_TAG = "looktube.remote_playback_badge_body"

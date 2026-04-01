@@ -56,6 +56,47 @@ Use this opt-in lane when validating the Moonshine-capable build target:
 
 This lane keeps the default contributor flow untouched while separately checking the higher-spec flavor's compile, unit, and lint behavior.
 
+## Connected-device deployment
+Use this as the standard deployment sequence for any attached Android device.
+
+1. Confirm device visibility first:
+
+```powershell path=null start=null
+adb devices
+```
+
+2. If multiple devices are attached, choose one serial and use `adb -s <serial>` for launch or follow-up shell commands.
+
+### Baseline deploy
+Use the default lower-spec target on any compatible connected device:
+
+```powershell path=null start=null
+.\\gradlew.bat :app:installBaselineDebug
+adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+```
+
+### Moonshine deploy
+Use the higher-spec target only when the connected device meets the flavor requirements:
+- API 35+
+- `arm64-v8a`
+
+It installs as `com.looktube.app.moonshine`, separate from the baseline package.
+
+```powershell path=null start=null
+.\\gradlew.bat :app:installMoonshineDebug
+adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+```
+
+### Targeting a specific connected device
+The Gradle install tasks deploy to connected eligible devices. If you need to launch a specific device afterward, use its serial explicitly:
+
+```powershell path=null start=null
+$DEVICE_SERIAL = "{{DEVICE_SERIAL}}"
+adb -s $DEVICE_SERIAL shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+```
+
+Swap the package name to `com.looktube.app.moonshine` when launching the Moonshine flavor.
+
 ## Connected-device notification validation
 Use a connected Android device when notification reliability changes are under review:
 

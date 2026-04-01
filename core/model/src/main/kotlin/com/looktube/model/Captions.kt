@@ -59,6 +59,11 @@ data class LocalCaptionModelState(
             ?.let { total -> downloadedBytes.toFloat() / total.toFloat() }
 }
 
+data class CaptionGenerationMetric(
+    val label: String,
+    val value: String,
+)
+
 enum class CaptionGenerationPhase {
     Idle,
     ExtractingAudio,
@@ -72,6 +77,7 @@ data class CaptionGenerationStatus(
     val phase: CaptionGenerationPhase,
     val message: String,
     val progressFraction: Float? = null,
+    val detailMetrics: List<CaptionGenerationMetric> = emptyList(),
 ) {
     val isTerminal: Boolean
         get() = phase == CaptionGenerationPhase.Completed || phase == CaptionGenerationPhase.Error
