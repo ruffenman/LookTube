@@ -1,8 +1,12 @@
 package com.looktube.feature.library
+import android.content.ContentResolver
+import android.content.Context
+import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -63,7 +67,9 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -455,9 +461,8 @@ fun LibraryRoute(
 }
 
 @Composable
-private fun SeriesSectionBackdropSlices(
+private fun ExpandedSeriesSectionBackdrop(
     section: SeriesSection,
-    artAlpha: Float,
 ) {
     if (section.videos.isEmpty()) {
         Box(
@@ -470,11 +475,11 @@ private fun SeriesSectionBackdropSlices(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)),
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)),
     ) {
         SectionHeaderBackdropBaseImage(
             video = section.videos.first(),
-            artAlpha = if (artAlpha >= 0.9f) 0.94f else artAlpha * 0.7f,
+            artAlpha = 0.34f,
         )
         val tileSpecs = remember(section.key) { groupHeaderBackdropTileSpecs(section.key) }
         tileSpecs.forEachIndexed { index, tile ->
@@ -483,7 +488,7 @@ private fun SeriesSectionBackdropSlices(
                 video = video,
                 sectionKey = section.key,
                 colorIndex = index,
-                artAlpha = artAlpha,
+                artAlpha = 1f,
                 rotationDegrees = tile.rotationDegrees,
                 modifier = Modifier
                     .offset(
@@ -498,10 +503,36 @@ private fun SeriesSectionBackdropSlices(
 }
 
 @Composable
+private fun CollapsedSeriesSectionBackdrop(
+    section: SeriesSection,
+) {
+    val leadVideo = section.videos.firstOrNull()
+    if (leadVideo == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)),
+        )
+        return
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)),
+    ) {
+        SectionHeaderBackdropBaseImage(
+            video = leadVideo,
+            artAlpha = 0.78f,
+        )
+    }
+}
+
+@Composable
 private fun SectionHeaderBackdropBaseImage(
     video: VideoSummary,
     artAlpha: Float,
 ) {
+    val thumbnailUrl = video.thumbnailUrl
     Box(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -510,14 +541,13 @@ private fun SectionHeaderBackdropBaseImage(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)),
         )
-        if (!video.thumbnailUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = video.thumbnailUrl,
+        if (!thumbnailUrl.isNullOrBlank()) {
+            ThumbnailImage(
+                thumbnailUrl = thumbnailUrl,
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(alpha = artAlpha),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+                alpha = artAlpha,
             )
         }
     }
@@ -532,33 +562,33 @@ private fun SectionHeaderBackdropPanel(
     rotationDegrees: Float,
     modifier: Modifier = Modifier,
 ) {
+    val thumbnailUrl = video.thumbnailUrl
     Surface(
         modifier = modifier.graphicsLayer { rotationZ = rotationDegrees },
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp,
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f)),
+        shadowElevation = 4.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(groupHeaderBackdropColor(sectionKey, video.id, colorIndex)),
         )
-        if (!video.thumbnailUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = video.thumbnailUrl,
+        if (!thumbnailUrl.isNullOrBlank()) {
+            ThumbnailImage(
+                thumbnailUrl = thumbnailUrl,
                 contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer(alpha = artAlpha),
+                modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+                alpha = artAlpha,
             )
         }
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.08f)),
+                .background(Color.Black.copy(alpha = 0.04f)),
         )
     }
 }
@@ -569,7 +599,7 @@ private fun CollapsedHeaderCardPeeks(
     modifier: Modifier = Modifier,
 ) {
     val peekOffsets = collapsedHeaderPeekOffsets(section.videos.size)
-    val peekVideos = section.videos.take(peekOffsets.size)
+    val peekVideos = section.videos.drop(1).take(peekOffsets.size)
     if (peekVideos.isEmpty()) {
         return
     }
@@ -604,6 +634,7 @@ private fun SectionPeekCard(
     colorIndex: Int,
     modifier: Modifier = Modifier,
 ) {
+    val thumbnailUrl = video.thumbnailUrl
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(22.dp),
@@ -619,14 +650,13 @@ private fun SectionPeekCard(
                     .fillMaxSize()
                     .background(groupHeaderBackdropColor(sectionKey, video.id, colorIndex)),
             )
-            if (!video.thumbnailUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = video.thumbnailUrl,
+            if (!thumbnailUrl.isNullOrBlank()) {
+                ThumbnailImage(
+                    thumbnailUrl = thumbnailUrl,
                     contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(alpha = 0.1f),
+                    modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                    alpha = 0.34f,
                 )
             }
             Box(
@@ -635,8 +665,9 @@ private fun SectionPeekCard(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.22f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.18f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                             ),
                         ),
                     ),
@@ -761,10 +792,11 @@ private fun SeriesSectionHeaderBackdrop(
             .fillMaxSize()
             .clip(shape),
     ) {
-        SeriesSectionBackdropSlices(
-            section = section,
-            artAlpha = if (isExpanded) GROUP_HEADER_EXPANDED_ART_ALPHA else GROUP_HEADER_COLLAPSED_ART_ALPHA,
-        )
+        if (isExpanded) {
+            ExpandedSeriesSectionBackdrop(section = section)
+        } else {
+            CollapsedSeriesSectionBackdrop(section = section)
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -772,16 +804,16 @@ private fun SeriesSectionHeaderBackdrop(
                     Brush.verticalGradient(
                         colors = if (isExpanded) {
                             listOf(
+                                baseSurface.copy(alpha = 0.08f),
                                 Color.Transparent,
-                                Color.Transparent,
-                                baseSurface.copy(alpha = 0.04f),
-                                baseSurface.copy(alpha = 0.14f),
+                                baseSurface.copy(alpha = 0.08f),
+                                baseSurface.copy(alpha = 0.16f),
                             )
                         } else {
                             listOf(
-                                baseSurface.copy(alpha = 0.48f),
-                                baseSurface.copy(alpha = 0.64f),
-                                baseSurfaceVariant.copy(alpha = 0.9f),
+                                baseSurface.copy(alpha = 0.18f),
+                                baseSurface.copy(alpha = 0.38f),
+                                baseSurfaceVariant.copy(alpha = 0.82f),
                             )
                         },
                     ),
@@ -794,20 +826,35 @@ private fun SeriesSectionHeaderBackdrop(
                     Brush.horizontalGradient(
                         colors = if (isExpanded) {
                             listOf(
-                                baseSurface.copy(alpha = 0.28f),
+                                baseSurface.copy(alpha = 0.22f),
                                 baseSurface.copy(alpha = 0.08f),
                                 Color.Transparent,
                             )
                         } else {
                             listOf(
-                                baseSurface.copy(alpha = 0.52f),
-                                baseSurface.copy(alpha = 0.2f),
-                                baseSurface.copy(alpha = 0.34f),
+                                baseSurface.copy(alpha = 0.42f),
+                                baseSurface.copy(alpha = 0.16f),
+                                baseSurface.copy(alpha = 0.28f),
                             )
                         },
                     ),
                 ),
         )
+        if (isExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.03f),
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.06f),
+                            ),
+                        ),
+                    ),
+            )
+        }
     }
 }
 
@@ -1092,7 +1139,7 @@ internal data class GroupHeaderBackdropTileSpec(
     val heightFraction: Float,
     val rotationDegrees: Float = 0f,
 )
-internal fun collapsedHeaderPeekCount(videoCount: Int): Int = videoCount.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
+internal fun collapsedHeaderPeekCount(videoCount: Int): Int = (videoCount - 1).coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
 internal fun collapsedHeaderPeekOffsets(videoCount: Int): List<Dp> =
     (1..collapsedHeaderPeekCount(videoCount)).map { index -> GROUP_HEADER_PEEK_REVEAL_STEP * index }
 
@@ -1107,24 +1154,24 @@ private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 1f
 private val GROUP_HEADER_PEEK_CARD_HEIGHT = 196.dp
 private val GROUP_HEADER_COLLAPSED_CARD_MIN_HEIGHT = 196.dp
 private val GROUP_HEADER_EXPANDED_CARD_MIN_HEIGHT = 228.dp
-private const val GROUP_HEADER_EXPANDED_ART_ALPHA = 1f
-private const val GROUP_HEADER_COLLAPSED_ART_ALPHA = 0.16f
 private val GROUP_HEADER_BACKDROP_TILE_BLEED = 12.dp
-private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.045f
-private const val GROUP_HEADER_BACKDROP_SIZE_JITTER = 0.04f
-private const val GROUP_HEADER_BACKDROP_ROTATION_JITTER = 5f
+private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.03f
+private const val GROUP_HEADER_BACKDROP_WIDTH_JITTER = 0.03f
+private const val GROUP_HEADER_BACKDROP_HEIGHT_JITTER = 0.03f
+private const val GROUP_HEADER_BACKDROP_ROTATION_JITTER = 4f
 private val GROUP_HEADER_BACKDROP_BASE_TILE_SPECS = listOf(
-    GroupHeaderBackdropTileSpec(xFraction = -0.08f, yFraction = -0.06f, widthFraction = 0.24f, heightFraction = 0.30f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.1f, yFraction = -0.08f, widthFraction = 0.22f, heightFraction = 0.26f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.28f, yFraction = -0.05f, widthFraction = 0.22f, heightFraction = 0.32f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.46f, yFraction = -0.07f, widthFraction = 0.24f, heightFraction = 0.28f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.64f, yFraction = -0.02f, widthFraction = 0.24f, heightFraction = 0.34f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.82f, yFraction = -0.05f, widthFraction = 0.20f, heightFraction = 0.30f),
-    GroupHeaderBackdropTileSpec(xFraction = -0.06f, yFraction = 0.22f, widthFraction = 0.22f, heightFraction = 0.30f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.14f, yFraction = 0.2f, widthFraction = 0.28f, heightFraction = 0.34f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.4f, yFraction = 0.52f, widthFraction = 0.22f, heightFraction = 0.28f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.62f, yFraction = 0.54f, widthFraction = 0.26f, heightFraction = 0.34f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.82f, yFraction = 0.5f, widthFraction = 0.20f, heightFraction = 0.30f),
+    GroupHeaderBackdropTileSpec(xFraction = -0.12f, yFraction = -0.08f, widthFraction = 0.34f, heightFraction = 0.22f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.16f, yFraction = -0.06f, widthFraction = 0.32f, heightFraction = 0.22f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.44f, yFraction = -0.08f, widthFraction = 0.34f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.72f, yFraction = -0.05f, widthFraction = 0.30f, heightFraction = 0.22f),
+    GroupHeaderBackdropTileSpec(xFraction = -0.10f, yFraction = 0.24f, widthFraction = 0.30f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.16f, yFraction = 0.22f, widthFraction = 0.36f, heightFraction = 0.26f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.48f, yFraction = 0.26f, widthFraction = 0.32f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.76f, yFraction = 0.22f, widthFraction = 0.28f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = -0.06f, yFraction = 0.56f, widthFraction = 0.32f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.22f, yFraction = 0.58f, widthFraction = 0.30f, heightFraction = 0.22f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.48f, yFraction = 0.54f, widthFraction = 0.34f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.76f, yFraction = 0.58f, widthFraction = 0.28f, heightFraction = 0.22f),
 )
 private val GroupHeaderBackdropPalette = listOf(
     Color(0xFF44556B),
@@ -1148,13 +1195,13 @@ internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderB
     return GROUP_HEADER_BACKDROP_BASE_TILE_SPECS.map { tile ->
         GroupHeaderBackdropTileSpec(
             xFraction = (tile.xFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
-                .coerceIn(-0.12f, 0.86f),
+                .coerceIn(-0.14f, 0.82f),
             yFraction = (tile.yFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
-                .coerceIn(-0.12f, 0.72f),
-            widthFraction = (tile.widthFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_SIZE_JITTER))
-                .coerceIn(0.18f, 0.32f),
-            heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_SIZE_JITTER))
-                .coerceIn(0.22f, 0.4f),
+                .coerceIn(-0.12f, 0.7f),
+            widthFraction = (tile.widthFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_WIDTH_JITTER))
+                .coerceIn(0.26f, 0.38f),
+            heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_HEIGHT_JITTER))
+                .coerceIn(0.18f, 0.28f),
             rotationDegrees = random.centeredJitter(GROUP_HEADER_BACKDROP_ROTATION_JITTER),
         )
     }
@@ -1657,44 +1704,49 @@ private fun SeriesSectionHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = headerMinHeight)
-                    .padding(if (isExpanded) 12.dp else 14.dp),
+                    .padding(if (isExpanded) 10.dp else 14.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Surface(
-                    modifier = Modifier.size(if (isExpanded) 36.dp else 40.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = if (isExpanded) 0.88f else 0.94f),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (isExpanded) Arrangement.End else Arrangement.Start,
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
+                    Surface(
+                        modifier = Modifier.size(if (isExpanded) 34.dp else 40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = if (isExpanded) 0.88f else 0.94f),
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        tonalElevation = 0.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)),
                     ) {
-                        Text(
-                            text = if (isExpanded) "−" else "+",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = if (isExpanded) "−" else "+",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
                 if (isExpanded) {
                     Surface(
                         modifier = Modifier
-                            .fillMaxWidth(0.68f)
-                            .widthIn(max = 332.dp),
+                            .fillMaxWidth(0.58f)
+                            .widthIn(max = 300.dp),
                         shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                         tonalElevation = 0.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)),
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
                         ) {
                             Column(
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalArrangement = Arrangement.spacedBy(3.dp),
                             ) {
                                 Text(
                                     text = section.kindLabel.uppercase(),
@@ -2009,15 +2061,16 @@ private fun LibraryCardProgressBar(
 @Composable
 private fun VideoThumbnail(video: VideoSummary) {
     val shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    val thumbnailUrl = video.thumbnailUrl
     Box(
         modifier = Modifier
             .fillMaxSize()
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        if (!video.thumbnailUrl.isNullOrBlank()) {
-            AsyncImage(
-                model = video.thumbnailUrl,
+        if (!thumbnailUrl.isNullOrBlank()) {
+            ThumbnailImage(
+                thumbnailUrl = thumbnailUrl,
                 contentDescription = "${video.title} thumbnail",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -2044,6 +2097,65 @@ private fun VideoThumbnail(video: VideoSummary) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ThumbnailImage(
+    thumbnailUrl: String,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    contentScale: ContentScale = ContentScale.Crop,
+    alpha: Float = 1f,
+) {
+    val context = LocalContext.current
+    val resourceId = remember(context, thumbnailUrl) {
+        androidResourceIdFromUri(
+            context = context,
+            uriString = thumbnailUrl,
+        )
+    }
+    val imageModifier = if (alpha < 0.999f) {
+        modifier.graphicsLayer(alpha = alpha)
+    } else {
+        modifier
+    }
+    if (resourceId != null) {
+        Image(
+            painter = painterResource(resourceId),
+            contentDescription = contentDescription,
+            modifier = imageModifier,
+            contentScale = contentScale,
+        )
+    } else {
+        AsyncImage(
+            model = thumbnailUrl,
+            contentDescription = contentDescription,
+            modifier = imageModifier,
+            contentScale = contentScale,
+        )
+    }
+}
+
+private fun androidResourceIdFromUri(
+    context: Context,
+    uriString: String,
+): Int? {
+    val uri = runCatching { Uri.parse(uriString) }.getOrNull() ?: return null
+    if (uri.scheme != ContentResolver.SCHEME_ANDROID_RESOURCE) {
+        return null
+    }
+    val resourcePackage = uri.authority ?: context.packageName
+    val pathSegments = uri.pathSegments
+    return when {
+        pathSegments.size == 1 -> pathSegments.firstOrNull()?.toIntOrNull()
+        pathSegments.size >= 2 -> {
+            val resourceType = pathSegments[pathSegments.lastIndex - 1]
+            val resourceName = pathSegments.last()
+            context.resources.getIdentifier(resourceName, resourceType, resourcePackage)
+                .takeIf { it != 0 }
+        }
+        else -> null
     }
 }
 

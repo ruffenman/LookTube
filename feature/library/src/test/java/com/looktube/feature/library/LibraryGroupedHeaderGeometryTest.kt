@@ -1,4 +1,5 @@
 package com.looktube.feature.library
+import androidx.compose.ui.unit.Dp
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
@@ -15,6 +16,12 @@ class LibraryGroupedHeaderGeometryTest {
     }
 
     @Test
+    fun collapsedHeaderPeeksOnlyCountVideosBehindTheLeadCard() {
+        assertEquals(emptyList<Dp>(), collapsedHeaderPeekOffsets(videoCount = 1))
+        assertEquals(listOf(10.dp), collapsedHeaderPeekOffsets(videoCount = 2))
+    }
+
+    @Test
     fun backdropTileSpecsAreDeterministicPerSectionKey() {
         assertEquals(
             groupHeaderBackdropTileSpecs("show:Giant Bombcast"),
@@ -25,10 +32,10 @@ class LibraryGroupedHeaderGeometryTest {
     @Test
     fun backdropTileSpecsStayWithinExpectedBounds() {
         val specs = groupHeaderBackdropTileSpecs("show:Portal Pals")
-        assertEquals(11, specs.size)
-        assertTrue(specs.all { it.xFraction in -0.12f..0.86f })
-        assertTrue(specs.all { it.yFraction in -0.12f..0.72f })
-        assertTrue(specs.all { it.widthFraction in 0.18f..0.32f })
-        assertTrue(specs.all { it.heightFraction in 0.22f..0.4f })
+        assertEquals(12, specs.size)
+        assertTrue(specs.all { it.xFraction in -0.14f..0.82f })
+        assertTrue(specs.all { it.yFraction in -0.12f..0.7f })
+        assertTrue(specs.all { it.widthFraction in 0.26f..0.38f })
+        assertTrue(specs.all { it.heightFraction in 0.18f..0.28f })
     }
 }
