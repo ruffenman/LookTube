@@ -38,4 +38,5 @@ dependencies {
     implementation(libs.media3.ui)
 
     testImplementation(libs.junit4)
+    testImplementation(libs.robolectric)
 }

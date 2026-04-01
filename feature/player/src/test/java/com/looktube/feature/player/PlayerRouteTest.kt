@@ -1,5 +1,7 @@
 package com.looktube.feature.player
 
+import android.view.View
+import android.widget.FrameLayout
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import com.looktube.model.PlaybackProgress
@@ -9,7 +11,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class PlayerRouteTest {
     @Test
     fun keepsScreenOnWhilePlaybackIsActive() {
@@ -196,6 +202,45 @@ class PlayerRouteTest {
                 ),
             ),
         )
+    }
+
+    @Test
+    fun layoutSnapshotCaptureAndRestoreUseValidTagKeyWithoutCrashing() {
+        val context = RuntimeEnvironment.getApplication()
+        val view = View(context)
+        view.layoutParams = FrameLayout.LayoutParams(120, 60).apply {
+            leftMargin = 7
+            topMargin = 11
+            rightMargin = 13
+            bottomMargin = 17
+        }
+        view.setPadding(2, 3, 5, 7)
+
+        view.captureLayoutSnapshotIfNeeded()
+
+        view.layoutParams = (view.layoutParams as FrameLayout.LayoutParams).apply {
+            width = 40
+            height = 24
+            leftMargin = 1
+            topMargin = 1
+            rightMargin = 1
+            bottomMargin = 1
+        }
+        view.setPadding(19, 23, 29, 31)
+
+        view.restoreLayoutSnapshotIfNeeded()
+
+        val restoredLayoutParams = view.layoutParams as FrameLayout.LayoutParams
+        assertEquals(120, restoredLayoutParams.width)
+        assertEquals(60, restoredLayoutParams.height)
+        assertEquals(7, restoredLayoutParams.leftMargin)
+        assertEquals(11, restoredLayoutParams.topMargin)
+        assertEquals(13, restoredLayoutParams.rightMargin)
+        assertEquals(17, restoredLayoutParams.bottomMargin)
+        assertEquals(2, view.paddingLeft)
+        assertEquals(3, view.paddingTop)
+        assertEquals(5, view.paddingRight)
+        assertEquals(7, view.paddingBottom)
     }
 
 }

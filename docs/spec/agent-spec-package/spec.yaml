@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.16"
+  version: "0.2.17"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -865,7 +865,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a solid subdued collapsed style with clipped bottom-edge stacked-card peeks, a thumbnail-forward content-derived expanded backdrop, and visually nested episode cards inside one containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a solid subdued collapsed style with clipped bottom-edge stacked-card peeks in equal reveal steps, a thumbnail-forward content-derived expanded backdrop that is limited to the header itself, and visually nested episode cards inside one containing card when expanded.
     when:
       surface: library
       state:
@@ -877,6 +877,9 @@ scenarios:
       - visible grouped header uses iconography rather than text labels for expand/collapse
       - visible grouped header places the expand or collapse control near the top left
       - collapsed grouped header shows only the bottom edges of up to three full-size stacked cards, capped by the group's actual video count
+      - collapsed grouped header stages the visible stacked-card bottom reveals in even steps
+      - expanded grouped header keeps the mosaic treatment on the header only
+      - nested episode cards keep their normal single-thumbnail art treatment
       - visible grouped header places the watched toggle above the nested episode cards
       - expanded videos appear visually nested under the grouped header they belong to
   - id: shell_look_points_are_global_on_library_and_player
@@ -1266,6 +1269,7 @@ scenarios:
         press play and lock the device immediately
     then:
       - playback startup still completes for the selected item
+      - player surface customization does not crash playback startup
   - id: feed_sync_requests_use_expected_headers_without_auth_replay
     description: Feed sync uses a direct request to the copied feed URL with stable headers and without browser automation, cookies, or explicit authorization headers.
     when:

@@ -93,6 +93,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @Composable
 fun LibraryRoute(
@@ -471,7 +472,8 @@ private fun SeriesSectionBackdropSlices(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.18f)),
     ) {
-        GROUP_HEADER_BACKDROP_TILE_SPECS.forEachIndexed { index, tile ->
+        val tileSpecs = remember(section.key) { groupHeaderBackdropTileSpecs(section.key) }
+        tileSpecs.forEachIndexed { index, tile ->
             val video = section.videos[index % section.videos.size]
             SectionHeaderBackdropPanel(
                 video = video,
@@ -480,11 +482,11 @@ private fun SeriesSectionBackdropSlices(
                 artAlpha = artAlpha,
                 modifier = Modifier
                     .offset(
-                        x = maxWidth * tile.xFraction,
-                        y = maxHeight * tile.yFraction,
+                        x = (maxWidth * tile.xFraction) - (GROUP_HEADER_BACKDROP_TILE_BLEED / 2),
+                        y = (maxHeight * tile.yFraction) - (GROUP_HEADER_BACKDROP_TILE_BLEED / 2),
                     )
-                    .width((maxWidth * tile.widthFraction) - GROUP_HEADER_BACKDROP_TILE_GUTTER)
-                    .height((maxHeight * tile.heightFraction) - GROUP_HEADER_BACKDROP_TILE_GUTTER),
+                    .width((maxWidth * tile.widthFraction) + GROUP_HEADER_BACKDROP_TILE_BLEED)
+                    .height((maxHeight * tile.heightFraction) + GROUP_HEADER_BACKDROP_TILE_BLEED),
             )
         }
     }
@@ -524,7 +526,8 @@ private fun CollapsedHeaderCardPeeks(
     section: SeriesSection,
     modifier: Modifier = Modifier,
 ) {
-    val peekVideos = section.videos.take(collapsedHeaderPeekCount(section.videos.size))
+    val peekOffsets = collapsedHeaderPeekOffsets(section.videos.size)
+    val peekVideos = section.videos.take(peekOffsets.size)
     if (peekVideos.isEmpty()) {
         return
     }
@@ -533,17 +536,17 @@ private fun CollapsedHeaderCardPeeks(
             .fillMaxWidth()
             .clipToBounds(),
     ) {
-        peekVideos.reversed().forEachIndexed { reversedIndex, video ->
-            val index = peekVideos.lastIndex - reversedIndex
+        peekVideos.indices.reversed().forEach { index ->
+            val video = peekVideos[index]
             SectionPeekCard(
                 video = video,
                 sectionKey = section.key,
-                colorIndex = index,
+                colorIndex = index + 1,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(
                         x = GROUP_HEADER_PEEK_HORIZONTAL_STAGGER * index,
-                        y = GROUP_HEADER_PEEK_VERTICAL_STAGGER * index,
+                        y = peekOffsets[index],
                     )
                     .fillMaxWidth(GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION)
                     .height(GROUP_HEADER_PEEK_CARD_HEIGHT),
@@ -728,15 +731,15 @@ private fun SeriesSectionHeaderBackdrop(
                         colors = if (isExpanded) {
                             listOf(
                                 Color.Transparent,
-                                baseSurface.copy(alpha = 0.02f),
-                                baseSurface.copy(alpha = 0.06f),
-                                baseSurface.copy(alpha = 0.12f),
+                                baseSurface.copy(alpha = 0.015f),
+                                baseSurface.copy(alpha = 0.05f),
+                                baseSurface.copy(alpha = 0.1f),
                             )
                         } else {
                             listOf(
-                                baseSurface.copy(alpha = 0.42f),
-                                baseSurface.copy(alpha = 0.58f),
-                                baseSurfaceVariant.copy(alpha = 0.84f),
+                                baseSurface.copy(alpha = 0.48f),
+                                baseSurface.copy(alpha = 0.64f),
+                                baseSurfaceVariant.copy(alpha = 0.9f),
                             )
                         },
                     ),
@@ -749,15 +752,15 @@ private fun SeriesSectionHeaderBackdrop(
                     Brush.horizontalGradient(
                         colors = if (isExpanded) {
                             listOf(
-                                baseSurface.copy(alpha = 0.08f),
-                                baseSurface.copy(alpha = 0.02f),
-                                baseSurface.copy(alpha = 0.06f),
+                                baseSurface.copy(alpha = 0.05f),
+                                baseSurface.copy(alpha = 0.015f),
+                                baseSurface.copy(alpha = 0.05f),
                             )
                         } else {
                             listOf(
-                                baseSurface.copy(alpha = 0.46f),
-                                baseSurface.copy(alpha = 0.22f),
-                                baseSurface.copy(alpha = 0.3f),
+                                baseSurface.copy(alpha = 0.52f),
+                                baseSurface.copy(alpha = 0.2f),
+                                baseSurface.copy(alpha = 0.34f),
                             )
                         },
                     ),
@@ -1040,48 +1043,50 @@ internal data class DisplayedSeriesSection(
     val section: SeriesSection,
     val isExpanded: Boolean,
 )
-private data class GroupHeaderBackdropTileSpec(
+internal data class GroupHeaderBackdropTileSpec(
     val xFraction: Float,
     val yFraction: Float,
     val widthFraction: Float,
     val heightFraction: Float,
 )
 internal fun collapsedHeaderPeekCount(videoCount: Int): Int = videoCount.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
+internal fun collapsedHeaderPeekOffsets(videoCount: Int): List<Dp> =
+    (1..collapsedHeaderPeekCount(videoCount)).map { index -> GROUP_HEADER_PEEK_REVEAL_STEP * index }
 
 internal fun collapsedHeaderPeekReveal(videoCount: Int): Dp {
-    val peekCount = collapsedHeaderPeekCount(videoCount)
-    if (peekCount == 0) {
-        return 0.dp
-    }
-    return GROUP_HEADER_PEEK_BOTTOM_EDGE_REVEAL + (GROUP_HEADER_PEEK_VERTICAL_STAGGER * (peekCount - 1))
+    return collapsedHeaderPeekOffsets(videoCount).lastOrNull() ?: 0.dp
 }
 
-private val GROUP_HEADER_BACKDROP_TILE_GUTTER = 3.dp
-private val GROUP_HEADER_BACKDROP_TILE_SPECS = listOf(
-    GroupHeaderBackdropTileSpec(xFraction = 0f, yFraction = 0f, widthFraction = 0.28f, heightFraction = 0.34f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.28f, yFraction = 0f, widthFraction = 0.2f, heightFraction = 0.28f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.48f, yFraction = 0f, widthFraction = 0.24f, heightFraction = 0.32f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.72f, yFraction = 0f, widthFraction = 0.28f, heightFraction = 0.4f),
-    GroupHeaderBackdropTileSpec(xFraction = 0f, yFraction = 0.34f, widthFraction = 0.18f, heightFraction = 0.22f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.18f, yFraction = 0.28f, widthFraction = 0.22f, heightFraction = 0.32f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.4f, yFraction = 0.32f, widthFraction = 0.2f, heightFraction = 0.26f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.6f, yFraction = 0.4f, widthFraction = 0.18f, heightFraction = 0.22f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.78f, yFraction = 0.4f, widthFraction = 0.22f, heightFraction = 0.28f),
-    GroupHeaderBackdropTileSpec(xFraction = 0f, yFraction = 0.56f, widthFraction = 0.32f, heightFraction = 0.44f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.32f, yFraction = 0.58f, widthFraction = 0.22f, heightFraction = 0.24f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.54f, yFraction = 0.54f, widthFraction = 0.24f, heightFraction = 0.46f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.78f, yFraction = 0.68f, widthFraction = 0.22f, heightFraction = 0.32f),
-)
 private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
-private val GROUP_HEADER_PEEK_BOTTOM_EDGE_REVEAL = 12.dp
-private val GROUP_HEADER_PEEK_VERTICAL_STAGGER = 8.dp
+private val GROUP_HEADER_PEEK_REVEAL_STEP = 10.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 0.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 1f
 private val GROUP_HEADER_PEEK_CARD_HEIGHT = 196.dp
 private val GROUP_HEADER_COLLAPSED_CARD_MIN_HEIGHT = 196.dp
-private val GROUP_HEADER_EXPANDED_CARD_MIN_HEIGHT = 236.dp
+private val GROUP_HEADER_EXPANDED_CARD_MIN_HEIGHT = 228.dp
 private const val GROUP_HEADER_EXPANDED_ART_ALPHA = 1f
 private const val GROUP_HEADER_COLLAPSED_ART_ALPHA = 0.16f
+private val GROUP_HEADER_BACKDROP_TILE_BLEED = 12.dp
+private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.045f
+private const val GROUP_HEADER_BACKDROP_SIZE_JITTER = 0.04f
+private val GROUP_HEADER_BACKDROP_BASE_TILE_SPECS = listOf(
+    GroupHeaderBackdropTileSpec(xFraction = -0.08f, yFraction = -0.06f, widthFraction = 0.24f, heightFraction = 0.30f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.1f, yFraction = -0.08f, widthFraction = 0.22f, heightFraction = 0.26f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.28f, yFraction = -0.05f, widthFraction = 0.22f, heightFraction = 0.32f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.46f, yFraction = -0.07f, widthFraction = 0.24f, heightFraction = 0.28f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.64f, yFraction = -0.02f, widthFraction = 0.24f, heightFraction = 0.34f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.82f, yFraction = -0.05f, widthFraction = 0.20f, heightFraction = 0.30f),
+    GroupHeaderBackdropTileSpec(xFraction = -0.06f, yFraction = 0.22f, widthFraction = 0.22f, heightFraction = 0.30f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.14f, yFraction = 0.2f, widthFraction = 0.28f, heightFraction = 0.34f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.38f, yFraction = 0.22f, widthFraction = 0.22f, heightFraction = 0.28f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.56f, yFraction = 0.2f, widthFraction = 0.22f, heightFraction = 0.34f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.74f, yFraction = 0.22f, widthFraction = 0.28f, heightFraction = 0.30f),
+    GroupHeaderBackdropTileSpec(xFraction = -0.04f, yFraction = 0.54f, widthFraction = 0.26f, heightFraction = 0.34f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.2f, yFraction = 0.56f, widthFraction = 0.22f, heightFraction = 0.24f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.4f, yFraction = 0.5f, widthFraction = 0.26f, heightFraction = 0.36f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.62f, yFraction = 0.54f, widthFraction = 0.22f, heightFraction = 0.28f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.8f, yFraction = 0.52f, widthFraction = 0.22f, heightFraction = 0.34f),
+)
 private val GroupHeaderBackdropPalette = listOf(
     Color(0xFF44556B),
     Color(0xFF6A503C),
@@ -1098,6 +1103,24 @@ private fun groupHeaderBackdropColor(
     val paletteIndex = ("$sectionKey:$videoId:$index".hashCode() and Int.MAX_VALUE) % GroupHeaderBackdropPalette.size
     return GroupHeaderBackdropPalette[paletteIndex]
 }
+
+internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderBackdropTileSpec> {
+    val random = Random(sectionKey.hashCode())
+    return GROUP_HEADER_BACKDROP_BASE_TILE_SPECS.map { tile ->
+        GroupHeaderBackdropTileSpec(
+            xFraction = (tile.xFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
+                .coerceIn(-0.12f, 0.86f),
+            yFraction = (tile.yFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
+                .coerceIn(-0.12f, 0.72f),
+            widthFraction = (tile.widthFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_SIZE_JITTER))
+                .coerceIn(0.18f, 0.32f),
+            heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_SIZE_JITTER))
+                .coerceIn(0.22f, 0.4f),
+        )
+    }
+}
+
+private fun Random.centeredJitter(magnitude: Float): Float = (nextFloat() - 0.5f) * magnitude * 2f
 
 
 @Composable
@@ -1304,6 +1327,7 @@ private val TOP_ONLY_RAIL_TEXT_CLEARANCE = TOP_ONLY_LABEL_WIDTH + JUMP_RAIL_LABE
 private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 private val GROUPED_HEADER_MAX_END_PADDING = 148.dp
+private val GROUPED_EXPANDED_INFO_PLATE_MAX_END_PADDING = 96.dp
 private val GROUPED_VIDEO_MAX_END_PADDING = 112.dp
 
 internal enum class JumpRailInteraction {
@@ -1593,12 +1617,12 @@ private fun SeriesSectionHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = headerMinHeight)
-                    .padding(14.dp),
+                    .padding(if (isExpanded) 12.dp else 14.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
                 Surface(
-                    modifier = Modifier.size(42.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.size(if (isExpanded) 36.dp else 40.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = if (isExpanded) 0.88f else 0.94f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     tonalElevation = 0.dp,
@@ -1610,7 +1634,7 @@ private fun SeriesSectionHeader(
                     ) {
                         Text(
                             text = if (isExpanded) "−" else "+",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
@@ -1618,19 +1642,24 @@ private fun SeriesSectionHeader(
                 if (isExpanded) {
                     Surface(
                         modifier = Modifier
-                            .padding(end = textEndPadding)
+                            .padding(
+                                end = cappedGroupedContentEndPadding(
+                                    textEndPadding = textEndPadding,
+                                    maxPadding = GROUPED_EXPANDED_INFO_PLATE_MAX_END_PADDING,
+                                ),
+                            )
                             .fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
                         tonalElevation = 0.dp,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.46f)),
                     ) {
                         Column(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Column(
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Text(
                                     text = section.kindLabel.uppercase(),
@@ -1639,12 +1668,12 @@ private fun SeriesSectionHeader(
                                 )
                                 Text(
                                     text = section.title,
-                                    style = MaterialTheme.typography.headlineSmall,
+                                    style = MaterialTheme.typography.titleLarge,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
                                     text = supportingText,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f),
                                 )
                             }

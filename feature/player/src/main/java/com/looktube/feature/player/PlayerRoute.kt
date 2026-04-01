@@ -1572,7 +1572,7 @@ private fun PlayerView.syncControllerLayout(
     }
 }
 
-private fun View.captureLayoutSnapshotIfNeeded() {
+internal fun View.captureLayoutSnapshotIfNeeded() {
     if (getTag(PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG) != null) {
         return
     }
@@ -1594,7 +1594,7 @@ private fun View.captureLayoutSnapshotIfNeeded() {
     )
 }
 
-private fun View.restoreLayoutSnapshotIfNeeded() {
+internal fun View.restoreLayoutSnapshotIfNeeded() {
     val snapshot = getTag(PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG) as? ViewLayoutSnapshot ?: return
     layoutParams?.let { params ->
         snapshot.width?.let { params.width = it }
@@ -1699,8 +1699,8 @@ private val FULLSCREEN_LANDSCAPE_PROGRESS_HEIGHT = 36.dp
 private val FULLSCREEN_LANDSCAPE_PROGRESS_BOTTOM_MARGIN = 56.dp
 private val FULLSCREEN_LANDSCAPE_TIME_PADDING = 10.dp
 private val PLAYER_HISTORY_RESERVED_CHROME_HEIGHT = 144.dp
-private val PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG = View.generateViewId()
-private val PLAYER_VIEW_HIDE_RUNNABLE_TAG = View.generateViewId()
+private val PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG = R.id.player_view_layout_snapshot_tag
+private val PLAYER_VIEW_HIDE_RUNNABLE_TAG = R.id.player_view_hide_runnable_tag
 private const val DEFAULT_DOUBLE_TAP_SEEK_SECONDS = 10L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_VISIBLE_MS = 720L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_ENTER_MS = 180L
