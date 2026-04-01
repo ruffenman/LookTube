@@ -48,6 +48,7 @@ class LibraryVisualTest {
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/bombcast-1.m3u8",
                 seriesTitle = "Giant Bombcast",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_1"),
                 durationSeconds = 4_200,
             ),
             VideoSummary(
@@ -58,6 +59,7 @@ class LibraryVisualTest {
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/dump-truck-1.m3u8",
                 seriesTitle = "Voicemail Dump Truck",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_4"),
                 durationSeconds = 3_000,
             ),
             VideoSummary(
@@ -68,7 +70,19 @@ class LibraryVisualTest {
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/bombcast-2.m3u8",
                 seriesTitle = "Giant Bombcast",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_2"),
                 durationSeconds = 4_050,
+            ),
+            VideoSummary(
+                id = "bombcast-3",
+                title = "Giant Bombcast 903: More Portable Discourse",
+                description = "A third Bombcast episode to give the expanded grouped header more visible thumbnail coverage.",
+                isPremium = true,
+                feedCategory = "Premium",
+                playbackUrl = "https://video.example.com/bombcast-3.m3u8",
+                seriesTitle = "Giant Bombcast",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_3"),
+                durationSeconds = 4_000,
             ),
         )
         val playbackProgress = mapOf(
@@ -89,7 +103,7 @@ class LibraryVisualTest {
             "Giant Bombcast" to SeriesCompletionSummary(
                 seriesTitle = "Giant Bombcast",
                 watchedVideoCount = 1,
-                totalVideoCount = 2,
+                totalVideoCount = 3,
             ),
             "Voicemail Dump Truck" to SeriesCompletionSummary(
                 seriesTitle = "Voicemail Dump Truck",
@@ -174,6 +188,7 @@ class LibraryVisualTest {
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/bombcast-1.m3u8",
                 seriesTitle = "Giant Bombcast",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_1"),
                 durationSeconds = 4_200,
             ),
             VideoSummary(
@@ -184,6 +199,7 @@ class LibraryVisualTest {
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/bombcast-2.m3u8",
                 seriesTitle = "Giant Bombcast",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_2"),
                 durationSeconds = 4_050,
             ),
             VideoSummary(
@@ -194,6 +210,7 @@ class LibraryVisualTest {
                 feedCategory = "Premium",
                 playbackUrl = "https://video.example.com/bombcast-3.m3u8",
                 seriesTitle = "Giant Bombcast",
+                thumbnailUrl = testThumbnailResourceUri("library_fixture_thumb_3"),
                 durationSeconds = 4_000,
             ),
         )
@@ -230,4 +247,7 @@ class LibraryVisualTest {
         composeRule.onNodeWithText("3 videos • 0/3 watched").performClick()
         composeRule.onRoot().captureRoboImage()
     }
+
+    private fun testThumbnailResourceUri(resourceName: String): String =
+        "android.resource://com.looktube.app/drawable/$resourceName"
 }

@@ -865,7 +865,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a subdued neutral collapsed style, full-size stacked-card bottom-edge peeks while collapsed, a subtle content-derived expanded backdrop, and visually nested episode cards inside one containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, icon-only expand or collapse affordances, a solid subdued collapsed style with clipped bottom-edge stacked-card peeks, a thumbnail-forward content-derived expanded backdrop, and visually nested episode cards inside one containing card when expanded.
     when:
       surface: library
       state:
