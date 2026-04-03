@@ -180,6 +180,29 @@ class LookTubeAppViewModelTest {
             viewModel.seriesCompletionSummaries.value["Live Show"]?.watchedVideoCount,
         )
     }
+
+    @Test
+    fun launchOpenVideoRequestUsesPreviewModeWithoutPlaybackSelectionBump() = runTest {
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = FakeFeedConfigurationStore(),
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = FakeVideoFeedService(),
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+        )
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+        viewModel.updateFeedUrl("https://example.com/feed.xml")
+        viewModel.signInToPremiumFeed()
+        advanceUntilIdle()
+        viewModel.openVideoFromLaunch("live-app-1")
+        advanceUntilIdle()
+
+        assertEquals("live-app-1", viewModel.selectedPlaybackTarget.value?.video?.id)
+        assertEquals(VideoSelectionMode.Preview, viewModel.videoSelectionMode.value)
+        assertEquals(0L, viewModel.playbackSelectionRequest.value)
+    }
 }
 
 private class FakeFeedConfigurationStore : FeedConfigurationStore {

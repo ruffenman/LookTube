@@ -24,7 +24,7 @@ The app does not depend on browser automation, cookie harvesting, or unsupported
 - shell: one `app` module that owns app wiring, navigation, background work, and playback service integration, with the default `baseline` target preserved as the lower-spec build and an opt-in `moonshine` target reserved for higher-spec capabilities
 - shared layers: `core:heuristics`, `core:model`, `core:data`, `core:database`, `core:network`, `core:designsystem`, `core:testing`
 - feature layers: `feature:auth`, `feature:library`, `feature:player`
-- background work: WorkManager periodic refresh
+- background work: WorkManager periodic refresh plus immediate and rolling one-time catch-up refreshes
 - playback engine: Media3 session/service model
 
 An implementation that materially changes these choices can still be valid, but it must preserve the functional behavior and constraints below.
@@ -47,8 +47,8 @@ An implementation that materially changes these choices can still be valid, but 
 ### Daily repeat use
 1. App restores the saved feed URL, cached library snapshot, playback progress, and local engagement state for recent history and watched/unwatched tracking.
 2. User can browse and resume without re-entering the feed URL.
-3. WorkManager keeps periodic background refresh active while a non-blank feed URL remains saved and may enqueue a catch-up refresh alongside that stable periodic registration.
-4. If a later successful refresh finds previously unseen video IDs for the same feed URL, the app posts a local notification that opens the newest discovered video.
+3. WorkManager keeps periodic background refresh active while a non-blank feed URL remains saved, may enqueue an immediate catch-up refresh when scheduling is refreshed, and maintains a rolling delayed catch-up fallback alongside that stable periodic registration.
+4. If a later successful refresh finds previously unseen video IDs for the same feed URL, the app posts a local notification that opens the newest discovered video for review without forcing autoplay.
 5. If automatic caption generation for new videos is enabled and the on-device model is ready, newly discovered playable videos can be captioned automatically during sync or background refresh.
 
 ### Clear synced data
@@ -62,7 +62,7 @@ An implementation that materially changes these choices can still be valid, but 
 - true cold starts may show a brief LookTube intro overlay that rotates through sourced Giant Bomb cast quotes, keeps the quote visible slightly longer before fading, can be skipped immediately, and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
 - while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, can show a small centered icon-only playback indicator between the title and badge when playback is active, and lets that indicator route directly to Player while re-syncing selection with the active session when possible
-- notification launch intents can route directly to the Player page and optionally preselect a video
+- notification launch intents can route directly to the Player page and optionally preselect a video for review without forcing autoplay
 
 ### Settings surface
 - accepts the copied Premium feed URL as the only supported user input for feed access
@@ -101,7 +101,7 @@ An implementation that materially changes these choices can still be valid, but 
 - exposes exactly one cast route control as part of the player controls
 - exposes a `History` affordance and manual watched/unwatched actions below the player in a compact supporting area, with the history list presented in a bounded surfaced menu that sizes to content, caps at roughly two-thirds of the usable shell height, and can scroll for longer histories
 - exposes offline caption generation and regeneration for the selected video, shows caption progress or failure state with a compact default view plus expandable detailed metrics, enables standard subtitle controls when a generated text track exists, and lets the user delete the selected video's saved or partial caption data
-- explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, and the remote-playback indicator remains purely visual without intercepting player input
+- explains remote playback directly on the player surface so cast sessions do not appear as an unexplained black frame, keeps standard transport controls persistently visible while playback is remote, avoids keeping the local device awake solely because playback is remote, and keeps the remote-playback indicator purely visual without intercepting player input
 
 ## Functional targets
 ### Feed configuration and persistence
@@ -121,14 +121,14 @@ An implementation that materially changes these choices can still be valid, but 
 - The jump rail becomes visible quickly when scrolling starts, fades back out roughly 0.2 seconds after passive scrolling stops, and only lingers longer after an explicit jump-rail selection.
 
 ### Background refresh and notifications
-- Saving a non-blank feed URL results in one active periodic background refresh registration and may enqueue a catch-up refresh request without resetting the long-lived periodic cadence.
+- Saving a non-blank feed URL results in one active periodic background refresh registration, may enqueue an immediate catch-up refresh request without resetting the long-lived periodic cadence, and maintains a rolling delayed catch-up fallback while the feed URL remains saved.
 - Clearing the saved feed URL cancels that registration.
 - The initial successful sync for a feed URL is silent.
 - Notification detection compares the latest persisted snapshot only against the immediately previous persisted snapshot for the same feed URL.
 - New-release detection uses video IDs as the diff key.
 - No notification is posted for first sync, feed switches, unchanged snapshots, empty snapshots, or missing notification permission.
 - Each successful refresh that discovers at least one new video posts a distinct library-update notification entry.
-- Tapping that notification opens the newest discovered video in the player route.
+- Tapping that notification opens the newest discovered video in the player route without forcing autoplay.
 - Background refresh bootstraps repository state before syncing.
 - When automatic caption generation for new videos is enabled and the local model is ready, background refresh can auto-caption newly discovered playable videos that do not already have a saved caption sidecar.
 - Long-running background auto-caption work may run as foreground-maintenance work for better reliability while the app is backgrounded or the device is locked.
@@ -140,9 +140,10 @@ An implementation that materially changes these choices can still be valid, but 
 - A saved resume point is applied reliably when playback starts, even after app reloads where controller setup and bookmark restoration do not complete in the same frame.
 - Starting playback for a playable item remains reliable even if the device is locked immediately after the play request, without requiring the user to wait for the first visible rendered frame.
 - Entering or leaving fullscreen must not restart playback, swap back to a previously played item, or lose the current selection request boundary.
+- Reopening the app, opening a notification-selected video, or opening a video from Settings for inspection must not auto-start playback solely because the app surfaced that target.
 - Opening a video from Settings for caption-data inspection must route to Player without forcing autoplay when the user only wants to review status.
 - Explicitly selecting the currently selected video again, reconnecting to an already-active cast session after app resume or device lock, or returning from a lost cast session must not leave playback stuck on a black screen or unnecessarily restart the active cast item.
-- When playback is remote, the player surface communicates the handoff state and keeps standard transport controls usable from the app.
+- When playback is remote, the player surface communicates the handoff state, keeps standard transport controls visibly usable from the app, and does not keep the local device awake solely because playback continues on the cast target.
 - Double-tap skip gestures show brief direction-aware skip confirmation feedback that avoids overlapping the main control clusters, and fullscreen landscape uses visibly roomier playback controls than embedded playback.
 - The app remains functional when a selected item lacks a playable URL by showing a clear fallback state instead of crashing.
 

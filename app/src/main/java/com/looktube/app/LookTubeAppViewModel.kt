@@ -45,7 +45,7 @@ class LookTubeAppViewModel(
     val captionData = repository.captionData
     private val requestedPageState = MutableStateFlow<Int?>(null)
     val requestedPage: StateFlow<Int?> = requestedPageState.asStateFlow()
-    private val videoSelectionModeState = MutableStateFlow(VideoSelectionMode.Play)
+    private val videoSelectionModeState = MutableStateFlow(VideoSelectionMode.Passive)
     val videoSelectionMode: StateFlow<VideoSelectionMode> = videoSelectionModeState.asStateFlow()
     private val playbackSelectionRequestState = MutableStateFlow(0L)
     val playbackSelectionRequest: StateFlow<Long> = playbackSelectionRequestState.asStateFlow()
@@ -263,9 +263,7 @@ class LookTubeAppViewModel(
         launchIntent.getStringExtra(LookTubeLaunchContract.EXTRA_OPEN_VIDEO_ID)
             ?.takeIf(String::isNotBlank)
             ?.let { videoId ->
-                repository.selectVideo(videoId)
-                notePlaybackSelectionRequest()
-                requestedPageState.value = LookTubeLaunchContract.PLAYER_PAGE_INDEX
+                openVideoFromLaunch(videoId)
                 return
             }
         launchIntent.getIntExtra(LookTubeLaunchContract.EXTRA_TARGET_PAGE, -1)
@@ -273,6 +271,12 @@ class LookTubeAppViewModel(
             ?.let { pageIndex ->
                 requestedPageState.value = pageIndex
             }
+    }
+
+    internal fun openVideoFromLaunch(videoId: String) {
+        videoSelectionModeState.value = VideoSelectionMode.Preview
+        repository.inspectVideo(videoId)
+        requestedPageState.value = LookTubeLaunchContract.PLAYER_PAGE_INDEX
     }
 
     fun consumeRequestedPage(pageIndex: Int) {

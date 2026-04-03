@@ -990,6 +990,7 @@ private fun PlayerSurface(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
+    val remotePlaybackActive = remotePlaybackStatus != null
     val mediaRouteButtonViewProvider = remember { MediaRouteButtonViewProvider() }
     val overlayInsetPx = with(density) { overlayInset.roundToPx() }
     val remoteBadgeCornerRadiusPx = with(density) { REMOTE_PLAYBACK_BADGE_CORNER_RADIUS.toPx() }
@@ -1081,7 +1082,7 @@ private fun PlayerSurface(
         )
     }
 
-    DisposableEffect(player, playerView) {
+    DisposableEffect(player, playerView, remotePlaybackActive) {
         val hostPlayerView = playerView
         if (hostPlayerView == null) {
             onDispose { }
@@ -1092,14 +1093,18 @@ private fun PlayerSurface(
                         isPlaying = player.isPlaying,
                         playWhenReady = player.playWhenReady,
                         playbackState = player.playbackState,
+                        isRemotePlayback = isRemotePlayback(player.deviceInfo),
                     )
+                    hostPlayerView.syncControllerVisibility(remotePlaybackActive)
                 }
             }
             hostPlayerView.keepScreenOn = shouldKeepScreenOn(
                 isPlaying = player.isPlaying,
                 playWhenReady = player.playWhenReady,
                 playbackState = player.playbackState,
+                isRemotePlayback = isRemotePlayback(player.deviceInfo),
             )
+            hostPlayerView.syncControllerVisibility(remotePlaybackActive)
             player.addListener(listener)
             onDispose {
                 hostPlayerView.keepScreenOn = false
@@ -1113,17 +1118,17 @@ private fun PlayerSurface(
             PlayerView(viewContext).apply {
                 playerView = this
                 useController = true
-                setControllerAutoShow(true)
-                setControllerHideOnTouch(true)
                 setShowSubtitleButton(true)
                 setShowPreviousButton(false)
                 setShowNextButton(false)
                 setMediaRouteButtonViewProvider(mediaRouteButtonViewProvider)
                 this.player = player
+                syncControllerVisibility(remotePlaybackActive)
                 keepScreenOn = shouldKeepScreenOn(
                     isPlaying = player.isPlaying,
                     playWhenReady = player.playWhenReady,
                     playbackState = player.playbackState,
+                    isRemotePlayback = isRemotePlayback(player.deviceInfo),
                 )
                 syncRemotePlaybackBadge(
                     status = remotePlaybackStatus,
@@ -1167,10 +1172,12 @@ private fun PlayerSurface(
         update = { hostPlayerView ->
             playerView = hostPlayerView
             hostPlayerView.player = player
+            hostPlayerView.syncControllerVisibility(remotePlaybackActive)
             hostPlayerView.keepScreenOn = shouldKeepScreenOn(
                 isPlaying = player.isPlaying,
                 playWhenReady = player.playWhenReady,
                 playbackState = player.playbackState,
+                isRemotePlayback = isRemotePlayback(player.deviceInfo),
             )
             hostPlayerView.setShowPreviousButton(false)
             hostPlayerView.setShowNextButton(false)
@@ -1311,7 +1318,24 @@ internal fun shouldKeepScreenOn(
     isPlaying: Boolean,
     playWhenReady: Boolean,
     playbackState: Int,
-): Boolean = isPlaying || (playWhenReady && playbackState == Player.STATE_BUFFERING)
+    isRemotePlayback: Boolean = false,
+): Boolean = !isRemotePlayback && (isPlaying || (playWhenReady && playbackState == Player.STATE_BUFFERING))
+
+internal fun persistentControllerVisibilityForRemotePlayback(
+    isRemotePlayback: Boolean,
+): Boolean = isRemotePlayback
+
+internal fun controllerHideOnTouchForRemotePlayback(
+    isRemotePlayback: Boolean,
+): Boolean = !persistentControllerVisibilityForRemotePlayback(isRemotePlayback)
+
+internal fun controllerShowTimeoutMsForRemotePlayback(
+    isRemotePlayback: Boolean,
+): Int = if (persistentControllerVisibilityForRemotePlayback(isRemotePlayback)) {
+    0
+} else {
+    LOCAL_PLAYBACK_CONTROLLER_SHOW_TIMEOUT_MS
+}
 
 
 internal fun isRemotePlayback(deviceInfo: DeviceInfo): Boolean =
@@ -1713,6 +1737,17 @@ private fun PlayerView.syncControllerLayout(
     }
 }
 
+private fun PlayerView.syncControllerVisibility(
+    remotePlaybackActive: Boolean,
+) {
+    setControllerAutoShow(true)
+    setControllerHideOnTouch(controllerHideOnTouchForRemotePlayback(remotePlaybackActive))
+    controllerShowTimeoutMs = controllerShowTimeoutMsForRemotePlayback(remotePlaybackActive)
+    if (persistentControllerVisibilityForRemotePlayback(remotePlaybackActive)) {
+        showController()
+    }
+}
+
 internal fun View.captureLayoutSnapshotIfNeeded() {
     if (getTag(PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG) != null) {
         return
@@ -1853,6 +1888,7 @@ private val PLAYER_HISTORY_RESERVED_CHROME_HEIGHT = 144.dp
 private val PLAYER_VIEW_LAYOUT_SNAPSHOT_TAG = R.id.player_view_layout_snapshot_tag
 private val PLAYER_VIEW_HIDE_RUNNABLE_TAG = R.id.player_view_hide_runnable_tag
 private const val DEFAULT_DOUBLE_TAP_SEEK_SECONDS = 10L
+private const val LOCAL_PLAYBACK_CONTROLLER_SHOW_TIMEOUT_MS = 5_000
 private const val DOUBLE_TAP_SEEK_FEEDBACK_VISIBLE_MS = 840L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_ENTER_MS = 180L
 private const val DOUBLE_TAP_SEEK_FEEDBACK_EXIT_MS = 220L

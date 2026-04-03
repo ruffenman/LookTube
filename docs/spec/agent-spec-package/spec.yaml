@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.17"
+  version: "0.2.18"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -70,7 +70,7 @@ types:
     title: string (required)
     body: string (required)
     latest_video_id: string (required)
-    action: string (required, opens player page with selected video)
+    action: string (required, opens player page with selected video preselected for review without forcing autoplay)
   LibraryBrowseState:
     grouping_mode: string (required, none | show | cast | topic)
     sort_mode: string (required, latest | show | oldest)
@@ -90,8 +90,9 @@ types:
     unique_name: string (required)
     interval_minutes: integer (required, == 15)
     flex_minutes: integer (required, == 5)
+    rolling_catch_up_delay_minutes: integer (required, == 20)
     requires_connected_network: boolean (required)
-    requires_battery_not_low: boolean (required)
+    requires_battery_not_low: boolean (required, false)
   PlayerPresentationState:
     selected_video_id: string (optional)
     is_fullscreen: boolean (required)
@@ -100,6 +101,8 @@ types:
     player_frame_pinned_top: boolean (required)
     remote_playback_active: boolean (required)
     remote_playback_label: string (optional, user-visible cast or handoff status)
+    remote_controls_persist_visible: boolean (required)
+    keeps_device_awake_for_playback: boolean (required)
   LocalCaptionModelState:
     is_ready: boolean (required)
     is_downloading: boolean (required)
@@ -206,7 +209,7 @@ contract:
         selected_video: VideoSummary (optional)
         target_page: integer (required, 2)
     - name: handle_launch_intent
-      description: Accept a launch request from the app shell or a notification tap and route the UI accordingly.
+      description: Accept a launch request from the app shell or a notification tap, preselect the requested video for review, and route the UI accordingly without forcing autoplay.
       parameters:
         intent: LaunchIntent (optional)
       returns:
@@ -267,7 +270,7 @@ contract:
         - jump to a section from the right-side jump rail
         - open a video in the player
     - name: player
-      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, visible double-tap skip confirmation feedback that avoids overlapping the main control clusters, roomier fullscreen-landscape controls, a bounded surfaced History menu that sizes to content with a chrome-aware cap, and an offline-caption card that defaults to selected-engine plus progress while exposing detailed metrics through an expandable stats section.
+      description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, launch-intent and settings-driven preselection that does not force autoplay, visible double-tap skip confirmation feedback that avoids overlapping the main control clusters, roomier fullscreen-landscape controls, persistently visible transport controls during remote playback, no local-device-awake requirement during remote playback, a bounded surfaced History menu that sizes to content with a chrome-aware cap, and an offline-caption card that defaults to selected-engine plus progress while exposing detailed metrics through an expandable stats section.
       primary_actions:
         - resume playback
         - seek backward or forward by double tapping the left or right side of the player
@@ -281,7 +284,7 @@ contract:
         - enable or disable generated subtitle tracks from standard player controls
   processes:
     - name: library_refresh
-      description: Stable periodic refresh that stays registered while a non-blank saved feed URL exists, may enqueue a catch-up refresh when scheduling is refreshed, and can auto-generate local captions for newly discovered playable videos when that setting is enabled and the local model is ready.
+      description: Stable periodic refresh that stays registered while a non-blank saved feed URL exists, may enqueue an immediate catch-up refresh when scheduling is refreshed, maintains a rolling delayed catch-up fallback after background runs, and can auto-generate local captions for newly discovered playable videos when that setting is enabled and the local model is ready.
       inputs:
         saved_feed_url: string (required, non-empty)
         previous_snapshot: PersistedLibrarySnapshot (optional)
@@ -571,7 +574,7 @@ scenarios:
     then:
       - app does not request notification permission
   - id: background_refresh_scheduled_while_feed_url_exists
-    description: Saving a non-blank feed URL keeps periodic background refresh registered and may enqueue a catch-up refresh without resetting the periodic cadence.
+    description: Saving a non-blank feed URL keeps periodic background refresh registered, may enqueue an immediate catch-up refresh without resetting the periodic cadence, and maintains a rolling delayed catch-up fallback.
     when:
       call: update_feed_url
       args:
@@ -675,7 +678,7 @@ scenarios:
       - returns.notification.channel_id == "looktube.library.updates"
       - returns.notification.action contains "opens player page"
   - id: notification_tap_routes_to_player
-    description: Tapping a library-update notification opens the Player page and selects the newest discovered video.
+    description: Tapping a library-update notification opens the Player page and selects the newest discovered video for review without forcing autoplay.
     when:
       call: handle_launch_intent
       args:
@@ -685,6 +688,7 @@ scenarios:
     then:
       - returns.selected_video_id == "video-9"
       - returns.target_page == 2
+      - the selected video is preselected for review rather than forced into autoplay
   - id: launch_intent_can_navigate_without_preselecting_video
     description: App shell launch contracts may target a page even without selecting a specific video.
     when:
@@ -1004,7 +1008,7 @@ scenarios:
     then:
       - the video frame is visible before the supporting copy and metadata card
   - id: player_resume_uses_saved_progress
-    description: When saved progress exists, playback seeks near the stored position before auto-playing.
+    description: When saved progress exists and playback is explicitly started, playback seeks near the stored position before continuing.
     when:
       surface: player
       state:
@@ -1045,6 +1049,8 @@ scenarios:
       - visible player status contains "Casting to Living Room TV"
       - visible player status explains that standard player controls can pause, resume, or stop casting
       - remote playback indicator is visual-only and does not block interaction with the player surface
+      - standard transport controls remain persistently visible while remote playback is active
+      - local device awake behavior is not held open solely because playback is remote
   - id: player_reselection_and_cast_recovery_restore_playback
     description: Re-selecting the active video, reconnecting to an already-active cast session, or losing a cast session must keep playback recoverable without black screens or unnecessary cast restarts.
     when:
@@ -1374,15 +1380,15 @@ constraints:
     - feed sync and playback flows must not log secret-bearing feed URLs verbatim in normal operation
   compatibility:
     - implementation must preserve the three top-level surfaces: Settings, Library, and Player
-    - implementation must preserve the launch-intent behavior for opening the Player page and optionally preselecting a video
+    - implementation must preserve the launch-intent behavior for opening the Player page and optionally preselecting a video for review without forcing autoplay
     - parser must accept RSS item shapes that expose playback targets through media:content, enclosure, or link
     - app must remain usable before the first successful live feed sync
     - the default validation and contributor flow must keep a lower-spec baseline app target available even if optional higher-spec targets exist that default to faster local engines on more capable devices
   reliability:
     - background refresh remains registered while a non-blank saved feed URL exists
     - background refresh registration uses one unique periodic work identity
-    - background refresh scheduling uses a 15 minute interval with a 5 minute flex window
-    - background refresh requires connected network and battery-not-low conditions
+    - background refresh scheduling uses a 15 minute interval with a 5 minute flex window plus a rolling 20 minute catch-up fallback
+    - background refresh requires connected network and does not require battery-not-low
     - initial successful sync for a feed URL stays silent
     - later successful detections of newly discovered video IDs must be able to surface as distinct visible notifications
     - background refresh may retry transient failures up to three attempts before giving up

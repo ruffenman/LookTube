@@ -17,7 +17,7 @@ Current coverage:
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
 - configurable repository tests for persisted feed URLs, clean empty-library startup behavior, and feed sync transitions
-- `app` baseline unit tests, including background refresh diff and notification-posting regressions
+- `app` baseline unit tests, including no-autoplay launch, cast-control visibility, cast wake-behavior, background refresh diff, and notification-posting regressions
 - committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, shell intro, Settings/feed, and Player surfaces
 - managed-device smoke coverage now also checks the player empty-state surface
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
@@ -57,7 +57,7 @@ Use this opt-in lane when validating the Moonshine-capable build target:
 This lane keeps the default contributor flow untouched while separately checking the higher-spec flavor's compile, unit, and lint behavior.
 
 ## Connected-device deployment
-Use this as the standard deployment sequence for any attached Android device.
+Use this as the standard deployment sequence for any attached Android device unless a task explicitly calls for only one target.
 
 1. Confirm device visibility first:
 
@@ -67,24 +67,23 @@ adb devices
 
 2. If multiple devices are attached, choose one serial and use `adb -s <serial>` for launch or follow-up shell commands.
 
-### Baseline deploy
-Use the default lower-spec target on any compatible connected device:
-
-```powershell path=null start=null
-.\\gradlew.bat :app:installBaselineDebug
-adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-```
-
-### Moonshine deploy
-Use the higher-spec target only when the connected device meets the flavor requirements:
+### Standard all-target deploy
+Use the default lower-spec target plus the higher-spec Moonshine target together when the connected device meets the Moonshine flavor requirements:
 - API 35+
 - `arm64-v8a`
 
-It installs as `com.looktube.app.moonshine`, separate from the baseline package.
+```powershell path=null start=null
+.\\\\gradlew.bat :app:installBaselineDebug :app:installMoonshineDebug
+adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+```
+
+### Single-target deploy
+If the task only needs the default lower-spec target:
 
 ```powershell path=null start=null
-.\\gradlew.bat :app:installMoonshineDebug
-adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+.\\\\gradlew.bat :app:installBaselineDebug
+adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
 ```
 
 ### Targeting a specific connected device
@@ -111,6 +110,7 @@ Functional target for manual validation:
 - the `looktube.library.updates` channel exists on-device
 - later successful detections produce distinct notification entries for distinct newly discovered latest video IDs
 - the first sync for a feed URL remains silent
+- tapping a library-update notification opens Player with the newest discovered video selected for review without forcing autoplay
 
 ## Visual regression lane
 Record or refresh committed screenshot baselines when the UI intentionally changes:

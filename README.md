@@ -7,8 +7,8 @@ The repository is now past the initial foundation spike and includes a usable An
 - copied Giant Bomb Premium RSS URLs are the only supported sync input and persist encrypted at rest
 - persisted synced-library state and playback resume state across app restarts
 - Giant Bomb site-content heuristics are consolidated in one shared library so title/grouping inference rules have a single update point
-- WorkManager-backed background refresh plus device notifications for newly discovered videos
-- app-level Media3 playback service/session with background playback and fullscreen support
+- WorkManager-backed background refresh plus immediate and rolling catch-up fallbacks for device notifications about newly discovered videos
+- app-level Media3 playback service/session with background playback, fullscreen support, no-autoplay launch inspection flows, and persistent remote-playback controls
 - default `baseline` app target keeps `minSdk 28` plus the existing whisper.cpp caption path, while an opt-in `moonshine` target adds a higher-spec local engine lane
 - consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
 - committed Roborazzi visual baseline coverage for the Library browse surface, key Settings/feed states, and stable Player status states
@@ -49,7 +49,7 @@ Use the opt-in high-spec lane when validating the Moonshine-capable target:
 ```
 
 ## Connected-device deployment
-Use this standard flow when deploying either app target to a physical Android device.
+Use this standard flow when deploying to a physical Android device unless a task explicitly only needs one target.
 
 1. Confirm at least one device is attached:
 
@@ -59,24 +59,23 @@ adb devices
 
 2. If more than one device is attached, pick the serial you want and pass `-s <serial>` to later `adb` commands.
 
-### Baseline target
-Use this for the default deployable app build. It supports the repository's normal lower-spec baseline target.
-
-```powershell path=null start=null
-.\\gradlew.bat :app:installBaselineDebug
-adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-```
-
-### Moonshine target
-Use this only on a connected device that satisfies the Moonshine flavor requirements:
+### Standard all-target deploy
+Use this when the connected device satisfies the Moonshine flavor requirements:
 - API level 35 or newer
 - `arm64-v8a` device ABI
 
-The Moonshine build installs as a separate app package, so it can live alongside the baseline app.
+```powershell path=null start=null
+.\\\\gradlew.bat :app:installBaselineDebug :app:installMoonshineDebug
+adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+```
+
+### Single-target deploy
+Use this when only the baseline target is needed:
 
 ```powershell path=null start=null
-.\\gradlew.bat :app:installMoonshineDebug
-adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+.\\\\gradlew.bat :app:installBaselineDebug
+adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
 ```
 
 ### Optional targeted-device form

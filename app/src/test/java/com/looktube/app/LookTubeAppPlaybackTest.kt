@@ -164,6 +164,7 @@ class LookTubeAppPlaybackTest {
         assertFalse(controller.playWhenReady)
     }
 
+
     @Test
     fun replaceDecisionOnlyForcesSameMediaWhenIdleEndedOrExplicit() {
         assertFalse(

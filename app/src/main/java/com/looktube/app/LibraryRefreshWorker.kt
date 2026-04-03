@@ -57,6 +57,9 @@ class LibraryRefreshWorker(
                 Result.failure()
             }
         }.also {
+            if (appContainer.repository.feedConfiguration.value.feedUrl.isNotBlank()) {
+                maintainRollingCatchUpLibraryRefresh(applicationContext)
+            }
             if (autoCaptionEnabled) {
                 appContainer.backgroundMaintenanceNotifier.dismiss()
             }

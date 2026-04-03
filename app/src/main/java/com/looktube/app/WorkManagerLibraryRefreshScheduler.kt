@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
@@ -26,6 +27,7 @@ class WorkManagerLibraryRefreshScheduler(
         val workManager = workManagerOrNull() ?: return
         val request = buildPeriodicLibraryRefreshWorkRequest()
         val catchUpRequest = buildCatchUpLibraryRefreshWorkRequest()
+        val rollingCatchUpRequest = buildRollingCatchUpLibraryRefreshWorkRequest()
         val periodicWorkPolicy = periodicWorkPolicy(
             storedVersion = schedulePreferences.getInt(
                 PERIODIC_WORK_VERSION_PREFERENCE_KEY,
@@ -43,6 +45,11 @@ class WorkManagerLibraryRefreshScheduler(
             ExistingWorkPolicy.KEEP,
             catchUpRequest,
         )
+        workManager.enqueueUniqueWork(
+            ROLLING_CATCH_UP_WORK_NAME,
+            ROLLING_CATCH_UP_POLICY,
+            rollingCatchUpRequest,
+        )
         schedulePreferences.edit()
             .putInt(PERIODIC_WORK_VERSION_PREFERENCE_KEY, PERIODIC_WORK_SPEC_VERSION)
             .apply()
@@ -52,6 +59,7 @@ class WorkManagerLibraryRefreshScheduler(
         workManagerOrNull()?.apply {
             cancelUniqueWork(UNIQUE_WORK_NAME)
             cancelUniqueWork(CATCH_UP_WORK_NAME)
+            cancelUniqueWork(ROLLING_CATCH_UP_WORK_NAME)
         }
         schedulePreferences.edit()
             .remove(PERIODIC_WORK_VERSION_PREFERENCE_KEY)
@@ -64,14 +72,26 @@ class WorkManagerLibraryRefreshScheduler(
     companion object {
         private const val UNIQUE_WORK_NAME = "looktube.background.library.refresh"
         private const val CATCH_UP_WORK_NAME = "looktube.background.library.refresh.catch_up"
+        private const val ROLLING_CATCH_UP_WORK_NAME = "looktube.background.library.refresh.rolling_catch_up"
         private const val SCHEDULER_PREFERENCES_NAME = "looktube.background.refresh.scheduler"
         private const val PERIODIC_WORK_VERSION_PREFERENCE_KEY = "periodic_work_spec_version"
         private const val PERIODIC_WORK_SPEC_VERSION = 2
         private const val BACKGROUND_REFRESH_INTERVAL_MINUTES = 15L
         private const val BACKGROUND_REFRESH_FLEX_MINUTES = 5L
+        private const val ROLLING_CATCH_UP_DELAY_MINUTES = 20L
         internal val PERIODIC_WORK_POLICY = ExistingPeriodicWorkPolicy.KEEP
         internal val LEGACY_PERIODIC_WORK_POLICY = ExistingPeriodicWorkPolicy.UPDATE
+        internal val ROLLING_CATCH_UP_POLICY = ExistingWorkPolicy.REPLACE
     }
+}
+
+@UnstableApi
+private fun enqueueRollingCatchUpLibraryRefresh(workManager: WorkManager) {
+    workManager.enqueueUniqueWork(
+        "looktube.background.library.refresh.rolling_catch_up",
+        WorkManagerLibraryRefreshScheduler.ROLLING_CATCH_UP_POLICY,
+        buildRollingCatchUpLibraryRefreshWorkRequest(),
+    )
 }
 
 @UnstableApi
@@ -94,6 +114,22 @@ internal fun buildCatchUpLibraryRefreshWorkRequest() =
     OneTimeWorkRequestBuilder<LibraryRefreshWorker>()
         .setConstraints(libraryRefreshConstraints())
         .build()
+
+internal fun buildRollingCatchUpLibraryRefreshWorkRequest(): OneTimeWorkRequest =
+    OneTimeWorkRequestBuilder<LibraryRefreshWorker>()
+        .setConstraints(libraryRefreshConstraints())
+        .setInitialDelay(
+            20L,
+            TimeUnit.MINUTES,
+        )
+        .build()
+
+@UnstableApi
+internal fun maintainRollingCatchUpLibraryRefresh(context: Context) {
+    val appContext = context.applicationContext
+    val workManager = runCatching { WorkManager.getInstance(appContext) }.getOrNull() ?: return
+    enqueueRollingCatchUpLibraryRefresh(workManager)
+}
 
 private fun libraryRefreshConstraints() =
     Constraints.Builder()

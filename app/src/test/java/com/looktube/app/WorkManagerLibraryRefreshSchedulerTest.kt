@@ -37,4 +37,14 @@ class WorkManagerLibraryRefreshSchedulerTest {
         assertEquals(NetworkType.CONNECTED, request.workSpec.constraints.requiredNetworkType)
         assertFalse(request.workSpec.constraints.requiresBatteryNotLow())
     }
+
+    @Test
+    fun rollingCatchUpRefreshWorkUsesDelayedReplacePolicyAndSameConstraints() {
+        val request = buildRollingCatchUpLibraryRefreshWorkRequest()
+
+        assertEquals(WorkManagerLibraryRefreshScheduler.ROLLING_CATCH_UP_POLICY, androidx.work.ExistingWorkPolicy.REPLACE)
+        assertEquals(NetworkType.CONNECTED, request.workSpec.constraints.requiredNetworkType)
+        assertFalse(request.workSpec.constraints.requiresBatteryNotLow())
+        assertEquals(TimeUnit.MINUTES.toMillis(20), request.workSpec.initialDelay)
+    }
 }

@@ -29,6 +29,20 @@ class PlayerRouteTest {
     }
 
     @Test
+    fun remotePlaybackKeepsControllerVisible() {
+        assertTrue(persistentControllerVisibilityForRemotePlayback(isRemotePlayback = true))
+        assertEquals(0, controllerShowTimeoutMsForRemotePlayback(isRemotePlayback = true))
+        assertFalse(controllerHideOnTouchForRemotePlayback(isRemotePlayback = true))
+    }
+
+    @Test
+    fun localPlaybackKeepsTransientControllerBehavior() {
+        assertFalse(persistentControllerVisibilityForRemotePlayback(isRemotePlayback = false))
+        assertEquals(5_000, controllerShowTimeoutMsForRemotePlayback(isRemotePlayback = false))
+        assertTrue(controllerHideOnTouchForRemotePlayback(isRemotePlayback = false))
+    }
+
+    @Test
     fun keepsScreenOnWhilePlaybackIsBufferingForResume() {
         assertTrue(
             shouldKeepScreenOn(
@@ -57,6 +71,18 @@ class PlayerRouteTest {
                 isPlaying = false,
                 playWhenReady = true,
                 playbackState = Player.STATE_ENDED,
+            ),
+        )
+    }
+
+    @Test
+    fun doesNotKeepScreenOnDuringRemotePlayback() {
+        assertFalse(
+            shouldKeepScreenOn(
+                isPlaying = true,
+                playWhenReady = true,
+                playbackState = Player.STATE_READY,
+                isRemotePlayback = true,
             ),
         )
     }
