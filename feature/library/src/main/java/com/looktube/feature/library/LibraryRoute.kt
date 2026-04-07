@@ -38,6 +38,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.Card
@@ -466,10 +467,10 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.18f,
+        baseArtAlpha = 0.24f,
         tileArtAlpha = 0.98f,
-        tileColorAlpha = 0.88f,
-        tileShadowElevation = 6.dp,
+        tileColorAlpha = 0.92f,
+        tileShadowElevation = 8.dp,
     )
 }
 
@@ -479,10 +480,10 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.12f,
-        tileArtAlpha = 0.34f,
-        tileColorAlpha = 0.58f,
-        tileShadowElevation = 2.dp,
+        baseArtAlpha = 0.08f,
+        tileArtAlpha = 0.18f,
+        tileColorAlpha = 0.34f,
+        tileShadowElevation = 0.dp,
     )
 }
 
@@ -574,11 +575,11 @@ private fun SectionHeaderBackdropPanel(
     val thumbnailUrl = video.thumbnailUrl
     Surface(
         modifier = modifier.graphicsLayer { rotationZ = rotationDegrees },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = shadowElevation,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f)),
     ) {
         Box(
             modifier = Modifier
@@ -603,8 +604,9 @@ private fun SectionHeaderBackdropPanel(
 }
 
 @Composable
-private fun CollapsedHeaderCardPeeks(
+private fun CollapsedHeaderPreviewStack(
     section: SeriesSection,
+    textEndPadding: Dp,
     modifier: Modifier = Modifier,
 ) {
     val peekOffsets = collapsedHeaderPeekOffsets(section.videos.size)
@@ -614,15 +616,14 @@ private fun CollapsedHeaderCardPeeks(
     }
     Box(
         modifier = modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .clipToBounds(),
     ) {
         peekVideos.indices.reversed().forEach { index ->
             val video = peekVideos[index]
-            SectionPeekCard(
+            CollapsedHeaderPreviewCard(
                 video = video,
-                sectionKey = section.key,
-                colorIndex = index + 1,
+                textEndPadding = textEndPadding,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(
@@ -630,26 +631,26 @@ private fun CollapsedHeaderCardPeeks(
                         y = peekOffsets[index],
                     )
                     .fillMaxWidth(collapsedHeaderPeekWidthFraction(index))
-                    .height(GROUP_HEADER_PEEK_CARD_HEIGHT),
+                    .height(GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT),
             )
         }
     }
 }
 
 @Composable
-private fun SectionPeekCard(
+private fun CollapsedHeaderPreviewCard(
     video: VideoSummary,
-    sectionKey: String,
-    colorIndex: Int,
+    textEndPadding: Dp,
     modifier: Modifier = Modifier,
 ) {
     val thumbnailUrl = video.thumbnailUrl
+    val metadataLine = remember(video) { buildCollapsedHeaderPreviewMetadataLine(video) }
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
         tonalElevation = 0.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.74f)),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -657,7 +658,7 @@ private fun SectionPeekCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(groupHeaderBackdropColor(sectionKey, video.id, colorIndex)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)),
             )
             if (!thumbnailUrl.isNullOrBlank()) {
                 ThumbnailImage(
@@ -665,7 +666,7 @@ private fun SectionPeekCard(
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    alpha = 0.24f,
+                    alpha = 0.26f,
                 )
             }
             Box(
@@ -674,13 +675,44 @@ private fun SectionPeekCard(
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.62f),
-                                MaterialTheme.colorScheme.surface.copy(alpha = 0.76f),
+                                Color.Black.copy(alpha = 0.06f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.58f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
                             ),
                         ),
                     ),
             )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(
+                        start = 12.dp,
+                        top = 10.dp,
+                        end = 12.dp + cappedGroupedContentEndPadding(
+                            textEndPadding = textEndPadding,
+                            maxPadding = GROUPED_COLLAPSED_PREVIEW_MAX_END_PADDING,
+                        ),
+                        bottom = 10.dp,
+                    ),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                metadataLine.takeIf(String::isNotBlank)?.let { metadata ->
+                    Text(
+                        text = metadata,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Text(
+                    text = video.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -813,16 +845,16 @@ private fun SeriesSectionHeaderBackdrop(
                     Brush.verticalGradient(
                         colors = if (isExpanded) {
                             listOf(
-                                baseSurface.copy(alpha = 0.08f),
+                                baseSurface.copy(alpha = 0.06f),
                                 Color.Transparent,
-                                baseSurface.copy(alpha = 0.08f),
-                                baseSurface.copy(alpha = 0.16f),
+                                baseSurface.copy(alpha = 0.1f),
+                                baseSurface.copy(alpha = 0.18f),
                             )
                         } else {
                             listOf(
-                                baseSurface.copy(alpha = 0.18f),
-                                baseSurface.copy(alpha = 0.38f),
-                                baseSurfaceVariant.copy(alpha = 0.82f),
+                                baseSurface.copy(alpha = 0.34f),
+                                baseSurface.copy(alpha = 0.52f),
+                                baseSurfaceVariant.copy(alpha = 0.88f),
                             )
                         },
                     ),
@@ -835,15 +867,15 @@ private fun SeriesSectionHeaderBackdrop(
                     Brush.horizontalGradient(
                         colors = if (isExpanded) {
                             listOf(
-                                baseSurface.copy(alpha = 0.22f),
-                                baseSurface.copy(alpha = 0.08f),
+                                baseSurface.copy(alpha = 0.18f),
+                                baseSurface.copy(alpha = 0.06f),
                                 Color.Transparent,
                             )
                         } else {
                             listOf(
-                                baseSurface.copy(alpha = 0.42f),
-                                baseSurface.copy(alpha = 0.16f),
-                                baseSurface.copy(alpha = 0.28f),
+                                baseSurface.copy(alpha = 0.46f),
+                                baseSurface.copy(alpha = 0.24f),
+                                baseSurface.copy(alpha = 0.34f),
                             )
                         },
                     ),
@@ -1160,14 +1192,14 @@ private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
 private val GROUP_HEADER_PEEK_REVEAL_STEP = 10.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 10.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.92f
-private val GROUP_HEADER_PEEK_CARD_HEIGHT = 188.dp
-private val GROUP_HEADER_COLLAPSED_CARD_MIN_HEIGHT = 204.dp
-private val GROUP_HEADER_EXPANDED_CARD_MIN_HEIGHT = 236.dp
+private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 74.dp
+private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 170.dp
+private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
+private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-18).dp
 private val GROUP_HEADER_BACKDROP_TILE_BLEED = 8.dp
 private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.015f
 private const val GROUP_HEADER_BACKDROP_WIDTH_JITTER = 0.02f
 private const val GROUP_HEADER_BACKDROP_HEIGHT_JITTER = 0.02f
-private const val GROUP_HEADER_BACKDROP_ROTATION_JITTER = 0.8f
 private val GROUP_HEADER_BACKDROP_BASE_TILE_SPECS = listOf(
     GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = -0.02f, widthFraction = 0.26f, heightFraction = 0.34f),
     GroupHeaderBackdropTileSpec(xFraction = 0.24f, yFraction = -0.02f, widthFraction = 0.30f, heightFraction = 0.28f),
@@ -1211,12 +1243,15 @@ internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderB
                 .coerceIn(0.26f, 0.38f),
             heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_HEIGHT_JITTER))
                 .coerceIn(0.18f, 0.28f),
-            rotationDegrees = random.centeredJitter(GROUP_HEADER_BACKDROP_ROTATION_JITTER),
+            rotationDegrees = 0f,
         )
     }
 }
 
 private fun Random.centeredJitter(magnitude: Float): Float = (nextFloat() - 0.5f) * magnitude * 2f
+
+private fun collapsedHeaderPreviewStackHeight(videoCount: Int): Dp =
+    GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT + collapsedHeaderPeekReveal(videoCount)
 
 private fun collapsedHeaderPeekHorizontalOffset(index: Int): Dp = when (index % 3) {
     0 -> 0.dp
@@ -1226,6 +1261,11 @@ private fun collapsedHeaderPeekHorizontalOffset(index: Int): Dp = when (index % 
 
 private fun collapsedHeaderPeekWidthFraction(index: Int): Float =
     (GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION - (index * 0.03f)).coerceAtLeast(0.84f)
+
+private fun buildCollapsedHeaderPreviewMetadataLine(video: VideoSummary): String = buildList {
+    video.publishedAtEpochMillis?.let(::formatPublishedDate)?.let(::add)
+    video.durationSeconds?.let(::formatDuration)?.let(::add)
+}.joinToString(" • ")
 
 
 @Composable
@@ -1433,6 +1473,7 @@ private val TRACK_ONLY_CONTENT_CLEARANCE = 20.dp
 private val JUMP_RAIL_TRACK_WIDTH = 8.dp
 private val GROUPED_HEADER_MAX_END_PADDING = 148.dp
 private val GROUPED_EXPANDED_INFO_PLATE_MAX_END_PADDING = 96.dp
+private val GROUPED_COLLAPSED_PREVIEW_MAX_END_PADDING = 72.dp
 private val GROUPED_VIDEO_MAX_END_PADDING = 112.dp
 
 internal enum class JumpRailInteraction {
@@ -1588,8 +1629,8 @@ private fun GroupedSeriesSectionCard(
     onMarkVideoUnwatched: (String) -> Unit,
     onVideoSelected: (String) -> Unit,
 ) {
-    val collapsedPeekReveal = collapsedHeaderPeekReveal(section.videos.size)
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
+    val collapsedPreviewStackHeight = collapsedHeaderPreviewStackHeight(section.videos.size)
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1601,44 +1642,47 @@ private fun GroupedSeriesSectionCard(
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(
-                        min = if (isExpanded) {
-                            GROUP_HEADER_EXPANDED_CARD_MIN_HEIGHT
-                        } else {
-                            GROUP_HEADER_COLLAPSED_CARD_MIN_HEIGHT + collapsedPeekReveal
-                        },
-                    ),
-            ) {
-                if (!isExpanded && collapsedPeekReveal > 0.dp) {
-                    CollapsedHeaderCardPeeks(
+            if (isExpanded) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT),
+                ) {
+                    SeriesSectionHeader(
                         section = section,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(horizontal = 6.dp)
-                            .height(GROUP_HEADER_COLLAPSED_CARD_MIN_HEIGHT + collapsedPeekReveal),
+                        watchedVideoCount = watchedVideoCount,
+                        completionSummary = completionSummary,
+                        isExpanded = true,
+                        onToggleExpanded = onToggleExpanded,
+                        textEndPadding = headerTextEndPadding,
+                        modifier = Modifier.align(Alignment.TopStart),
                     )
                 }
+            } else {
                 SeriesSectionHeader(
                     section = section,
                     watchedVideoCount = watchedVideoCount,
                     completionSummary = completionSummary,
-                    isExpanded = isExpanded,
+                    isExpanded = false,
                     onToggleExpanded = onToggleExpanded,
-                    onMarkSectionWatched = onMarkSectionWatched,
-                    onMarkSectionUnwatched = onMarkSectionUnwatched,
                     textEndPadding = headerTextEndPadding,
-                    modifier = Modifier.align(Alignment.TopStart),
+                    modifier = Modifier.fillMaxWidth(),
                 )
+                if (collapsedPreviewStackHeight > 0.dp) {
+                    CollapsedHeaderPreviewStack(
+                        section = section,
+                        textEndPadding = headerTextEndPadding,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(y = GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP)
+                            .padding(horizontal = 6.dp)
+                            .height(collapsedPreviewStackHeight),
+                    )
+                }
             }
             if (isExpanded) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
-                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
@@ -1654,6 +1698,9 @@ private fun GroupedSeriesSectionCard(
                         label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
                     )
                 }
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
+                )
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -1682,8 +1729,6 @@ private fun SeriesSectionHeader(
     completionSummary: SeriesCompletionSummary?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
-    onMarkSectionWatched: () -> Unit,
-    onMarkSectionUnwatched: () -> Unit,
     textEndPadding: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -1696,9 +1741,9 @@ private fun SeriesSectionHeader(
     }.joinToString(" • ")
     val shape = RoundedCornerShape(22.dp)
     val headerMinHeight = if (isExpanded) {
-        GROUP_HEADER_EXPANDED_CARD_MIN_HEIGHT
+        GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT
     } else {
-        GROUP_HEADER_COLLAPSED_CARD_MIN_HEIGHT
+        GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT
     }
     Surface(
         modifier = modifier
@@ -1732,12 +1777,12 @@ private fun SeriesSectionHeader(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(10.dp)
-                        .size(if (isExpanded) 34.dp else 38.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                        .size(42.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
                     contentColor = MaterialTheme.colorScheme.onSurface,
                     tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -1761,12 +1806,12 @@ private fun SeriesSectionHeader(
                             ),
                             bottom = 10.dp,
                         )
-                        .fillMaxWidth(if (isExpanded) 0.72f else 0.84f)
-                        .widthIn(max = if (isExpanded) 320.dp else 360.dp),
+                        .fillMaxWidth(if (isExpanded) 0.68f else 0.74f)
+                        .widthIn(max = if (isExpanded) 312.dp else 308.dp),
                     shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                     tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.38f)),
                 ) {
                     Column(
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1782,7 +1827,7 @@ private fun SeriesSectionHeader(
                             style = if (isExpanded) {
                                 MaterialTheme.typography.titleLarge
                             } else {
-                                MaterialTheme.typography.headlineSmall
+                                MaterialTheme.typography.headlineMedium
                             },
                             color = MaterialTheme.colorScheme.onSurface,
                         )
