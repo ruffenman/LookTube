@@ -465,8 +465,8 @@ class LibrarySortTest {
     fun collapsedHeaderPeekRevealOnlyUsesNeededDepth() {
         assertEquals(0.dp, collapsedHeaderPeekReveal(0))
         assertEquals(0.dp, collapsedHeaderPeekReveal(1))
-        assertEquals(20.dp, collapsedHeaderPeekReveal(3))
-        assertEquals(30.dp, collapsedHeaderPeekReveal(5))
+        assertEquals(28.dp, collapsedHeaderPeekReveal(3))
+        assertEquals(42.dp, collapsedHeaderPeekReveal(5))
     }
 
     @Test
