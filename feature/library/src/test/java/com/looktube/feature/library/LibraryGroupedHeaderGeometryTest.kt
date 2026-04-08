@@ -34,7 +34,7 @@ class LibraryGroupedHeaderGeometryTest {
         assertEquals(12, specs.size)
         assertTrue(specs.all { it.xFraction in -0.14f..0.82f })
         assertTrue(specs.all { it.yFraction in -0.12f..0.7f })
-        assertTrue(specs.all { it.widthFraction in 0.14f..0.48f })
-        assertTrue(specs.all { it.heightFraction in 0.10f..0.42f })
+        assertTrue(specs.all { it.widthFraction in 0.16f..0.36f })
+        assertTrue(specs.all { it.heightFraction in 0.28f..0.56f })
     }
 }

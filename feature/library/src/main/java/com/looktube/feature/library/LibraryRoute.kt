@@ -468,9 +468,9 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 0.96f,
-        tileColorAlpha = 0.2f,
-        tileShadowElevation = 3.dp,
+        tileArtAlpha = 1f,
+        tileColorAlpha = 0.15f,
+        tileShadowElevation = 2.dp,
     )
 }
 
@@ -480,8 +480,8 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 0.72f,
-        tileColorAlpha = 0.16f,
+        tileArtAlpha = 0.56f,
+        tileColorAlpha = 0.12f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -1123,18 +1123,21 @@ private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.015f
 private const val GROUP_HEADER_BACKDROP_WIDTH_JITTER = 0.02f
 private const val GROUP_HEADER_BACKDROP_HEIGHT_JITTER = 0.02f
 private val GROUP_HEADER_BACKDROP_BASE_TILE_SPECS = listOf(
-    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = -0.02f, widthFraction = 0.26f, heightFraction = 0.34f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.24f, yFraction = -0.02f, widthFraction = 0.30f, heightFraction = 0.28f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.54f, yFraction = -0.02f, widthFraction = 0.24f, heightFraction = 0.30f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.78f, yFraction = -0.02f, widthFraction = 0.22f, heightFraction = 0.26f),
-    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = 0.30f, widthFraction = 0.16f, heightFraction = 0.10f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.16f, yFraction = 0.24f, widthFraction = 0.28f, heightFraction = 0.24f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.44f, yFraction = 0.18f, widthFraction = 0.32f, heightFraction = 0.30f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.76f, yFraction = 0.26f, widthFraction = 0.20f, heightFraction = 0.22f),
-    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = 0.50f, widthFraction = 0.18f, heightFraction = 0.22f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.18f, yFraction = 0.54f, widthFraction = 0.14f, heightFraction = 0.16f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.34f, yFraction = 0.48f, widthFraction = 0.28f, heightFraction = 0.24f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.62f, yFraction = 0.46f, widthFraction = 0.38f, heightFraction = 0.28f),
+    // Row 1
+    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = -0.02f, widthFraction = 0.28f, heightFraction = 0.52f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.26f, yFraction = -0.02f, widthFraction = 0.24f, heightFraction = 0.44f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.50f, yFraction = -0.02f, widthFraction = 0.26f, heightFraction = 0.48f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.76f, yFraction = -0.02f, widthFraction = 0.26f, heightFraction = 0.42f),
+    // Row 2
+    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = 0.46f, widthFraction = 0.22f, heightFraction = 0.40f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.20f, yFraction = 0.40f, widthFraction = 0.30f, heightFraction = 0.46f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.50f, yFraction = 0.44f, widthFraction = 0.24f, heightFraction = 0.42f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.74f, yFraction = 0.38f, widthFraction = 0.28f, heightFraction = 0.48f),
+    // Fill gaps
+    GroupHeaderBackdropTileSpec(xFraction = 0.10f, yFraction = 0.20f, widthFraction = 0.20f, heightFraction = 0.36f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.36f, yFraction = 0.26f, widthFraction = 0.18f, heightFraction = 0.30f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.60f, yFraction = 0.22f, widthFraction = 0.22f, heightFraction = 0.34f),
+    GroupHeaderBackdropTileSpec(xFraction = 0.82f, yFraction = 0.50f, widthFraction = 0.20f, heightFraction = 0.36f),
 )
 private val GroupHeaderBackdropPalette = listOf(
     Color(0xFFC25478),
@@ -1165,9 +1168,9 @@ internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderB
             yFraction = (tile.yFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
                 .coerceIn(-0.12f, 0.7f),
             widthFraction = (tile.widthFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_WIDTH_JITTER))
-                .coerceIn(0.14f, 0.48f),
+                .coerceIn(0.16f, 0.36f),
             heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_HEIGHT_JITTER))
-                .coerceIn(0.10f, 0.42f),
+                .coerceIn(0.28f, 0.56f),
             rotationDegrees = 0f,
             cropAlignX = (random.nextFloat() * 2f - 1f).coerceIn(-1f, 1f),
             cropAlignY = (random.nextFloat() * 2f - 1f).coerceIn(-1f, 1f),
