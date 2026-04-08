@@ -12,4 +12,5 @@
 - Keep LookTube feed-first. Do not add browser-login, cookie-harvesting, or website automation flows unless Giant Bomb exposes an official supported path.
 - Record integration findings in `docs/integration/giantbomb.md` before changing implementation assumptions.
 - Record architecture tradeoffs as ADRs under `docs/decisions/`.
+- Never use Roborazzi screenshots as a proxy for real device visual appearance during design iteration. Roborazzi runs in Robolectric on the JVM with test fixture data and does not reflect how real thumbnails, colors, or layouts render on a physical device. When iterating on visual design, always deploy to a connected device and capture screenshots via `adb shell screencap` to verify the actual result.
 - Keep this file short; deeper context belongs under `docs/`.

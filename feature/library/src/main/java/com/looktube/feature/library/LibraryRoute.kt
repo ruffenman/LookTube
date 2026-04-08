@@ -59,6 +59,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -481,8 +482,8 @@ private fun CollapsedSeriesSectionBackdrop(
     SeriesSectionBackdropMosaic(
         section = section,
         baseArtAlpha = 0f,
-        tileArtAlpha = 0.5f,
-        tileColorAlpha = 0.14f,
+        tileArtAlpha = 0.72f,
+        tileColorAlpha = 0.16f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -522,6 +523,7 @@ private fun SeriesSectionBackdropMosaic(
                 artAlpha = tileArtAlpha,
                 tileColorAlpha = tileColorAlpha,
                 rotationDegrees = tile.rotationDegrees,
+                cropAlignment = BiasAlignment(tile.cropAlignX, tile.cropAlignY),
                 shadowElevation = tileShadowElevation,
                 modifier = Modifier
                     .offset(
@@ -569,6 +571,7 @@ private fun SectionHeaderBackdropPanel(
     artAlpha: Float,
     tileColorAlpha: Float,
     rotationDegrees: Float,
+    cropAlignment: Alignment,
     shadowElevation: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -592,6 +595,7 @@ private fun SectionHeaderBackdropPanel(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+                alignment = cropAlignment,
                 alpha = artAlpha,
             )
         }
@@ -841,7 +845,7 @@ private fun SeriesSectionHeaderBackdrop(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.22f)),
+                    .background(Color.Black.copy(alpha = 0.12f)),
             )
         }
     }
@@ -1127,6 +1131,8 @@ internal data class GroupHeaderBackdropTileSpec(
     val widthFraction: Float,
     val heightFraction: Float,
     val rotationDegrees: Float = 0f,
+    val cropAlignX: Float = 0f,
+    val cropAlignY: Float = 0f,
 )
 internal fun collapsedHeaderPeekCount(videoCount: Int): Int = (videoCount - 1).coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
 internal fun collapsedHeaderPeekOffsets(videoCount: Int): List<Dp> =
@@ -1195,6 +1201,8 @@ internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderB
             heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_HEIGHT_JITTER))
                 .coerceIn(0.10f, 0.42f),
             rotationDegrees = 0f,
+            cropAlignX = (random.nextFloat() * 2f - 1f).coerceIn(-1f, 1f),
+            cropAlignY = (random.nextFloat() * 2f - 1f).coerceIn(-1f, 1f),
         )
     }
 }
@@ -2095,6 +2103,7 @@ private fun ThumbnailImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    alignment: Alignment = Alignment.Center,
     alpha: Float = 1f,
 ) {
     val context = LocalContext.current
@@ -2115,6 +2124,7 @@ private fun ThumbnailImage(
             contentDescription = contentDescription,
             modifier = imageModifier,
             contentScale = contentScale,
+            alignment = alignment,
         )
     } else {
         AsyncImage(
@@ -2122,6 +2132,7 @@ private fun ThumbnailImage(
             contentDescription = contentDescription,
             modifier = imageModifier,
             contentScale = contentScale,
+            alignment = alignment,
         )
     }
 }
