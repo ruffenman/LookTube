@@ -467,10 +467,10 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.16f,
-        tileArtAlpha = 0.94f,
-        tileColorAlpha = 1f,
-        tileShadowElevation = 4.dp,
+        baseArtAlpha = 0f,
+        tileArtAlpha = 0.96f,
+        tileColorAlpha = 0.2f,
+        tileShadowElevation = 3.dp,
     )
 }
 
@@ -480,9 +480,9 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.08f,
-        tileArtAlpha = 0.54f,
-        tileColorAlpha = 0.84f,
+        baseArtAlpha = 0f,
+        tileArtAlpha = 0.5f,
+        tileColorAlpha = 0.14f,
         tileShadowElevation = 0.dp,
     )
 }
