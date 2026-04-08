@@ -467,9 +467,9 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.12f,
-        tileArtAlpha = 1f,
-        tileColorAlpha = 0.14f,
+        baseArtAlpha = 0.2f,
+        tileArtAlpha = 0.88f,
+        tileColorAlpha = 0.82f,
         tileShadowElevation = 4.dp,
     )
 }
@@ -480,9 +480,9 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.06f,
-        tileArtAlpha = 0.26f,
-        tileColorAlpha = 0.1f,
+        baseArtAlpha = 0.1f,
+        tileArtAlpha = 0.42f,
+        tileColorAlpha = 0.56f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -506,7 +506,7 @@ private fun SeriesSectionBackdropMosaic(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)),
+            .background(Color.Black.copy(alpha = 0.34f)),
     ) {
         SectionHeaderBackdropBaseImage(
             video = section.videos.first(),
@@ -547,7 +547,7 @@ private fun SectionHeaderBackdropBaseImage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.34f)),
+            .background(Color.Black.copy(alpha = 0.24f)),
         )
         if (!thumbnailUrl.isNullOrBlank()) {
             ThumbnailImage(
@@ -626,11 +626,7 @@ private fun CollapsedHeaderPreviewStack(
                 textEndPadding = textEndPadding,
                 showText = index == 0,
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(
-                        start = GROUP_HEADER_PREVIEW_CARD_START_PADDING,
-                        end = GROUP_HEADER_PREVIEW_CARD_END_PADDING,
-                    )
+                    .align(Alignment.TopCenter)
                     .offset(
                         x = collapsedHeaderPeekHorizontalOffset(index),
                         y = peekOffsets[index],
@@ -846,62 +842,11 @@ private fun SeriesSectionHeaderBackdrop(
         } else {
             CollapsedSeriesSectionBackdrop(section = section)
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = if (isExpanded) {
-                            listOf(
-                                baseSurface.copy(alpha = 0.06f),
-                                Color.Transparent,
-                                baseSurface.copy(alpha = 0.1f),
-                                baseSurface.copy(alpha = 0.18f),
-                            )
-                        } else {
-                            listOf(
-                                baseSurface.copy(alpha = 0.34f),
-                                baseSurface.copy(alpha = 0.52f),
-                                baseSurfaceVariant.copy(alpha = 0.88f),
-                            )
-                        },
-                    ),
-                ),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = if (isExpanded) {
-                            listOf(
-                                baseSurface.copy(alpha = 0.18f),
-                                baseSurface.copy(alpha = 0.06f),
-                                Color.Transparent,
-                            )
-                        } else {
-                            listOf(
-                                baseSurface.copy(alpha = 0.46f),
-                                baseSurface.copy(alpha = 0.24f),
-                                baseSurface.copy(alpha = 0.34f),
-                            )
-                        },
-                    ),
-                ),
-        )
-        if (isExpanded) {
+        if (!isExpanded) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.03f),
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.06f),
-                            ),
-                        ),
-                    ),
+                    .background(Color.Black.copy(alpha = 0.22f)),
             )
         }
     }
@@ -1199,13 +1144,11 @@ internal fun collapsedHeaderPeekReveal(videoCount: Int): Dp {
 private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
 private val GROUP_HEADER_PEEK_REVEAL_STEP = 18.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
-private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.88f
+private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 52.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 156.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
-private val GROUP_HEADER_PREVIEW_CARD_START_PADDING = 12.dp
-private val GROUP_HEADER_PREVIEW_CARD_END_PADDING = 12.dp
 private val GROUP_HEADER_BACKDROP_TILE_BLEED = 8.dp
 private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.015f
 private const val GROUP_HEADER_BACKDROP_WIDTH_JITTER = 0.02f
@@ -1225,12 +1168,14 @@ private val GROUP_HEADER_BACKDROP_BASE_TILE_SPECS = listOf(
     GroupHeaderBackdropTileSpec(xFraction = 0.62f, yFraction = 0.46f, widthFraction = 0.38f, heightFraction = 0.28f),
 )
 private val GroupHeaderBackdropPalette = listOf(
-    Color(0xFF1D2430),
-    Color(0xFF28313E),
-    Color(0xFF343C47),
-    Color(0xFF403A30),
-    Color(0xFF273537),
-    Color(0xFF4A4640),
+    Color(0xFFC25478),
+    Color(0xFF4356B4),
+    Color(0xFF48A83A),
+    Color(0xFFE89C1E),
+    Color(0xFF3E8BB0),
+    Color(0xFFA64DB3),
+    Color(0xFF6ECE6A),
+    Color(0xFFD4903C),
 )
 
 private fun groupHeaderBackdropColor(
@@ -1264,11 +1209,10 @@ private fun Random.centeredJitter(magnitude: Float): Float = (nextFloat() - 0.5f
 private fun collapsedHeaderPreviewStackHeight(videoCount: Int): Dp =
     GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT + collapsedHeaderPeekReveal(videoCount)
 
-private fun collapsedHeaderPeekHorizontalOffset(index: Int): Dp =
-    GROUP_HEADER_PEEK_HORIZONTAL_STAGGER * index
+private fun collapsedHeaderPeekHorizontalOffset(index: Int): Dp = 0.dp
 
 private fun collapsedHeaderPeekWidthFraction(index: Int): Float =
-    (GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION - (index * 0.02f)).coerceAtLeast(0.82f)
+    (GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION - (index * 0.015f)).coerceAtLeast(0.92f)
 
 private fun buildCollapsedHeaderPreviewMetadataLine(video: VideoSummary): String = buildList {
     video.publishedAtEpochMillis?.let(::formatPublishedDate)?.let(::add)
@@ -1644,9 +1588,9 @@ private fun GroupedSeriesSectionCard(
             .fillMaxWidth()
             .animateContentSize(),
         shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.76f)),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.94f),
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.54f)),
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
