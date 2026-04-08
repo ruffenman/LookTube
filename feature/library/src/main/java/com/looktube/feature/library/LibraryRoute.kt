@@ -467,9 +467,9 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.2f,
-        tileArtAlpha = 0.88f,
-        tileColorAlpha = 0.82f,
+        baseArtAlpha = 0.16f,
+        tileArtAlpha = 0.94f,
+        tileColorAlpha = 1f,
         tileShadowElevation = 4.dp,
     )
 }
@@ -480,9 +480,9 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0.1f,
-        tileArtAlpha = 0.42f,
-        tileColorAlpha = 0.56f,
+        baseArtAlpha = 0.08f,
+        tileArtAlpha = 0.54f,
+        tileColorAlpha = 0.84f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -506,7 +506,7 @@ private fun SeriesSectionBackdropMosaic(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.34f)),
+            .background(Color(0xFF181C22)),
     ) {
         SectionHeaderBackdropBaseImage(
             video = section.videos.first(),
@@ -547,7 +547,7 @@ private fun SectionHeaderBackdropBaseImage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.24f)),
+            .background(Color(0xFF181C22)),
         )
         if (!thumbnailUrl.isNullOrBlank()) {
             ThumbnailImage(
@@ -575,11 +575,11 @@ private fun SectionHeaderBackdropPanel(
     val thumbnailUrl = video.thumbnailUrl
     Surface(
         modifier = modifier.graphicsLayer { rotationZ = rotationDegrees },
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(6.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = shadowElevation,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.22f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
     ) {
         Box(
             modifier = Modifier
@@ -595,11 +595,6 @@ private fun SectionHeaderBackdropPanel(
                 alpha = artAlpha,
             )
         }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.04f)),
-        )
     }
 }
 
@@ -1145,7 +1140,7 @@ private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
 private val GROUP_HEADER_PEEK_REVEAL_STEP = 18.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
-private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 52.dp
+private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 72.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 156.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
@@ -1196,9 +1191,9 @@ internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderB
             yFraction = (tile.yFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
                 .coerceIn(-0.12f, 0.7f),
             widthFraction = (tile.widthFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_WIDTH_JITTER))
-                .coerceIn(0.26f, 0.38f),
+                .coerceIn(0.14f, 0.48f),
             heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_HEIGHT_JITTER))
-                .coerceIn(0.18f, 0.28f),
+                .coerceIn(0.10f, 0.42f),
             rotationDegrees = 0f,
         )
     }
