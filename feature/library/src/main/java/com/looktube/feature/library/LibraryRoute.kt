@@ -468,7 +468,6 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0f,
         tileArtAlpha = 0.96f,
         tileColorAlpha = 0.2f,
         tileShadowElevation = 3.dp,
@@ -481,7 +480,6 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        baseArtAlpha = 0f,
         tileArtAlpha = 0.72f,
         tileColorAlpha = 0.16f,
         tileShadowElevation = 0.dp,
@@ -491,7 +489,6 @@ private fun CollapsedSeriesSectionBackdrop(
 @Composable
 private fun SeriesSectionBackdropMosaic(
     section: SeriesSection,
-    baseArtAlpha: Float,
     tileArtAlpha: Float,
     tileColorAlpha: Float,
     tileShadowElevation: Dp,
@@ -507,12 +504,8 @@ private fun SeriesSectionBackdropMosaic(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF181C22)),
+            .background(Color(0xFF2A3040)),
     ) {
-        SectionHeaderBackdropBaseImage(
-            video = section.videos.first(),
-            artAlpha = baseArtAlpha,
-        )
         val tileSpecs = remember(section.key) { groupHeaderBackdropTileSpecs(section.key) }
         tileSpecs.forEachIndexed { index, tile ->
             val video = section.videos[index % section.videos.size]
@@ -537,31 +530,6 @@ private fun SeriesSectionBackdropMosaic(
     }
 }
 
-@Composable
-private fun SectionHeaderBackdropBaseImage(
-    video: VideoSummary,
-    artAlpha: Float,
-) {
-    val thumbnailUrl = video.thumbnailUrl
-    Box(
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-            .background(Color(0xFF181C22)),
-        )
-        if (!thumbnailUrl.isNullOrBlank()) {
-            ThumbnailImage(
-                thumbnailUrl = thumbnailUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alpha = artAlpha,
-            )
-        }
-    }
-}
 
 @Composable
 private fun SectionHeaderBackdropPanel(
