@@ -10,14 +10,14 @@ class LibraryGroupedHeaderGeometryTest {
     @Test
     fun collapsedHeaderPeekOffsetsUseEqualRevealSteps() {
         val offsets = collapsedHeaderPeekOffsets(videoCount = 5)
-        assertEquals(listOf(18.dp, 36.dp, 54.dp), offsets)
-        assertEquals(54.dp, collapsedHeaderPeekReveal(videoCount = 5))
+        assertEquals(listOf(22.dp, 44.dp, 66.dp), offsets)
+        assertEquals(66.dp, collapsedHeaderPeekReveal(videoCount = 5))
     }
 
     @Test
     fun collapsedHeaderPeeksOnlyCountVideosBehindTheLeadCard() {
         assertEquals(emptyList<Dp>(), collapsedHeaderPeekOffsets(videoCount = 1))
-        assertEquals(listOf(18.dp), collapsedHeaderPeekOffsets(videoCount = 2))
+        assertEquals(listOf(22.dp), collapsedHeaderPeekOffsets(videoCount = 2))
     }
 
     @Test

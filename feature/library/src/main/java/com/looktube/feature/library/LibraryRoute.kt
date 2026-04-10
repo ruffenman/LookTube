@@ -599,74 +599,66 @@ private fun CollapsedHeaderPreviewCard(
 ) {
     val thumbnailUrl = video.thumbnailUrl
     val metadataLine = remember(video) { buildCollapsedHeaderPreviewMetadataLine(video) }
-    Surface(
+    Card(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = if (showText) 0.78f else 0.68f),
-        tonalElevation = 0.dp,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = if (showText) 0.16f else 0.1f)),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
         ) {
+            // Thumbnail background — same as full video cards
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.48f)),
-            )
-            if (!thumbnailUrl.isNullOrBlank()) {
-                ThumbnailImage(
-                    thumbnailUrl = thumbnailUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    alpha = 0.2f,
-                )
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                if (!thumbnailUrl.isNullOrBlank()) {
+                    ThumbnailImage(
+                        thumbnailUrl = thumbnailUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.1f),
-                                MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.54f),
-                                MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.84f),
-                            ),
-                        ),
-                    ),
-            )
+            // Bottom metadata overlay — same visual language as full video cards
             if (showText) {
-                Column(
+                Surface(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(
-                            start = 12.dp,
-                            top = 10.dp,
-                            end = 12.dp + cappedGroupedContentEndPadding(
+                        .fillMaxWidth(),
+                    color = Color.Black.copy(alpha = 0.56f),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            start = 14.dp,
+                            top = 8.dp,
+                            end = 14.dp + cappedGroupedContentEndPadding(
                                 textEndPadding = textEndPadding,
                                 maxPadding = GROUPED_COLLAPSED_PREVIEW_MAX_END_PADDING,
                             ),
-                            bottom = 10.dp,
+                            bottom = 8.dp,
                         ),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    metadataLine.takeIf(String::isNotBlank)?.let { metadata ->
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        metadataLine.takeIf(String::isNotBlank)?.let { metadata ->
+                            Text(
+                                text = metadata,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.82f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Text(
-                            text = metadata,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.72f),
+                            text = video.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    Text(
-                        text = video.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                 }
             }
         }
@@ -1094,10 +1086,10 @@ internal fun collapsedHeaderPeekReveal(videoCount: Int): Dp {
 }
 
 private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
-private val GROUP_HEADER_PEEK_REVEAL_STEP = 18.dp
+private val GROUP_HEADER_PEEK_REVEAL_STEP = 22.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
-private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 72.dp
+private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 110.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 140.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
