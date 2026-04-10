@@ -21,20 +21,19 @@ class LibraryGroupedHeaderGeometryTest {
     }
 
     @Test
-    fun backdropTileSpecsAreDeterministicPerSectionKey() {
+    fun mosaicTilesAreDeterministicPerSectionKey() {
         assertEquals(
-            groupHeaderBackdropTileSpecs("show:Giant Bombcast"),
-            groupHeaderBackdropTileSpecs("show:Giant Bombcast"),
+            generateMosaicTiles("show:Giant Bombcast", 5),
+            generateMosaicTiles("show:Giant Bombcast", 5),
         )
     }
 
     @Test
-    fun backdropTileSpecsStayWithinExpectedBounds() {
-        val specs = groupHeaderBackdropTileSpecs("show:Portal Pals")
-        assertEquals(12, specs.size)
-        assertTrue(specs.all { it.xFraction in -0.14f..0.82f })
-        assertTrue(specs.all { it.yFraction in -0.12f..0.7f })
-        assertTrue(specs.all { it.widthFraction in 0.16f..0.36f })
-        assertTrue(specs.all { it.heightFraction in 0.28f..0.56f })
+    fun mosaicTilesStayWithinExpectedBounds() {
+        val specs = generateMosaicTiles("show:Portal Pals", 3)
+        assertEquals(14, specs.size)
+        assertTrue(specs.all { it.widthFraction in 0.1f..0.5f })
+        assertTrue(specs.all { it.heightFraction in 0.2f..0.7f })
+        assertTrue(specs.all { it.videoIndex in 0..2 })
     }
 }

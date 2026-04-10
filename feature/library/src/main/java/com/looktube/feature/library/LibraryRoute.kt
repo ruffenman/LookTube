@@ -468,8 +468,7 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 0.55f,
-        tileColorAlpha = 1f,
+        tileArtAlpha = 1f,
         tileShadowElevation = 2.dp,
     )
 }
@@ -480,8 +479,7 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 0.32f,
-        tileColorAlpha = 0.72f,
+        tileArtAlpha = 0.6f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -490,7 +488,6 @@ private fun CollapsedSeriesSectionBackdrop(
 private fun SeriesSectionBackdropMosaic(
     section: SeriesSection,
     tileArtAlpha: Float,
-    tileColorAlpha: Float,
     tileShadowElevation: Dp,
 ) {
     if (section.videos.isEmpty()) {
@@ -504,27 +501,25 @@ private fun SeriesSectionBackdropMosaic(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1E2430)),
+            .background(Color(0xFF1A1E28)),
     ) {
-        val tileSpecs = remember(section.key) { groupHeaderBackdropTileSpecs(section.key) }
+        val tileSpecs = remember(section.key, section.videos.size) {
+            generateMosaicTiles(section.key, section.videos.size)
+        }
         tileSpecs.forEachIndexed { index, tile ->
-            val video = section.videos[index % section.videos.size]
-            SectionHeaderBackdropPanel(
+            val video = section.videos[tile.videoIndex.coerceIn(section.videos.indices)]
+            SectionHeaderBackdropTile(
                 video = video,
-                sectionKey = section.key,
-                colorIndex = index,
                 artAlpha = tileArtAlpha,
-                tileColorAlpha = tileColorAlpha,
-                rotationDegrees = tile.rotationDegrees,
                 cropAlignment = BiasAlignment(tile.cropAlignX, tile.cropAlignY),
                 shadowElevation = tileShadowElevation,
                 modifier = Modifier
                     .offset(
-                        x = (maxWidth * tile.xFraction) - (GROUP_HEADER_BACKDROP_TILE_BLEED / 2),
-                        y = (maxHeight * tile.yFraction) - (GROUP_HEADER_BACKDROP_TILE_BLEED / 2),
+                        x = maxWidth * tile.xFraction,
+                        y = maxHeight * tile.yFraction,
                     )
-                    .width((maxWidth * tile.widthFraction) + GROUP_HEADER_BACKDROP_TILE_BLEED)
-                    .height((maxHeight * tile.heightFraction) + GROUP_HEADER_BACKDROP_TILE_BLEED),
+                    .width(maxWidth * tile.widthFraction)
+                    .height(maxHeight * tile.heightFraction),
             )
         }
     }
@@ -532,31 +527,22 @@ private fun SeriesSectionBackdropMosaic(
 
 
 @Composable
-private fun SectionHeaderBackdropPanel(
+private fun SectionHeaderBackdropTile(
     video: VideoSummary,
-    sectionKey: String,
-    colorIndex: Int,
     artAlpha: Float,
-    tileColorAlpha: Float,
-    rotationDegrees: Float,
     cropAlignment: Alignment,
     shadowElevation: Dp,
     modifier: Modifier = Modifier,
 ) {
     val thumbnailUrl = video.thumbnailUrl
     Surface(
-        modifier = modifier.graphicsLayer { rotationZ = rotationDegrees },
+        modifier = modifier,
         shape = RoundedCornerShape(8.dp),
-        color = Color.Transparent,
+        color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 0.dp,
         shadowElevation = shadowElevation,
-        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.4f)),
+        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.3f)),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(groupHeaderBackdropColor(sectionKey, video.id, colorIndex).copy(alpha = tileColorAlpha)),
-        )
         if (!thumbnailUrl.isNullOrBlank()) {
             ThumbnailImage(
                 thumbnailUrl = thumbnailUrl,
@@ -1096,9 +1082,9 @@ internal data class GroupHeaderBackdropTileSpec(
     val yFraction: Float,
     val widthFraction: Float,
     val heightFraction: Float,
-    val rotationDegrees: Float = 0f,
-    val cropAlignX: Float = 0f,
-    val cropAlignY: Float = 0f,
+    val videoIndex: Int,
+    val cropAlignX: Float,
+    val cropAlignY: Float,
 )
 internal fun collapsedHeaderPeekCount(videoCount: Int): Int = (videoCount - 1).coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
 internal fun collapsedHeaderPeekOffsets(videoCount: Int): List<Dp> =
@@ -1116,62 +1102,22 @@ private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 72.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 156.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
-private val GROUP_HEADER_BACKDROP_TILE_BLEED = 2.dp
-private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.015f
-private const val GROUP_HEADER_BACKDROP_WIDTH_JITTER = 0.02f
-private const val GROUP_HEADER_BACKDROP_HEIGHT_JITTER = 0.02f
-private val GROUP_HEADER_BACKDROP_BASE_TILE_SPECS = listOf(
-    // Row 1
-    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = -0.02f, widthFraction = 0.28f, heightFraction = 0.52f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.26f, yFraction = -0.02f, widthFraction = 0.24f, heightFraction = 0.44f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.50f, yFraction = -0.02f, widthFraction = 0.26f, heightFraction = 0.48f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.76f, yFraction = -0.02f, widthFraction = 0.26f, heightFraction = 0.42f),
-    // Row 2
-    GroupHeaderBackdropTileSpec(xFraction = -0.02f, yFraction = 0.46f, widthFraction = 0.22f, heightFraction = 0.40f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.20f, yFraction = 0.40f, widthFraction = 0.30f, heightFraction = 0.46f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.50f, yFraction = 0.44f, widthFraction = 0.24f, heightFraction = 0.42f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.74f, yFraction = 0.38f, widthFraction = 0.28f, heightFraction = 0.48f),
-    // Fill gaps
-    GroupHeaderBackdropTileSpec(xFraction = 0.10f, yFraction = 0.20f, widthFraction = 0.20f, heightFraction = 0.36f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.36f, yFraction = 0.26f, widthFraction = 0.18f, heightFraction = 0.30f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.60f, yFraction = 0.22f, widthFraction = 0.22f, heightFraction = 0.34f),
-    GroupHeaderBackdropTileSpec(xFraction = 0.82f, yFraction = 0.50f, widthFraction = 0.20f, heightFraction = 0.36f),
-)
-private val GroupHeaderBackdropPalette = listOf(
-    Color(0xFFC25478),
-    Color(0xFF4356B4),
-    Color(0xFF48A83A),
-    Color(0xFFE89C1E),
-    Color(0xFF3E8BB0),
-    Color(0xFFA64DB3),
-    Color(0xFF6ECE6A),
-    Color(0xFFD4903C),
-)
+private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 14
 
-private fun groupHeaderBackdropColor(
-    sectionKey: String,
-    videoId: String,
-    index: Int,
-): Color {
-    val paletteIndex = ("$sectionKey:$videoId:$index".hashCode() and Int.MAX_VALUE) % GroupHeaderBackdropPalette.size
-    return GroupHeaderBackdropPalette[paletteIndex]
-}
-
-internal fun groupHeaderBackdropTileSpecs(sectionKey: String): List<GroupHeaderBackdropTileSpec> {
+internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<GroupHeaderBackdropTileSpec> {
+    if (videoCount == 0) return emptyList()
     val random = Random(sectionKey.hashCode())
-    return GROUP_HEADER_BACKDROP_BASE_TILE_SPECS.map { tile ->
+    return List(GROUP_HEADER_MOSAIC_TILE_COUNT) {
+        val w = 0.18f + random.nextFloat() * 0.22f  // 0.18..0.40
+        val h = 0.26f + random.nextFloat() * 0.36f  // 0.26..0.62
         GroupHeaderBackdropTileSpec(
-            xFraction = (tile.xFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
-                .coerceIn(-0.14f, 0.82f),
-            yFraction = (tile.yFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_POSITION_JITTER))
-                .coerceIn(-0.12f, 0.7f),
-            widthFraction = (tile.widthFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_WIDTH_JITTER))
-                .coerceIn(0.16f, 0.36f),
-            heightFraction = (tile.heightFraction + random.centeredJitter(GROUP_HEADER_BACKDROP_HEIGHT_JITTER))
-                .coerceIn(0.28f, 0.56f),
-            rotationDegrees = 0f,
-            cropAlignX = (random.nextFloat() * 2f - 1f).coerceIn(-1f, 1f),
-            cropAlignY = (random.nextFloat() * 2f - 1f).coerceIn(-1f, 1f),
+            xFraction = -0.04f + random.nextFloat() * 0.92f,  // -0.04..0.88
+            yFraction = -0.06f + random.nextFloat() * 0.82f,  // -0.06..0.76
+            widthFraction = w,
+            heightFraction = h,
+            videoIndex = random.nextInt(videoCount),
+            cropAlignX = random.nextFloat() * 2f - 1f,
+            cropAlignY = random.nextFloat() * 2f - 1f,
         )
     }
 }
