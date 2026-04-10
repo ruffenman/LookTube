@@ -1089,10 +1089,10 @@ private const val GROUP_HEADER_MAX_PEEK_COUNT = 3
 private val GROUP_HEADER_PEEK_REVEAL_STEP = 22.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
-private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 110.dp
+private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 100.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 172.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
-private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-54).dp
+private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-60).dp
 private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 18
 
 internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<GroupHeaderBackdropTileSpec> {
@@ -1504,7 +1504,12 @@ private fun GroupedSeriesSectionCard(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.54f)),
     ) {
         Column(
-            modifier = Modifier.padding(10.dp),
+            modifier = Modifier.padding(
+                start = 10.dp,
+                top = 10.dp,
+                end = 10.dp,
+                bottom = if (isExpanded) 10.dp else 4.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
         ) {
             if (isExpanded) {
@@ -1534,16 +1539,21 @@ private fun GroupedSeriesSectionCard(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (collapsedPreviewStackHeight > 0.dp) {
-                    CollapsedHeaderPreviewStack(
-                        section = section,
-                        textEndPadding = headerTextEndPadding,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .offset(y = GROUP_HEADER_COLLAPSED_CARD_TUCK)
-                            .padding(horizontal = 6.dp)
-                            .height(collapsedPreviewStackHeight)
-                            .graphicsLayer { alpha = 0.6f },
-                    )
+                            .height((collapsedPreviewStackHeight + GROUP_HEADER_COLLAPSED_CARD_TUCK).coerceAtLeast(0.dp)),
+                    ) {
+                        CollapsedHeaderPreviewStack(
+                            section = section,
+                            textEndPadding = headerTextEndPadding,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .offset(y = GROUP_HEADER_COLLAPSED_CARD_TUCK)
+                                .padding(horizontal = 6.dp)
+                                .height(collapsedPreviewStackHeight),
+                        )
+                    }
                 }
             }
             if (isExpanded) {
