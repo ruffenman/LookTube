@@ -602,7 +602,7 @@ private fun CollapsedHeaderPreviewCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -1090,9 +1090,9 @@ private val GROUP_HEADER_PEEK_REVEAL_STEP = 22.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 110.dp
-private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 140.dp
+private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 172.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
-private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
+private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-54).dp
 private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 18
 
 internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<GroupHeaderBackdropTileSpec> {
@@ -1495,7 +1495,9 @@ private fun GroupedSeriesSectionCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(),
+            .animateContentSize(
+                animationSpec = tween(durationMillis = 200),
+            ),
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.94f),
         tonalElevation = 0.dp,
@@ -1503,7 +1505,7 @@ private fun GroupedSeriesSectionCard(
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 4.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
         ) {
             if (isExpanded) {
                 Box(
@@ -1537,9 +1539,10 @@ private fun GroupedSeriesSectionCard(
                         textEndPadding = headerTextEndPadding,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .offset(y = GROUP_HEADER_COLLAPSED_CARD_TUCK)
                             .padding(horizontal = 6.dp)
                             .height(collapsedPreviewStackHeight)
-                            .graphicsLayer { alpha = 0.55f },
+                            .graphicsLayer { alpha = 0.6f },
                     )
                 }
             }
