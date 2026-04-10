@@ -31,9 +31,9 @@ class LibraryGroupedHeaderGeometryTest {
     @Test
     fun mosaicTilesStayWithinExpectedBounds() {
         val specs = generateMosaicTiles("show:Portal Pals", 3)
-        assertEquals(14, specs.size)
-        assertTrue(specs.all { it.widthFraction in 0.1f..0.5f })
-        assertTrue(specs.all { it.heightFraction in 0.2f..0.7f })
+        assertEquals(18, specs.size)
+        assertTrue(specs.all { it.widthFraction in 0.2f..0.6f })
+        assertTrue(specs.all { it.heightFraction in 0.25f..0.8f })
         assertTrue(specs.all { it.videoIndex in 0..2 })
     }
 }

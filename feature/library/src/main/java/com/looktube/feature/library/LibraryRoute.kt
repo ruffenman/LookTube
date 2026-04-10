@@ -479,7 +479,7 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 0.6f,
+        tileArtAlpha = 0.4f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -535,19 +535,18 @@ private fun SectionHeaderBackdropTile(
     modifier: Modifier = Modifier,
 ) {
     val thumbnailUrl = video.thumbnailUrl
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 0.dp,
-        shadowElevation = shadowElevation,
-        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.3f)),
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         if (!thumbnailUrl.isNullOrBlank()) {
             ThumbnailImage(
                 thumbnailUrl = thumbnailUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { clip = true },
                 contentScale = ContentScale.Crop,
                 alignment = cropAlignment,
                 alpha = artAlpha,
@@ -797,7 +796,7 @@ private fun SeriesSectionHeaderBackdrop(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.12f)),
+                    .background(Color.Black.copy(alpha = 0.28f)),
             )
         }
     }
@@ -1099,20 +1098,20 @@ private val GROUP_HEADER_PEEK_REVEAL_STEP = 18.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 72.dp
-private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 156.dp
+private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 140.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
-private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 14
+private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 18
 
 internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<GroupHeaderBackdropTileSpec> {
     if (videoCount == 0) return emptyList()
     val random = Random(sectionKey.hashCode())
     return List(GROUP_HEADER_MOSAIC_TILE_COUNT) {
-        val w = 0.18f + random.nextFloat() * 0.22f  // 0.18..0.40
-        val h = 0.26f + random.nextFloat() * 0.36f  // 0.26..0.62
+        val w = 0.22f + random.nextFloat() * 0.34f  // 0.22..0.56
+        val h = 0.30f + random.nextFloat() * 0.44f  // 0.30..0.74
         GroupHeaderBackdropTileSpec(
-            xFraction = -0.04f + random.nextFloat() * 0.92f,  // -0.04..0.88
-            yFraction = -0.06f + random.nextFloat() * 0.82f,  // -0.06..0.76
+            xFraction = -0.08f + random.nextFloat() * 1.0f,   // -0.08..0.92
+            yFraction = -0.10f + random.nextFloat() * 0.92f,  // -0.10..0.82
             widthFraction = w,
             heightFraction = h,
             videoIndex = random.nextInt(videoCount),
@@ -1512,7 +1511,7 @@ private fun GroupedSeriesSectionCard(
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 4.dp),
         ) {
             if (isExpanded) {
                 Box(
@@ -1546,9 +1545,9 @@ private fun GroupedSeriesSectionCard(
                         textEndPadding = headerTextEndPadding,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .offset(y = GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP)
                             .padding(horizontal = 6.dp)
-                            .height(collapsedPreviewStackHeight),
+                            .height(collapsedPreviewStackHeight)
+                            .graphicsLayer { alpha = 0.55f },
                     )
                 }
             }
