@@ -468,8 +468,8 @@ private fun ExpandedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 1f,
-        tileColorAlpha = 0.15f,
+        tileArtAlpha = 0.55f,
+        tileColorAlpha = 1f,
         tileShadowElevation = 2.dp,
     )
 }
@@ -480,8 +480,8 @@ private fun CollapsedSeriesSectionBackdrop(
 ) {
     SeriesSectionBackdropMosaic(
         section = section,
-        tileArtAlpha = 0.56f,
-        tileColorAlpha = 0.12f,
+        tileArtAlpha = 0.32f,
+        tileColorAlpha = 0.72f,
         tileShadowElevation = 0.dp,
     )
 }
@@ -504,7 +504,7 @@ private fun SeriesSectionBackdropMosaic(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF2A3040)),
+            .background(Color(0xFF1E2430)),
     ) {
         val tileSpecs = remember(section.key) { groupHeaderBackdropTileSpecs(section.key) }
         tileSpecs.forEachIndexed { index, tile ->
@@ -546,11 +546,11 @@ private fun SectionHeaderBackdropPanel(
     val thumbnailUrl = video.thumbnailUrl
     Surface(
         modifier = modifier.graphicsLayer { rotationZ = rotationDegrees },
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(8.dp),
         color = Color.Transparent,
         tonalElevation = 0.dp,
         shadowElevation = shadowElevation,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+        border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.4f)),
     ) {
         Box(
             modifier = Modifier
@@ -796,12 +796,10 @@ private fun SeriesSectionHeaderBackdrop(
     section: SeriesSection,
     isExpanded: Boolean,
     shape: Shape,
+    modifier: Modifier = Modifier,
 ) {
-    val baseSurface = MaterialTheme.colorScheme.surface
-    val baseSurfaceVariant = MaterialTheme.colorScheme.surfaceVariant
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = modifier
             .clip(shape),
     ) {
         if (isExpanded) {
@@ -1118,7 +1116,7 @@ private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 72.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 156.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_PREVIEW_OVERLAP = (-8).dp
-private val GROUP_HEADER_BACKDROP_TILE_BLEED = 8.dp
+private val GROUP_HEADER_BACKDROP_TILE_BLEED = 2.dp
 private const val GROUP_HEADER_BACKDROP_POSITION_JITTER = 0.015f
 private const val GROUP_HEADER_BACKDROP_WIDTH_JITTER = 0.02f
 private const val GROUP_HEADER_BACKDROP_HEIGHT_JITTER = 0.02f
@@ -1686,19 +1684,18 @@ private fun SeriesSectionHeader(
             MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isExpanded) 0.68f else 0.92f),
         ),
     ) {
+        // Content Box establishes the measured height; backdrop draws behind via matchParentSize.
         Box(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = headerMinHeight)
         ) {
             SeriesSectionHeaderBackdrop(
                 section = section,
                 isExpanded = isExpanded,
                 shape = shape,
+                modifier = Modifier.matchParentSize(),
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = headerMinHeight)
-            ) {
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -1774,7 +1771,6 @@ private fun SeriesSectionHeader(
                     }
                 }
             }
-        }
     }
 }
 
