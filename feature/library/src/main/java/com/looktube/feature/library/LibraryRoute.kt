@@ -3,8 +3,10 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -1498,7 +1500,10 @@ private fun GroupedSeriesSectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(
-                animationSpec = tween(durationMillis = 200),
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
             ),
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
