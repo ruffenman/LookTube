@@ -608,7 +608,7 @@ private fun CollapsedHeaderPreviewCard(
         Box(
             modifier = Modifier.fillMaxSize(),
         ) {
-            // Thumbnail background — same as full video cards
+            // Thumbnail background — dimmed to match collapsed header treatment
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -622,6 +622,12 @@ private fun CollapsedHeaderPreviewCard(
                         contentScale = ContentScale.Crop,
                     )
                 }
+                // Dimming overlay — matches the collapsed header mosaic dimming
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.36f)),
+                )
             }
             // Bottom metadata overlay — same visual language as full video cards
             if (showText) {
