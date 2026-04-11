@@ -63,6 +63,7 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -1090,9 +1091,9 @@ private val GROUP_HEADER_PEEK_REVEAL_STEP = 22.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 100.dp
-private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 172.dp
+private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 190.dp
 private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
-private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-60).dp
+private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-50).dp
 private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 18
 
 internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<GroupHeaderBackdropTileSpec> {
@@ -1499,7 +1500,7 @@ private fun GroupedSeriesSectionCard(
                 animationSpec = tween(durationMillis = 200),
             ),
         shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.94f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
         tonalElevation = 0.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.54f)),
     ) {
@@ -1529,31 +1530,41 @@ private fun GroupedSeriesSectionCard(
                     )
                 }
             } else {
-                SeriesSectionHeader(
-                    section = section,
-                    watchedVideoCount = watchedVideoCount,
-                    completionSummary = completionSummary,
-                    isExpanded = false,
-                    onToggleExpanded = onToggleExpanded,
-                    textEndPadding = headerTextEndPadding,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (collapsedPreviewStackHeight > 0.dp) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height((collapsedPreviewStackHeight + GROUP_HEADER_COLLAPSED_CARD_TUCK).coerceAtLeast(0.dp)),
-                    ) {
+                // Use a Box so header draws on top of the stacked cards (z-order).
+                // Cards are placed first, then header on top.
+                val peekCount = collapsedHeaderPeekCount(section.videos.size)
+                val visibleCardHeight = (GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT - GROUP_HEADER_COLLAPSED_CARD_TUCK.unaryMinus() + (GROUP_HEADER_PEEK_REVEAL_STEP * peekCount))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT + visibleCardHeight.coerceAtLeast(0.dp)),
+                ) {
+                    // Stacked cards drawn FIRST (behind)
+                    if (peekCount > 0 || section.videos.size > 1) {
                         CollapsedHeaderPreviewStack(
                             section = section,
                             textEndPadding = headerTextEndPadding,
                             modifier = Modifier
+                                .align(Alignment.TopCenter)
                                 .fillMaxWidth()
-                                .offset(y = GROUP_HEADER_COLLAPSED_CARD_TUCK)
+                                .offset(y = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT + GROUP_HEADER_COLLAPSED_CARD_TUCK)
                                 .padding(horizontal = 6.dp)
-                                .height(collapsedPreviewStackHeight),
+                                .height(collapsedHeaderPreviewStackHeight(section.videos.size)),
                         )
                     }
+                    // Header drawn SECOND (on top, covering the cards)
+                    SeriesSectionHeader(
+                        section = section,
+                        watchedVideoCount = watchedVideoCount,
+                        completionSummary = completionSummary,
+                        isExpanded = false,
+                        onToggleExpanded = onToggleExpanded,
+                        textEndPadding = headerTextEndPadding,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .fillMaxWidth()
+                            .zIndex(1f),
+                    )
                 }
             }
             if (isExpanded) {
