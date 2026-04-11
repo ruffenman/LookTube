@@ -1498,13 +1498,7 @@ private fun GroupedSeriesSectionCard(
     val collapsedPreviewStackHeight = collapsedHeaderPreviewStackHeight(section.videos.size)
     Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium,
-                ),
-            ),
+            .fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
         tonalElevation = 0.dp,
