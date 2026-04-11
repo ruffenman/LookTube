@@ -562,28 +562,26 @@ private fun CollapsedHeaderPreviewStack(
     textEndPadding: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val peekOffsets = collapsedHeaderPeekOffsets(section.videos.size)
-    val peekVideos = section.videos.drop(1).take(peekOffsets.size)
-    if (peekVideos.isEmpty()) {
+    val cardCount = section.videos.size.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT + 1)
+    val cardVideos = section.videos.take(cardCount)
+    if (cardVideos.isEmpty()) {
         return
     }
+    val peekOffsets = (0 until cardVideos.size).map { index -> GROUP_HEADER_PEEK_REVEAL_STEP * index }
     Box(
         modifier = modifier
             .fillMaxSize()
             .clipToBounds(),
     ) {
-        peekVideos.indices.reversed().forEach { index ->
-            val video = peekVideos[index]
+        cardVideos.indices.reversed().forEach { index ->
+            val video = cardVideos[index]
             CollapsedHeaderPreviewCard(
                 video = video,
                 textEndPadding = textEndPadding,
                 showText = index == 0,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset(
-                        x = collapsedHeaderPeekHorizontalOffset(index),
-                        y = peekOffsets[index],
-                    )
+                    .offset(y = peekOffsets[index])
                     .fillMaxWidth(collapsedHeaderPeekWidthFraction(index))
                     .height(GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT),
             )
@@ -1116,8 +1114,11 @@ internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<Grou
 
 private fun Random.centeredJitter(magnitude: Float): Float = (nextFloat() - 0.5f) * magnitude * 2f
 
-private fun collapsedHeaderPreviewStackHeight(videoCount: Int): Dp =
-    GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT + collapsedHeaderPeekReveal(videoCount)
+private fun collapsedHeaderPreviewStackHeight(videoCount: Int): Dp {
+    val cardCount = videoCount.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT + 1)
+    return if (cardCount == 0) 0.dp
+    else GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT + (GROUP_HEADER_PEEK_REVEAL_STEP * (cardCount - 1))
+}
 
 private fun collapsedHeaderPeekHorizontalOffset(index: Int): Dp = 0.dp
 
@@ -1532,15 +1533,15 @@ private fun GroupedSeriesSectionCard(
             } else {
                 // Use a Box so header draws on top of the stacked cards (z-order).
                 // Cards are placed first, then header on top.
-                val peekCount = collapsedHeaderPeekCount(section.videos.size)
-                val visibleCardHeight = (GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT - GROUP_HEADER_COLLAPSED_CARD_TUCK.unaryMinus() + (GROUP_HEADER_PEEK_REVEAL_STEP * peekCount))
+                val stackHeight = collapsedHeaderPreviewStackHeight(section.videos.size)
+                val visibleCardHeight = (stackHeight + GROUP_HEADER_COLLAPSED_CARD_TUCK).coerceAtLeast(0.dp)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT + visibleCardHeight.coerceAtLeast(0.dp)),
+                        .heightIn(min = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT + visibleCardHeight),
                 ) {
                     // Stacked cards drawn FIRST (behind)
-                    if (peekCount > 0 || section.videos.size > 1) {
+                    if (section.videos.isNotEmpty()) {
                         CollapsedHeaderPreviewStack(
                             section = section,
                             textEndPadding = headerTextEndPadding,
