@@ -1095,7 +1095,11 @@ private fun PlayerSurface(
                         playbackState = player.playbackState,
                         isRemotePlayback = isRemotePlayback(player.deviceInfo),
                     )
-                    hostPlayerView.syncControllerVisibility(remotePlaybackActive)
+                    // Only sync controller visibility when device info changes (remote↔local transition),
+                    // not on every player event, to avoid resetting the auto-hide timer.
+                    if (events.contains(Player.EVENT_DEVICE_INFO_CHANGED)) {
+                        hostPlayerView.syncControllerVisibility(remotePlaybackActive)
+                    }
                 }
             }
             hostPlayerView.keepScreenOn = shouldKeepScreenOn(
@@ -1172,7 +1176,9 @@ private fun PlayerSurface(
         update = { hostPlayerView ->
             playerView = hostPlayerView
             hostPlayerView.player = player
-            hostPlayerView.syncControllerVisibility(remotePlaybackActive)
+            // Only set the timeout value; don't call showController() or reset the hide timer.
+            hostPlayerView.controllerShowTimeoutMs = controllerShowTimeoutMsForRemotePlayback(remotePlaybackActive)
+            hostPlayerView.setControllerHideOnTouch(controllerHideOnTouchForRemotePlayback(remotePlaybackActive))
             hostPlayerView.keepScreenOn = shouldKeepScreenOn(
                 isPlaying = player.isPlaying,
                 playWhenReady = player.playWhenReady,
@@ -1545,9 +1551,8 @@ private fun PlayerView.showDoubleTapSeekFeedback(
     container.layoutParams = FrameLayout.LayoutParams(
         FrameLayout.LayoutParams.WRAP_CONTENT,
         FrameLayout.LayoutParams.WRAP_CONTENT,
-        Gravity.TOP or if (direction == DoubleTapSeekDirection.Backward) Gravity.START else Gravity.END,
+        Gravity.CENTER_VERTICAL or if (direction == DoubleTapSeekDirection.Backward) Gravity.START else Gravity.END,
     ).apply {
-        topMargin = topMarginPx
         if (direction == DoubleTapSeekDirection.Backward) {
             leftMargin = sideMarginPx
         } else {
