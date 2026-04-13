@@ -7,6 +7,10 @@
 build/
 captures/
 local.properties
+*.jks
+*.keystore
+*.pem
+*.key
 
 **/build/
 **/captures/

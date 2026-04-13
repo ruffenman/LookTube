@@ -1,138 +1,48 @@
 # LookTube
-LookTube is an Android-first Giant Bomb companion app focused on one primary outcome: paste a copied Giant Bomb Premium feed URL, sync it, and watch Premium video content without navigating the website in a browser.
+LookTube is an Android-first Giant Bomb companion app built around a simple flow: paste a copied Giant Bomb Premium feed URL, sync it into a local library, and watch Premium video content without depending on a browser session.
 ## Unofficial status
 LookTube is an independent fan project. It is not affiliated with, endorsed by, or published by Giant Bomb.
-## Privacy model
+## What it does
+- syncs a copied Giant Bomb Premium feed URL into a local library
+- supports grouped library browsing, playback resume, fullscreen playback, and cast-aware playback flows
+- keeps the product feed-first instead of relying on browser-login automation
+- supports local caption-generation paths, with `baseline` as the default lower-spec target and `moonshine` as an opt-in higher-spec target
+## Releases
+Public APK builds, when available, are published in GitHub Releases.
+- prefer the baseline APK unless a release explicitly says otherwise
+- verify the published checksum before installing
+- read the release notes for supported Android versions, flavor differences, and known limitations
+## Privacy
 - copied Premium feed URLs are stored on-device and are intended to remain local to the app
 - the project does not rely on any LookTube-operated backend or account system
-- normal project tooling and probes are intended to avoid emitting raw authenticated feed payloads or full secret-bearing feed URLs
-## GitHub release APKs
-Official APK releases are intended to be published through GitHub Releases rather than an app store.
-- prefer the baseline APK as the default public release artifact unless a higher-spec flavor has clearly documented distribution and licensing requirements
-- verify release checksums before installing
-- read the release notes for supported Android versions, flavor differences, and upgrade notes
-
-## Current status
-The repository is now past the initial foundation spike and includes a usable Android browse/playback slice:
-- native Android app shell in Kotlin + Compose with modular `app`, `core:*`, and `feature:*` boundaries
-- copied Giant Bomb Premium RSS URLs are the only supported sync input and persist encrypted at rest
-- persisted synced-library state and playback resume state across app restarts
-- Giant Bomb site-content heuristics are consolidated in one shared library so title/grouping inference rules have a single update point
-- WorkManager-backed background refresh plus immediate and rolling catch-up fallbacks for device notifications about newly discovered videos
-- app-level Media3 playback service/session with background playback, fullscreen support, no-autoplay launch inspection flows, and persistent remote-playback controls
-- default `baseline` app target keeps `minSdk 28` plus the existing whisper.cpp caption path, while an opt-in `moonshine` target adds a higher-spec local engine lane
-- consolidated Library surface with grouping modes, rich video cards, and a flyout jump rail
-- committed Roborazzi visual baseline coverage for the Library browse surface, key Settings/feed states, and stable Player status states
-- fixture-driven parser/repository tests plus managed smoke coverage
-- maintained docs, ADR, and Ralph loop validation commands
-- the validated product shape remains feed-first rather than website-login automation
-## Licensing and notices
-LookTube is licensed under the MIT license in `LICENSE`.
-
-Third-party and bundled-component attribution notes live in `THIRD_PARTY_NOTICES.txt`. Public release artifacts should preserve any required upstream notices for bundled or flavor-specific components.
-
-## Ralph loop commands
-Use these commands as the default development loop on Windows:
-
-```powershell path=null start=null
-.\gradlew.bat verifyFast
-.\gradlew.bat verifyLocal -PskipManagedDevice=true
-.\gradlew.bat verifyMoonshine
-.\gradlew.bat integrationProbeGiantBomb
-.\gradlew.bat integrationProbeGiantBombPlayback
-```
-
-`integrationProbeGiantBomb` probes the copied feed URL directly and emits structural-only results.
-`integrationProbeGiantBombPlayback` samples extracted playback targets from a real Premium feed and checks whether they respond directly the way the app's current Media3 handoff expects.
-
+- project tooling and probes are intended to avoid emitting raw authenticated feed payloads or full secret-bearing feed URLs
+## Development quickstart
 If `local.properties` is missing, bootstrap it first:
 
 ```powershell path=null start=null
 pwsh -NoLogo -File .\scripts\Bootstrap-LocalAndroid.ps1
 ```
 
-Run the managed-device smoke lane when emulator support is ready:
+Common validation commands:
 
 ```powershell path=null start=null
-.\gradlew.bat verifyLocal
+.\gradlew.bat verifyFast
+.\gradlew.bat verifyLocal -PskipManagedDevice=true
 ```
 
-Use the opt-in high-spec lane when validating the Moonshine-capable target:
-
-```powershell path=null start=null
-.\gradlew.bat verifyMoonshine
-```
-
-## Connected-device deployment
-Use this standard flow when deploying to a physical Android device unless a task explicitly only needs one target.
-
-1. Confirm at least one device is attached:
-
-```powershell path=null start=null
-adb devices
-```
-
-2. If more than one device is attached, pick the serial you want and pass `-s <serial>` to later `adb` commands.
-
-### Standard all-target deploy
-Use this when the connected device satisfies the Moonshine flavor requirements:
-- API level 35 or newer
-- `arm64-v8a` device ABI
-
-```powershell path=null start=null
-.\\\\gradlew.bat :app:installBaselineDebug :app:installMoonshineDebug
-adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
-```
-
-### Single-target deploy
-Use this when only the baseline target is needed:
-
-```powershell path=null start=null
-.\\\\gradlew.bat :app:installBaselineDebug
-adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-```
-
-### Optional targeted-device form
-If multiple devices are attached, use the same install task and launch command, but target one serial explicitly:
-
-```powershell path=null start=null
-$DEVICE_SERIAL = "{{DEVICE_SERIAL}}"
-.\\gradlew.bat :app:installBaselineDebug
-adb -s $DEVICE_SERIAL shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-```
-
-Swap `installBaselineDebug` and `com.looktube.app` for `installMoonshineDebug` and `com.looktube.app.moonshine` when deploying the Moonshine flavor.
-
+For contributor workflow, connected-device deployment, integration probes, screenshots, and release packaging, see `CONTRIBUTING.md`.
 ## Documentation map
-- `WARP.md` - short operational instructions for future dev-agent sessions
+- `CONTRIBUTING.md` - contributor setup, validation, deployment, and release workflow entry point
 - `SECURITY.md` - responsible disclosure and sensitive-data reporting guidance
 - `THIRD_PARTY_NOTICES.txt` - third-party attribution notes for bundled and flavor-specific components
-- `docs/spec/product-spec.md` - living scope, milestones, acceptance criteria, and the required source of truth for current design changes
-- `docs/spec/reproducible-project-spec.md` - implementation-oriented project spec that should be updated whenever design changes affect the transferable behavior contract
-- `docs/spec/agent-spec-package/` - transfer-ready `spec.yaml` + `metadata.toml` package aligned to the target agent-spec repository format
+- `WARP.md` - short operational instructions for future dev-agent sessions
 - `docs/architecture/overview.md` - module boundaries and data flow
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks
-- `docs/releases/github-releases.md` - baseline-first GitHub release process, checksum flow, and release-asset policy
-- `docs/testing/local-ci.md` - Ralph loop workflow and validation strategy
-- `docs/decisions/ADR-0001-foundation.md` - foundation architecture decision record
-- `docs/decisions/ADR-0002-auth-persistence.md` - feed URL persistence and synced-data-clearing decision
-- `docs/learned-notes/2026-03.md` - rolling learnings log for future reference
+- `docs/releases/github-releases.md` - Android signing, GitHub release packaging, and checksum workflow
+- `docs/testing/local-ci.md` - local validation and device-check guidance
+- `docs/spec/product-spec.md` - living scope, milestones, and acceptance criteria for shipped behavior
+- `docs/spec/reproducible-project-spec.md` - implementation-oriented transferable project contract
+## License
+LookTube is licensed under the MIT license in `LICENSE`.
 
-## Repository layout
-- `app` - Android application shell, navigation, and app-level state wiring
-- `core:heuristics` - the single shared home for Giant Bomb site-content heuristics and inference rules
-- `core:model` - domain models
-- `core:data` - repository contracts and the current in-memory spike implementation
-- `core:database` - playback bookmark storage seam
-- `core:network` - RSS parsing and future feed/network integration seam
-- `core:designsystem` - shared Compose theme and basic UI building blocks
-- `core:testing` - shared fixture and coroutine testing helpers
-- `feature:*` - user-facing screens split by concern
-
-## Near-term implementation focus
-1. validate additional copied Premium feed variants and playback targets against the same feed-only path
-2. harden repeat-use reliability for background refresh and new-release notifications on real devices
-3. continue improving browse ergonomics, visual polish, and show-grouping quality from live device feedback
-4. keep expanding screenshot-oriented visual regression coverage around richer active playback states once deterministic non-`PlayerView` states are locked down
-5. tighten any remaining Giant Bomb-specific playback edge cases found during device validation without drifting into unsupported site automation
+Third-party and bundled-component attribution notes live in `THIRD_PARTY_NOTICES.txt`. Public release artifacts should preserve any required upstream notices for bundled or flavor-specific components.

@@ -1,10 +1,27 @@
-# GitHub release process
-Use GitHub Releases as the official distribution surface for signed APKs.
+# GitHub releases
+This document covers how to package and publish signed APKs for GitHub Releases.
+## Android app signing in plain terms
+Android release signing is not the same thing as SSH key generation.
+
+For Android, you create a long-lived signing keystore and use it to sign release APKs. Devices use that signature to verify the app, and future updates must be signed with the same key if you want users to upgrade cleanly.
 
 ## Public release policy
 - prefer the baseline flavor as the default public release artifact
 - do not publish Moonshine flavor APKs as official public releases until its distribution and notice requirements are explicitly confirmed
 - publish signed APKs, SHA-256 checksum files, concise release notes, and supported-device notes together
+## Generate a release keystore
+Create the keystore once and back it up carefully outside the repository. Do not commit it.
+
+Example command:
+
+```powershell
+keytool -genkeypair -v -keystore "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -alias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}" -keyalg RSA -keysize 4096 -validity 3650
+```
+
+Notes:
+- `keytool` will prompt for passwords and certificate metadata interactively
+- keep the keystore file and its passwords somewhere you can recover later
+- losing the signing key means you cannot ship seamless updates to users of existing releases
 
 ## Baseline build artifact
 Build the baseline release artifact with:
@@ -20,9 +37,30 @@ This produces the unsigned baseline APK at:
 ## Signing
 Keep keystores, passwords, and signing material out of the repository.
 
-Sign the baseline APK with your local release-signing process, then rename the signed file to a stable public artifact name such as:
+After building the unsigned baseline APK, align and sign it with Android build-tools, then rename the signed file to a stable public artifact name such as:
 
 `LookTube-Baseline-0.1.0.apk`
+
+Example flow:
+
+```powershell
+$BUILD_TOOLS = "{{ANDROID_BUILD_TOOLS_PATH}}"
+$UNSIGNED_APK = "app/build/outputs/apk/baseline/release/app-baseline-release-unsigned.apk"
+$ALIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-0.1.0-aligned.apk"
+$SIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-0.1.0.apk"
+
+& "$BUILD_TOOLS\zipalign.exe" -p -f 4 $UNSIGNED_APK $ALIGNED_APK
+& "$BUILD_TOOLS\apksigner.bat" sign --ks "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" --ks-key-alias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}" --out $SIGNED_APK $ALIGNED_APK
+& "$BUILD_TOOLS\apksigner.bat" verify --verbose --print-certs $SIGNED_APK
+```
+
+This signs interactively, so passwords do not need to be placed in the command line or stored in git.
+
+The repository also includes a helper script that signs the baseline release APK and writes the adjacent checksum file:
+
+```powershell
+pwsh -NoLogo -File .\scripts\Sign-BaselineRelease.ps1 -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}"
+```
 
 ## SHA-256 checksums
 Generate a checksum file for each signed APK before publishing:

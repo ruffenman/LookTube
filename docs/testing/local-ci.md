@@ -1,9 +1,8 @@
-# Local CI and Ralph loops
-## Philosophy
-Local validation should make thin vertical slices cheap to test and hard to regress. The default flow is spec first, test next, implementation after that.
+# Local validation
+This document covers the local validation and device-check workflow for contributors working on LookTube.
 
-## Fast Ralph loop lane
-Run after every narrow slice:
+## Fast validation lane
+Run after a focused change:
 
 ```powershell path=null start=null
 .\gradlew.bat verifyFast
@@ -23,7 +22,7 @@ Current coverage:
 - managed-device smoke coverage also verifies the Premium sign-in screen copy
 
 ## Full local gate
-Run before a stable checkpoint commit:
+Run before pushing a meaningful checkpoint:
 
 ```powershell path=null start=null
 .\gradlew.bat verifyLocal -PskipManagedDevice=true
@@ -33,12 +32,6 @@ This adds:
 - Android lint for the baseline app target
 - screenshot baseline verification through the baseline Roborazzi lane
 - optional managed-device smoke tests when `-PskipManagedDevice` is not supplied
-
-Stable-checkpoint policy:
-- after the full local gate passes for a stable slice, commit it immediately
-- push that checkpoint immediately
-- deploy the latest build immediately when a deployable app build exists
-- do those stable-checkpoint actions before finishing the response for the user, without pausing to ask for permission first
 
 ## Managed-device smoke lane
 The baseline app target is configured with a `pixel6Api36` managed virtual device. The smoke lane currently passes locally, though AGP still emits an ABI migration warning during setup:
@@ -57,7 +50,7 @@ Use this opt-in lane when validating the Moonshine-capable build target:
 This lane keeps the default contributor flow untouched while separately checking the higher-spec flavor's compile, unit, and lint behavior.
 
 ## Connected-device deployment
-Use this as the standard deployment sequence for any attached Android device unless a task explicitly calls for only one target.
+Use this sequence when validating builds on a physical Android device.
 
 1. Confirm device visibility first:
 
