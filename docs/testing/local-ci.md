@@ -40,11 +40,11 @@ The baseline app target is configured with a `pixel6Api36` managed virtual devic
 .\gradlew.bat verifyLocal
 ```
 
-## High-spec Moonshine lane
-Use this opt-in lane when validating the Moonshine-capable build target:
+## Highspec lane
+Use this opt-in lane when validating the higher-spec build target:
 
 ```powershell path=null start=null
-.\gradlew.bat verifyMoonshine
+.\gradlew.bat verifyHighspec
 ```
 
 This lane keeps the default contributor flow untouched while separately checking the higher-spec flavor's compile, unit, and lint behavior.
@@ -61,21 +61,21 @@ adb devices
 2. If multiple devices are attached, choose one serial and use `adb -s <serial>` for launch or follow-up shell commands.
 
 ### Standard all-target deploy
-Use the default lower-spec target plus the higher-spec Moonshine target together when the connected device meets the Moonshine flavor requirements:
+Use the default lower-spec target plus the higher-spec target together when the connected device meets the highspec flavor requirements:
 - API 35+
 - `arm64-v8a`
 
 ```powershell path=null start=null
-.\\\\gradlew.bat :app:installBaselineDebug :app:installMoonshineDebug
+.\gradlew.bat :app:installBaselineDebug :app:installHighspecDebug
 adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.looktube.app.highspec -c android.intent.category.LAUNCHER 1
 ```
 
 ### Single-target deploy
 If the task only needs the default lower-spec target:
 
 ```powershell path=null start=null
-.\\\\gradlew.bat :app:installBaselineDebug
+.\gradlew.bat :app:installBaselineDebug
 adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
 ```
 
@@ -87,7 +87,7 @@ $DEVICE_SERIAL = "{{DEVICE_SERIAL}}"
 adb -s $DEVICE_SERIAL shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
 ```
 
-Swap the package name to `com.looktube.app.moonshine` when launching the Moonshine flavor.
+Swap the package name to `com.looktube.app.highspec` when launching the highspec flavor.
 
 ## Connected-device notification validation
 Use a connected Android device when notification reliability changes are under review:
@@ -148,3 +148,4 @@ The playback probe samples extracted playback targets from the configured feed a
 - do not commit authenticated responses or cookies
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
 - current app behavior persists only the copied feed URL locally, keeps the product strictly feed-first, and treats library-update notifications as a local snapshot-diff result rather than a separate server-push feature
+

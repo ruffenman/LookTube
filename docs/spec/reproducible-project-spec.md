@@ -21,7 +21,7 @@ The app does not depend on browser automation, cookie harvesting, or unsupported
 
 ## Supported implementation shape
 - platform: Android-first, Kotlin, Jetpack Compose
-- shell: one `app` module that owns app wiring, navigation, background work, and playback service integration, with the default `baseline` target preserved as the lower-spec build and an opt-in `moonshine` target reserved for higher-spec capabilities
+- shell: one `app` module that owns app wiring, navigation, background work, and playback service integration, with the default `baseline` target preserved as the lower-spec build and an opt-in `highspec` target reserved for higher-spec capabilities such as Moonshine
 - shared layers: `core:heuristics`, `core:model`, `core:data`, `core:database`, `core:network`, `core:designsystem`, `core:testing`
 - feature layers: `feature:auth`, `feature:library`, `feature:player`
 - background work: WorkManager periodic refresh plus immediate and rolling one-time catch-up refreshes
@@ -161,7 +161,7 @@ An implementation that materially changes these choices can still be valid, but 
 - Long-running caption generation continues surfacing hard transcription progress after extraction has completed, including speech-processed duration, chunk-level completion, measured throughput, and the latest chunk wall time with native timing breakdown when available, plus an ETA once enough work has finished to estimate it, while Player keeps the default caption UI compact and exposes the full metric set through an expandable stats section.
 - Local playback attaches generated captions as selectable subtitle tracks on the active `MediaItem`.
 - Cast playback preserves generated captions by mapping subtitle configurations into explicit Cast text tracks and serving local sidecars from the sender over a reachable local HTTP URL.
-- The default build target preserves a lower-spec whisper.cpp-based local caption path, while an opt-in higher-spec target may default to a faster local engine such as Moonshine behind stricter SDK or ABI assumptions and still retain Whisper.cpp as a compatibility fallback.
+- The default build target preserves a lower-spec whisper.cpp-based local caption path, while the opt-in `highspec` target may default to a faster local engine such as Moonshine behind stricter SDK or ABI assumptions and still retain Whisper.cpp as a compatibility fallback.
 - Any future cloud or provider-backed caption flow must remain optional and should layer onto the same local-first caption pipeline rather than replacing it.
 
 ### Feed parsing and sync semantics
@@ -199,9 +199,9 @@ An implementation that materially changes these choices can still be valid, but 
 - run `.\gradlew.bat verifyLocal`
 - expect the configured managed-device smoke lane to pass when local emulator support is ready
 
-### High-spec Moonshine gate
-- run `.\\gradlew.bat verifyMoonshine`
-- expect docs checks plus compile, unit, and lint coverage for the opt-in Moonshine-capable app target
+### Highspec gate
+- run `.\gradlew.bat verifyHighspec`
+- expect docs checks plus compile, unit, and lint coverage for the opt-in highspec app target
 
 ### Connected-device checks
 - verify notification permission is granted when testing notification behavior
@@ -226,3 +226,4 @@ An implementation that materially changes these choices can still be valid, but 
 - integration notes: `docs/integration/giantbomb.md`
 - local validation workflow: `docs/testing/local-ci.md`
 - architectural decisions: `docs/decisions/ADR-0001-foundation.md`, `docs/decisions/ADR-0002-auth-persistence.md`, `docs/decisions/ADR-0003-offline-captions.md`
+

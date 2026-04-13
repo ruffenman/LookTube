@@ -6,11 +6,12 @@ LookTube is an independent fan project. It is not affiliated with, endorsed by, 
 - syncs a copied Giant Bomb Premium feed URL into a local library
 - supports grouped library browsing, playback resume, fullscreen playback, and cast-aware playback flows
 - keeps the product feed-first instead of relying on browser-login automation
-- supports local caption-generation paths, with `baseline` as the default lower-spec target and `moonshine` as an opt-in higher-spec target
+- supports local caption-generation paths, with `baseline` as the default lower-spec target and `highspec` as an opt-in higher-spec target that defaults to Moonshine while keeping Whisper.cpp available as a fallback
 ## Releases
 Public APK builds, when available, are published in GitHub Releases.
 - prefer the baseline APK unless a release explicitly says otherwise
 - verify the published checksum before installing
+- installed caption-model downloads are pinned to immutable upstream revisions and verified with SHA-256 before activation
 - read the release notes for supported Android versions, flavor differences, and known limitations
 ## Privacy
 - copied Premium feed URLs are stored on-device and are intended to remain local to the app

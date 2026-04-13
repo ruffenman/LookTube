@@ -6,9 +6,10 @@ LookTube third-party notices
 - Included license text: third_party/whisper.cpp/LICENSE
 
 2. Moonshine Voice
-- Usage in this repository: optional dependency for the Moonshine flavor via ai.moonshine:moonshine-voice
+- Usage in this repository: optional dependency for the highspec flavor via ai.moonshine:moonshine-voice
 - Upstream project: https://github.com/moonshine-ai/moonshine
-- Distribution note: verify and satisfy any upstream attribution, notice, branding, or model-license requirements before distributing public Moonshine-flavor release artifacts
+- License scope used by LookTube: the Moonshine Voice library code and the English-language Moonshine models used by LookTube are released under the MIT license per the upstream project LICENSE and model cards
+- Distribution note: preserve the upstream MIT copyright and permission notice for Moonshine Voice in distributed notices; if LookTube ever adds non-English Moonshine models or other Moonshine assets with different license terms, re-review the upstream Community License, attribution, and branding requirements before shipping them
 
 3. Additional Gradle-resolved dependencies
 - AndroidX, Compose, Media3, Coil, Robolectric, Roborazzi, and other Gradle-resolved dependencies remain under their respective upstream licenses

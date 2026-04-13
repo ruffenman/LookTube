@@ -120,6 +120,7 @@ fun LibraryRoute(
     onMarkVideoUnwatched: (String) -> Unit,
     onMarkVideosWatched: (List<String>) -> Unit,
     onMarkVideosUnwatched: (List<String>) -> Unit,
+    initialCollapsedSectionTitles: Set<String> = emptySet(),
 ) {
     val density = LocalDensity.current
     val listTopContentPaddingPx = with(density) { LIST_TOP_CONTENT_PADDING.roundToPx() }
@@ -130,7 +131,7 @@ fun LibraryRoute(
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
     var lastRailInteraction by remember { mutableStateOf(JumpRailInteraction.Scroll) }
-    var collapsedSectionKeys by remember(groupingMode.name) { mutableStateOf(emptySet<String>()) }
+    var collapsedSectionKeys by remember(groupingMode.name) { mutableStateOf<Set<String>?>(null) }
     val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
@@ -196,14 +197,20 @@ fun LibraryRoute(
                 .sortedWith(sectionComparator(sortOption))
         }
     }
-    LaunchedEffect(sections) {
+    LaunchedEffect(sections, initialCollapsedSectionTitles, collapsedSectionKeys) {
         val validSectionKeys = sections.mapTo(mutableSetOf(), SeriesSection::key)
-        collapsedSectionKeys = collapsedSectionKeys.filterTo(mutableSetOf()) { it in validSectionKeys }
+        collapsedSectionKeys = when (val currentKeys = collapsedSectionKeys) {
+            null -> sections
+                .filter { section -> section.title in initialCollapsedSectionTitles }
+                .mapTo(mutableSetOf(), SeriesSection::key)
+            else -> currentKeys.filterTo(mutableSetOf()) { it in validSectionKeys }
+        }
     }
-    val displayedSections = remember(sections, collapsedSectionKeys) {
+    val effectiveCollapsedSectionKeys = collapsedSectionKeys.orEmpty()
+    val displayedSections = remember(sections, effectiveCollapsedSectionKeys) {
         buildDisplayedSections(
             sections = sections,
-            collapsedSectionKeys = collapsedSectionKeys,
+            collapsedSectionKeys = effectiveCollapsedSectionKeys,
         )
     }
     val expandedSectionCount = remember(displayedSections) {
@@ -412,7 +419,7 @@ fun LibraryRoute(
                             isExpanded = displayedSection.isExpanded,
                             dismissDetailsSignal = listState.isScrollInProgress,
                             onToggleExpanded = {
-                                collapsedSectionKeys = collapsedSectionKeys.toggle(displayedSection.section.key)
+                                collapsedSectionKeys = effectiveCollapsedSectionKeys.toggle(displayedSection.section.key)
                             },
                             onMarkSectionWatched = {
                                 onMarkVideosWatched(displayedSection.section.videos.map(VideoSummary::id))

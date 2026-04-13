@@ -11,18 +11,16 @@ import com.looktube.model.CaptionGenerationPhase
 import com.looktube.model.CaptionGenerationStatus
 import com.looktube.model.LocalCaptionModelState
 import com.looktube.model.MoonshineBaseEnglishCaptionModel
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal class ManagedMoonshineCaptionModelManager(
@@ -30,29 +28,28 @@ internal class ManagedMoonshineCaptionModelManager(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : LocalCaptionModelManager {
     private val modelDirectory = File(context.filesDir, "captions/models/moonshine-base-en").apply { mkdirs() }
-    private val modelFiles = listOf(
-        ModelAsset(
-            fileName = "decoder_model_merged.ort",
-            url = "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/quantized/decoder_model_merged.ort",
-        ),
-        ModelAsset(
-            fileName = "encoder_model.ort",
-            url = "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/quantized/encoder_model.ort",
-        ),
-        ModelAsset(
-            fileName = "tokenizer.bin",
-            url = "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/quantized/tokenizer.bin",
-        ),
-    )
-    private val modelStateFlow = MutableStateFlow(initialState())
+    private val verificationScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val modelStateFlow = MutableStateFlow(LocalCaptionModelState(model = MoonshineBaseEnglishCaptionModel))
 
     override val modelState: StateFlow<LocalCaptionModelState> = modelStateFlow.asStateFlow()
 
+    init {
+        verificationScope.launch {
+            refreshStateFromDisk()
+        }
+    }
+
     override suspend fun downloadDefaultModel() {
-        if (modelStateFlow.value.isDownloading || modelStateFlow.value.isReady) {
+        if (modelStateFlow.value.isDownloading) {
             return
         }
         withContext(ioDispatcher) {
+            verifiedStateForInstalledModel()?.let { state ->
+                modelStateFlow.value = state
+                if (state.isReady) {
+                    return@withContext
+                }
+            }
             val tempDirectory = File(modelDirectory.parentFile, "${modelDirectory.name}.download").apply {
                 deleteRecursively()
                 mkdirs()
@@ -60,18 +57,17 @@ internal class ManagedMoonshineCaptionModelManager(
             var downloadedBytes = 0L
             try {
                 modelDirectory.mkdirs()
-                val totalBytes = modelFiles.sumOf { asset -> asset.contentLength() ?: 0L }
-                    .takeIf { bytes -> bytes > 0L }
+                val totalBytes = verifiedModelAssetsTotalBytes(MoonshineBaseEnglishCaptionModelAssets)
                 modelStateFlow.value = LocalCaptionModelState(
                     model = MoonshineBaseEnglishCaptionModel,
                     isDownloading = true,
                     downloadedBytes = 0L,
                     totalBytes = totalBytes,
                 )
-                modelFiles.forEach { asset ->
+                MoonshineBaseEnglishCaptionModelAssets.forEach { asset ->
                     val tempFile = File(tempDirectory, asset.fileName)
-                    downloadFile(
-                        url = asset.url,
+                    downloadVerifiedModelAsset(
+                        asset = asset,
                         outputFile = tempFile,
                         onChunkDownloaded = { chunkBytes ->
                             downloadedBytes += chunkBytes
@@ -87,13 +83,9 @@ internal class ManagedMoonshineCaptionModelManager(
                 modelDirectory.deleteRecursively()
                 tempDirectory.copyRecursively(modelDirectory, overwrite = true)
                 tempDirectory.deleteRecursively()
-                val finalSize = modelFiles.sumOf { asset -> File(modelDirectory, asset.fileName).length() }
-                modelStateFlow.value = LocalCaptionModelState(
-                    model = MoonshineBaseEnglishCaptionModel,
-                    downloadedBytes = finalSize,
-                    totalBytes = finalSize,
-                    localPath = modelDirectory.absolutePath,
-                )
+                modelStateFlow.value = requireNotNull(verifiedStateForInstalledModel()) {
+                    "Verified Moonshine model state should exist after install."
+                }
             } catch (exception: Exception) {
                 tempDirectory.deleteRecursively()
                 modelStateFlow.value = LocalCaptionModelState(
@@ -105,18 +97,34 @@ internal class ManagedMoonshineCaptionModelManager(
         }
     }
 
-    private fun initialState(): LocalCaptionModelState =
-        if (modelFiles.all { asset -> File(modelDirectory, asset.fileName).exists() }) {
-            val totalBytes = modelFiles.sumOf { asset -> File(modelDirectory, asset.fileName).length() }
-            LocalCaptionModelState(
+    private suspend fun refreshStateFromDisk() = withContext(ioDispatcher) {
+        modelStateFlow.value = verifiedStateForInstalledModel() ?: LocalCaptionModelState(model = MoonshineBaseEnglishCaptionModel)
+    }
+
+    private fun verifiedStateForInstalledModel(): LocalCaptionModelState? {
+        val modelFiles = MoonshineBaseEnglishCaptionModelAssets.map { asset ->
+            asset to File(modelDirectory, asset.fileName)
+        }
+        if (modelFiles.all { (asset, file) -> file.matchesVerifiedModelAsset(asset) }) {
+            val totalBytes = modelFiles.sumOf { (_, file) -> file.length() }
+            return LocalCaptionModelState(
                 model = MoonshineBaseEnglishCaptionModel,
                 downloadedBytes = totalBytes,
                 totalBytes = totalBytes,
                 localPath = modelDirectory.absolutePath,
             )
-        } else {
-            LocalCaptionModelState(model = MoonshineBaseEnglishCaptionModel)
         }
+        val hasAnyInstalledContent = modelFiles.any { (_, file) -> file.exists() } ||
+            modelDirectory.listFiles().orEmpty().isNotEmpty()
+        if (hasAnyInstalledContent) {
+            modelDirectory.deleteRecursively()
+            return LocalCaptionModelState(
+                model = MoonshineBaseEnglishCaptionModel,
+                errorMessage = "Saved Moonshine model files failed integrity verification and were removed. Download them again.",
+            )
+        }
+        return null
+    }
 }
 
 internal class MoonshineLocalCaptionGenerator(
@@ -263,61 +271,4 @@ private object MoonshineTranscriberPool {
     }
 
     private const val MOONSHINE_SAMPLE_RATE = 16_000
-}
-
-private data class ModelAsset(
-    val fileName: String,
-    val url: String,
-)
-
-private fun ModelAsset.contentLength(): Long? = runCatching {
-    (URL(url).openConnection() as HttpURLConnection).run {
-        requestMethod = "HEAD"
-        connectTimeout = 15_000
-        readTimeout = 15_000
-        connect()
-        try {
-            contentLengthLong.takeIf { length -> length > 0L }
-        } finally {
-            disconnect()
-        }
-    }
-}.getOrNull()
-
-private fun downloadFile(
-    url: String,
-    outputFile: File,
-    onChunkDownloaded: (Long) -> Unit,
-): Long {
-    val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-        instanceFollowRedirects = true
-        connectTimeout = 15_000
-        readTimeout = 60_000
-        requestMethod = "GET"
-        connect()
-    }
-    try {
-        val responseCode = connection.responseCode
-        if (responseCode !in 200..299) {
-            throw IOException("Model download returned HTTP $responseCode.")
-        }
-        var downloadedBytes = 0L
-        BufferedInputStream(connection.inputStream).use { input ->
-            BufferedOutputStream(FileOutputStream(outputFile)).use { output ->
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read <= 0) {
-                        break
-                    }
-                    output.write(buffer, 0, read)
-                    downloadedBytes += read
-                    onChunkDownloaded(read.toLong())
-                }
-            }
-        }
-        return downloadedBytes
-    } finally {
-        connection.disconnect()
-    }
 }

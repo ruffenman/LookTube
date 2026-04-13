@@ -12,8 +12,8 @@ android {
         applicationId = "com.looktube.app"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -27,10 +27,10 @@ android {
                 abiFilters += listOf("arm64-v8a", "x86_64")
             }
         }
-        create("moonshine") {
+        create("highspec") {
             dimension = "targetTier"
-            applicationIdSuffix = ".moonshine"
-            versionNameSuffix = "-moonshine"
+            applicationIdSuffix = ".highspec"
+            versionNameSuffix = "-highspec"
             minSdk = 35
             ndk {
                 abiFilters += "arm64-v8a"
@@ -128,7 +128,7 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.cast)
     implementation(libs.media3.session)
-    add("moonshineImplementation", libs.moonshine.voice)
+    add("highspecImplementation", libs.moonshine.voice)
 
     testImplementation(project(":core:testing"))
     testImplementation(libs.androidx.compose.ui.test.junit4)

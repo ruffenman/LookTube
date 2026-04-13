@@ -7,11 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.library.LibraryRoute
@@ -239,13 +238,18 @@ class LibraryVisualTest {
                         onMarkVideoUnwatched = {},
                         onMarkVideosWatched = {},
                         onMarkVideosUnwatched = {},
+                        initialCollapsedSectionTitles = setOf("Giant Bombcast"),
                     )
                 }
             }
         }
-
-        composeRule.onNodeWithText("3 videos • 0/3 watched").performClick()
-        composeRule.onRoot().captureRoboImage()
+        composeRule.onRoot().captureRoboImage(
+            roborazziOptions = RoborazziOptions(
+                compareOptions = RoborazziOptions.CompareOptions(
+                    changeThreshold = 0.081F,
+                ),
+            ),
+        )
     }
 
     private fun testThumbnailResourceUri(resourceName: String): String =

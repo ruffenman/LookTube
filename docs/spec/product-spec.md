@@ -38,7 +38,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - explicit same-video selections, launch or notification preselection opens, caption-data inspection opens from Settings, and stale remote-route recovery keep Player and cast session state aligned without forcing unwanted autoplay or leaving playback stuck on a dead remote route
 - watched videos are worth 12 Look Points, app opens add 1 point once per local day, and the shell badge reflects the combined total without introducing show-completion bonus points
 - newly discovered playable videos can auto-generate offline captions during manual sync or background refresh when the setting is enabled and the local model is ready, and background refresh promotes that work to a foreground-maintenance notification for better reliability while the app is backgrounded or the device is locked
-- the default app build target stays on the lower-spec whisper.cpp caption path, while the opt-in higher-spec Moonshine target defaults to Moonshine and still exposes Whisper.cpp as a compatibility fallback without regressing the baseline build
+- the default app build target stays on the lower-spec whisper.cpp caption path, while the opt-in `highspec` target defaults to Moonshine and still exposes Whisper.cpp as a compatibility fallback without regressing the baseline build
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
 
@@ -57,7 +57,7 @@ Improve real-device local-caption runtime so the newly exposed caption-managemen
 - Settings also exposes caption-data management so users can inspect videos with saved or partial caption data in Player without autoplay and can clear all caption data from one place.
 - Player exposes per-video on-device caption generation and regeneration, shows generation progress or errors, enables the built-in CC control for turning generated captions on locally, and can delete the current video's saved or partial caption data.
 - Long-running on-device caption jobs keep extraction file-backed for memory safety, conservatively skip long silent stretches before transcription, and continue to report hard transcription progress during the transcription phase itself, including speech-processed time, chunk counts, measured throughput, per-chunk wall time, and ETA once enough work has completed to estimate it; Player defaults that data to a compact engine-plus-progress presentation and exposes the full metric set through an expandable stats section.
-- The default build target keeps whisper.cpp as the guaranteed local fallback, and the Moonshine-capable target defaults to Moonshine on compatible devices while still exposing Whisper.cpp as a compatibility fallback.
+- The default build target keeps whisper.cpp as the guaranteed local fallback, and the `highspec` target defaults to Moonshine on compatible devices while still exposing Whisper.cpp as a compatibility fallback.
 - Generated captions are stored as per-video WebVTT sidecars instead of mutating feed-derived metadata.
 - Cast delivery treats captions as first-class text tracks through explicit Cast mapping and sender-hosted sidecar serving, rather than assuming default Media3 subtitle propagation is sufficient.
 - If a higher-quality or cloud-generated caption option is added later, keep any secondary credentials or account material in a clearly separate expandable Settings section and layer that provider on top of the existing local caption pipeline.

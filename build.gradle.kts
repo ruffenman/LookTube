@@ -6,9 +6,9 @@ plugins {
     alias(libs.plugins.roborazzi) apply false
 }
 
-tasks.register("verifyMoonshine") {
+tasks.register("verifyHighspec") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    description = "Runs the Moonshine-capable high-spec compile, unit, and lint lane."
+    description = "Runs the highspec compile, unit, and lint lane."
     dependsOn(
         "checkDocs",
         ":core:heuristics:test",
@@ -16,9 +16,9 @@ tasks.register("verifyMoonshine") {
         ":core:data:test",
         ":core:database:test",
         ":core:network:test",
-        ":app:assembleMoonshineDebug",
-        ":app:testMoonshineDebugUnitTest",
-        ":app:lintMoonshineDebug",
+        ":app:assembleHighspecDebug",
+        ":app:testHighspecDebugUnitTest",
+        ":app:lintHighspecDebug",
     )
 }
 tasks.register("verifyScreenshots") {

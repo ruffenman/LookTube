@@ -15,7 +15,7 @@ val WhisperCppLocalCaptionEngine = LocalCaptionEngine(
 val MoonshineLocalCaptionEngine = LocalCaptionEngine(
     id = "moonshine",
     displayName = "Moonshine",
-    description = "Higher-spec local engine available only in the Moonshine-capable build target.",
+    description = "Higher-spec local engine available only in the highspec build target.",
 )
 
 data class LocalCaptionModel(
@@ -29,7 +29,7 @@ data class LocalCaptionModel(
 val DefaultLocalCaptionModel = LocalCaptionModel(
     id = "ggml-base.en-q5_1",
     displayName = "English offline captions (base.en q5_1)",
-    downloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en-q5_1.bin",
+    downloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.en-q5_1.bin",
     languageTag = "en-US",
     engine = WhisperCppLocalCaptionEngine,
 )
@@ -37,7 +37,7 @@ val DefaultLocalCaptionModel = LocalCaptionModel(
 val MoonshineBaseEnglishCaptionModel = LocalCaptionModel(
     id = "moonshine-base-en-quantized",
     displayName = "English offline captions (Moonshine base quantized)",
-    downloadUrl = "https://huggingface.co/UsefulSensors/moonshine/resolve/main/onnx/merged/base/quantized/decoder_model_merged.ort",
+    downloadUrl = "https://huggingface.co/UsefulSensors/moonshine/resolve/48b4e427b587bcf67797a5be706d6ddc4a298149/onnx/merged/base/quantized/decoder_model_merged.ort",
     languageTag = "en-US",
     engine = MoonshineLocalCaptionEngine,
 )

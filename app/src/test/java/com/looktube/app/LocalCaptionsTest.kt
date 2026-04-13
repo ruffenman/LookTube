@@ -2,6 +2,7 @@ package com.looktube.app
 
 import com.looktube.model.CaptionGenerationPhase
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -226,6 +227,44 @@ class LocalCaptionsTest {
         assertEquals(384, adaptiveWhisperAudioContextSize(1))
         assertEquals(428, adaptiveWhisperAudioContextSize(6))
         assertEquals(1_500, adaptiveWhisperAudioContextSize(30))
+    }
+
+    @Test
+    fun verifiedModelAssetMatchesWhenFileHashAndLengthMatch() {
+        val file = File.createTempFile("verified-model", ".bin")
+        try {
+            file.writeBytes(byteArrayOf(1, 2, 3, 4))
+
+            val asset = VerifiedModelAsset(
+                fileName = file.name,
+                url = "https://example.com/model.bin",
+                sha256 = file.sha256Hex(),
+                expectedBytes = file.length(),
+            )
+
+            assertTrue(file.matchesVerifiedModelAsset(asset))
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun verifiedModelAssetRejectsHashMismatch() {
+        val file = File.createTempFile("verified-model", ".bin")
+        try {
+            file.writeBytes(byteArrayOf(1, 2, 3, 4))
+
+            val asset = VerifiedModelAsset(
+                fileName = file.name,
+                url = "https://example.com/model.bin",
+                sha256 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+                expectedBytes = file.length(),
+            )
+
+            assertFalse(file.matchesVerifiedModelAsset(asset))
+        } finally {
+            file.delete()
+        }
     }
 }
 

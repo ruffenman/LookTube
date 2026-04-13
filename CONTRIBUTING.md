@@ -25,10 +25,10 @@ Use the managed-device lane when emulator support is available:
 .\gradlew.bat verifyLocal
 ```
 
-Use the Moonshine-specific lane only when you need to validate the higher-spec flavor:
+Use the highspec-specific lane only when you need to validate the higher-spec flavor:
 
 ```powershell
-.\gradlew.bat verifyMoonshine
+.\\gradlew.bat verifyHighspec
 ```
 
 More detail lives in `docs/testing/local-ci.md`.
@@ -42,11 +42,11 @@ adb devices
 adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
 ```
 
-If you are validating the Moonshine flavor on a compatible device:
+If you are validating the highspec flavor on a compatible device:
 
 ```powershell
-.\gradlew.bat :app:installMoonshineDebug
-adb shell monkey -p com.looktube.app.moonshine -c android.intent.category.LAUNCHER 1
+.\\gradlew.bat :app:installHighspecDebug
+adb shell monkey -p com.looktube.app.highspec -c android.intent.category.LAUNCHER 1
 ```
 
 For broader device-validation and screenshot guidance, see `docs/testing/local-ci.md`.
@@ -63,5 +63,7 @@ For broader device-validation and screenshot guidance, see `docs/testing/local-c
 
 ## Releases
 The baseline flavor is the default public release target.
+
+The highspec flavor may also be packaged for GitHub Releases when its current Moonshine dependency set and notice requirements remain within the reviewed MIT-licensed English-model scope.
 
 For GitHub release packaging, Android signing, checksum generation, and release asset policy, see `docs/releases/github-releases.md`.

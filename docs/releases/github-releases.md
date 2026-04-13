@@ -7,7 +7,8 @@ For Android, you create a long-lived signing keystore and use it to sign release
 
 ## Public release policy
 - prefer the baseline flavor as the default public release artifact
-- do not publish Moonshine flavor APKs as official public releases until its distribution and notice requirements are explicitly confirmed
+- highspec flavor APKs may be published as optional public release artifacts only while they remain limited to Moonshine Voice code plus the MIT-licensed English Moonshine models already validated for this repository; re-review upstream terms before shipping any broader Moonshine model set
+- both baseline Whisper.cpp model downloads and highspec Moonshine model downloads must stay pinned to immutable upstream revisions and pass SHA-256 verification before they are activated on-device
 - publish signed APKs, SHA-256 checksum files, concise release notes, and supported-device notes together
 ## Generate a release keystore
 Create the keystore once and back it up carefully outside the repository. Do not commit it.
@@ -34,6 +35,17 @@ This produces the unsigned baseline APK at:
 
 `app/build/outputs/apk/baseline/release/app-baseline-release-unsigned.apk`
 
+## Highspec build artifact
+Build the highspec release artifact with:
+
+```powershell
+.\gradlew.bat :app:assembleHighspecRelease
+```
+
+This produces the unsigned highspec APK at:
+
+`app/build/outputs/apk/highspec/release/app-highspec-release-unsigned.apk`
+
 ## Signing
 Keep keystores, passwords, and signing material out of the repository.
 
@@ -56,10 +68,11 @@ $SIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-0.1.0.ap
 
 This signs interactively, so passwords do not need to be placed in the command line or stored in git.
 
-The repository also includes a helper script that signs the baseline release APK and writes the adjacent checksum file:
+The repository also includes a helper script that signs either release flavor and writes the adjacent checksum file:
 
 ```powershell
-pwsh -NoLogo -File .\scripts\Sign-BaselineRelease.ps1 -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}"
+pwsh -NoLogo -File .\\scripts\\Sign-ReleaseApk.ps1 -Flavor baseline -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}"
+pwsh -NoLogo -File .\\scripts\\Sign-ReleaseApk.ps1 -Flavor highspec -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}"
 ```
 
 ## SHA-256 checksums
@@ -74,6 +87,7 @@ $HASH = (Get-FileHash $APK -Algorithm SHA256).Hash.ToLower()
 ## GitHub release contents
 For each public release, upload:
 - the signed baseline APK
+- the signed highspec APK when a release intentionally includes the higher-spec flavor
 - the adjacent `.sha256` file
 - short release notes covering major changes, supported Android floor, and any upgrade caveats
 
@@ -84,12 +98,16 @@ Suggested first release shape:
   - `LookTube-Baseline-0.1.0.apk`
   - `LookTube-Baseline-0.1.0.apk.sha256`
 
+If a release also includes the higher-spec flavor, add:
+- `LookTube-Highspec-0.1.0.apk`
+- `LookTube-Highspec-0.1.0.apk.sha256`
+
 ## Release notes guidance
 Keep release notes concise and user-facing:
 - what changed
 - who should install this build
 - known limitations
-- whether the release is baseline-only
+- whether the release is baseline-only or also includes the optional highspec build
 
 ## Final pre-publish checks
 - verify the APK installs on a real device

@@ -108,75 +108,60 @@ internal class ManagedLocalCaptionModelManager(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : LocalCaptionModelManager {
     private val modelDirectory = File(context.filesDir, "captions/models").apply { mkdirs() }
-    private val modelFile = File(
-        modelDirectory,
-        Uri.parse(DefaultLocalCaptionModel.downloadUrl).lastPathSegment ?: "ggml-base.en-q5_1.bin",
-    )
-    private val modelStateFlow = MutableStateFlow(initialState())
+    private val modelFile = File(modelDirectory, DefaultLocalCaptionModelAsset.fileName)
+    private val verificationScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val modelStateFlow = MutableStateFlow(LocalCaptionModelState(model = DefaultLocalCaptionModel))
 
     override val modelState: StateFlow<LocalCaptionModelState> = modelStateFlow.asStateFlow()
 
+    init {
+        verificationScope.launch {
+            refreshStateFromDisk()
+        }
+    }
+
     override suspend fun downloadDefaultModel() {
-        if (modelStateFlow.value.isDownloading || modelStateFlow.value.isReady) {
+        if (modelStateFlow.value.isDownloading) {
             return
         }
         withContext(ioDispatcher) {
+            verifiedStateForInstalledModel()?.let { state ->
+                modelStateFlow.value = state
+                if (state.isReady) {
+                    return@withContext
+                }
+            }
             val tempFile = File(modelDirectory, "${modelFile.name}.download")
             try {
                 modelDirectory.mkdirs()
-                val connection = (URL(DefaultLocalCaptionModel.downloadUrl).openConnection() as HttpURLConnection).apply {
-                    instanceFollowRedirects = true
-                    connectTimeout = 15_000
-                    readTimeout = 60_000
-                    requestMethod = "GET"
-                    connect()
-                }
-                try {
-                    val responseCode = connection.responseCode
-                    if (responseCode !in 200..299) {
-                        throw IOException("Model download returned HTTP $responseCode.")
-                    }
-                    val totalBytes = connection.contentLengthLong.takeIf { length -> length > 0L }
-                    modelStateFlow.value = LocalCaptionModelState(
-                        model = DefaultLocalCaptionModel,
-                        isDownloading = true,
-                        downloadedBytes = 0L,
-                        totalBytes = totalBytes,
-                    )
-                    BufferedInputStream(connection.inputStream).use { input ->
-                        BufferedOutputStream(FileOutputStream(tempFile)).use { output ->
-                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                            var downloadedBytes = 0L
-                            while (true) {
-                                val read = input.read(buffer)
-                                if (read <= 0) {
-                                    break
-                                }
-                                output.write(buffer, 0, read)
-                                downloadedBytes += read
-                                modelStateFlow.value = LocalCaptionModelState(
-                                    model = DefaultLocalCaptionModel,
-                                    isDownloading = true,
-                                    downloadedBytes = downloadedBytes,
-                                    totalBytes = totalBytes,
-                                )
-                            }
-                        }
-                    }
-                } finally {
-                    connection.disconnect()
-                }
+                val totalBytes = DefaultLocalCaptionModelAsset.expectedBytes
+                modelStateFlow.value = LocalCaptionModelState(
+                    model = DefaultLocalCaptionModel,
+                    isDownloading = true,
+                    downloadedBytes = 0L,
+                    totalBytes = totalBytes,
+                )
+                downloadVerifiedModelAsset(
+                    asset = DefaultLocalCaptionModelAsset,
+                    outputFile = tempFile,
+                    onChunkDownloaded = { chunkBytes ->
+                        val downloadedBytes = (modelStateFlow.value.downloadedBytes + chunkBytes)
+                        modelStateFlow.value = LocalCaptionModelState(
+                            model = DefaultLocalCaptionModel,
+                            isDownloading = true,
+                            downloadedBytes = downloadedBytes,
+                            totalBytes = totalBytes,
+                        )
+                    },
+                )
                 if (modelFile.exists()) {
                     modelFile.delete()
                 }
                 tempFile.copyTo(modelFile, overwrite = true)
                 tempFile.delete()
-                modelStateFlow.value = LocalCaptionModelState(
-                    model = DefaultLocalCaptionModel,
-                    downloadedBytes = modelFile.length(),
-                    totalBytes = modelFile.length(),
-                    localPath = modelFile.absolutePath,
-                )
+                modelStateFlow.value = requireNotNull(verifiedStateForInstalledModel()) {
+                    "Verified Whisper.cpp model state should exist after install."
+                }
             } catch (exception: Exception) {
                 tempFile.delete()
                 modelStateFlow.value = LocalCaptionModelState(
@@ -188,16 +173,26 @@ internal class ManagedLocalCaptionModelManager(
         }
     }
 
-    private fun initialState(): LocalCaptionModelState =
-        if (modelFile.exists()) {
+    private suspend fun refreshStateFromDisk() = withContext(ioDispatcher) {
+        modelStateFlow.value = verifiedStateForInstalledModel() ?: LocalCaptionModelState(model = DefaultLocalCaptionModel)
+    }
+
+    private fun verifiedStateForInstalledModel(): LocalCaptionModelState? =
+        if (modelFile.matchesVerifiedModelAsset(DefaultLocalCaptionModelAsset)) {
             LocalCaptionModelState(
                 model = DefaultLocalCaptionModel,
                 downloadedBytes = modelFile.length(),
                 totalBytes = modelFile.length(),
                 localPath = modelFile.absolutePath,
             )
+        } else if (modelFile.exists()) {
+            modelFile.delete()
+            LocalCaptionModelState(
+                model = DefaultLocalCaptionModel,
+                errorMessage = "Saved Whisper.cpp model failed integrity verification and was removed. Download it again.",
+            )
         } else {
-            LocalCaptionModelState(model = DefaultLocalCaptionModel)
+            null
         }
 }
 
