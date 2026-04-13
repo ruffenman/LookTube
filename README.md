@@ -106,11 +106,14 @@ Swap `installBaselineDebug` and `com.looktube.app` for `installMoonshineDebug` a
 
 ## Documentation map
 - `WARP.md` - short operational instructions for future dev-agent sessions
+- `SECURITY.md` - responsible disclosure and sensitive-data reporting guidance
+- `THIRD_PARTY_NOTICES.txt` - third-party attribution notes for bundled and flavor-specific components
 - `docs/spec/product-spec.md` - living scope, milestones, acceptance criteria, and the required source of truth for current design changes
 - `docs/spec/reproducible-project-spec.md` - implementation-oriented project spec that should be updated whenever design changes affect the transferable behavior contract
 - `docs/spec/agent-spec-package/` - transfer-ready `spec.yaml` + `metadata.toml` package aligned to the target agent-spec repository format
 - `docs/architecture/overview.md` - module boundaries and data flow
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks
+- `docs/releases/github-releases.md` - baseline-first GitHub release process, checksum flow, and release-asset policy
 - `docs/testing/local-ci.md` - Ralph loop workflow and validation strategy
 - `docs/decisions/ADR-0001-foundation.md` - foundation architecture decision record
 - `docs/decisions/ADR-0002-auth-persistence.md` - feed URL persistence and synced-data-clearing decision

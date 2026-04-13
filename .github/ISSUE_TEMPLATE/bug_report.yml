@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible problem in LookTube without posting secret-bearing feed URLs or raw private payloads.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting:
+        - remove copied Premium feed URLs, raw RSS payloads, playback URLs with secret query parameters, and any personal data
+        - include the app flavor, version, Android version, and a clear repro path
+  - type: checkboxes
+    id: redaction
+    attributes:
+      label: Sensitive-data check
+      options:
+        - label: I removed feed URLs, secret-bearing playback URLs, raw payloads, and personal data from this report.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Example: 0.1.0
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: flavor
+    attributes:
+      label: App flavor
+      options:
+        - baseline
+        - moonshine
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version and device
+      placeholder: Android 15 on Pixel 10 Pro XL
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Tap ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Include sanitized screenshots, logs, or other context if useful.
+
