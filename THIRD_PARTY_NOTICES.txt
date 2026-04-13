@@ -1,0 +1,15 @@
+LookTube third-party notices
+
+1. whisper.cpp
+- Location in this repository: third_party/whisper.cpp
+- Upstream license: MIT
+- Included license text: third_party/whisper.cpp/LICENSE
+
+2. Moonshine Voice
+- Usage in this repository: optional dependency for the Moonshine flavor via ai.moonshine:moonshine-voice
+- Upstream project: https://github.com/moonshine-ai/moonshine
+- Distribution note: verify and satisfy any upstream attribution, notice, branding, or model-license requirements before distributing public Moonshine-flavor release artifacts
+
+3. Additional Gradle-resolved dependencies
+- AndroidX, Compose, Media3, Coil, Robolectric, Roborazzi, and other Gradle-resolved dependencies remain under their respective upstream licenses
+- When distributing public release artifacts, preserve any required notices for bundled dependencies and generated native packaging outputs

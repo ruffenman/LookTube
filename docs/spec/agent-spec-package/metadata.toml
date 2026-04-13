@@ -6,7 +6,7 @@ description = "Feed-first mobile client for Giant Bomb Premium videos with direc
 tier = "service"
 
 [spec.author]
-name = "Jorge"
+name = "ruffenman"
 url = "https://github.com/ruffenman/LookTube"
 
 [discovery]

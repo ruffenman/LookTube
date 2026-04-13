@@ -1,5 +1,16 @@
 # LookTube
 LookTube is an Android-first Giant Bomb companion app focused on one primary outcome: paste a copied Giant Bomb Premium feed URL, sync it, and watch Premium video content without navigating the website in a browser.
+## Unofficial status
+LookTube is an independent fan project. It is not affiliated with, endorsed by, or published by Giant Bomb.
+## Privacy model
+- copied Premium feed URLs are stored on-device and are intended to remain local to the app
+- the project does not rely on any LookTube-operated backend or account system
+- normal project tooling and probes are intended to avoid emitting raw authenticated feed payloads or full secret-bearing feed URLs
+## GitHub release APKs
+Official APK releases are intended to be published through GitHub Releases rather than an app store.
+- prefer the baseline APK as the default public release artifact unless a higher-spec flavor has clearly documented distribution and licensing requirements
+- verify release checksums before installing
+- read the release notes for supported Android versions, flavor differences, and upgrade notes
 
 ## Current status
 The repository is now past the initial foundation spike and includes a usable Android browse/playback slice:
@@ -15,6 +26,10 @@ The repository is now past the initial foundation spike and includes a usable An
 - fixture-driven parser/repository tests plus managed smoke coverage
 - maintained docs, ADR, and Ralph loop validation commands
 - the validated product shape remains feed-first rather than website-login automation
+## Licensing and notices
+LookTube is licensed under the MIT license in `LICENSE`.
+
+Third-party and bundled-component attribution notes live in `THIRD_PARTY_NOTICES.txt`. Public release artifacts should preserve any required upstream notices for bundled or flavor-specific components.
 
 ## Ralph loop commands
 Use these commands as the default development loop on Windows:
