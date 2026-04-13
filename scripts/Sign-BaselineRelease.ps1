@@ -1,5 +1,3 @@
-$ErrorActionPreference = 'Stop'
-
 param(
     [string]$BuildToolsPath,
     [Parameter(Mandatory = $true)]
@@ -9,6 +7,8 @@ param(
     [string]$UnsignedApkPath,
     [string]$OutputApkPath
 )
+
+$ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
