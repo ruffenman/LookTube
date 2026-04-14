@@ -35,7 +35,6 @@ jobs:
         with:
           fetch-depth: 0
 
-
       - name: Check out release source
         uses: actions/checkout@v6
         with:
@@ -117,39 +116,109 @@ jobs:
           )
           "LOOKTUBE_RELEASE_KEYSTORE_PATH=$keystorePath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Build unsigned release APKs
-        shell: pwsh
-        working-directory: release-src
-        run: ./gradlew :app:assembleBaselineRelease :app:assembleHighspecRelease
-
-      - name: Sign release APKs
+      - name: Prepare staged release assets directory
         shell: pwsh
         run: |
+          $assetDir = Join-Path $env:RUNNER_TEMP 'looktube-release-assets'
+          New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+          "LOOKTUBE_RELEASE_ASSETS_DIR=$assetDir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build and sign release APKs
+        shell: pwsh
+        run: |
+          pushd release-src
+          ./gradlew :app:assembleBaselineRelease -PlooktubeBaselineReleaseAbi=arm64-v8a
+          popd
           pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
             -Flavor baseline `
             -RepoRoot (Join-Path $PWD 'release-src') `
             -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
             -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
-            -VersionName $env:LOOKTUBE_VERSION
+            -VersionName $env:LOOKTUBE_VERSION `
+            -OutputApkPath (Join-Path $env:LOOKTUBE_RELEASE_ASSETS_DIR "LookTube-Baseline-arm64-v8a-$env:LOOKTUBE_VERSION.apk")
 
+          pushd release-src
+          ./gradlew :app:assembleBaselineRelease -PlooktubeBaselineReleaseAbi=x86_64
+          popd
+          pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
+            -Flavor baseline `
+            -RepoRoot (Join-Path $PWD 'release-src') `
+            -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
+            -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
+            -VersionName $env:LOOKTUBE_VERSION `
+            -OutputApkPath (Join-Path $env:LOOKTUBE_RELEASE_ASSETS_DIR "LookTube-Baseline-x86_64-$env:LOOKTUBE_VERSION.apk")
+
+          pushd release-src
+          ./gradlew :app:assembleHighspecRelease
+          popd
           pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
             -Flavor highspec `
             -RepoRoot (Join-Path $PWD 'release-src') `
             -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
             -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
-            -VersionName $env:LOOKTUBE_VERSION
+            -VersionName $env:LOOKTUBE_VERSION `
+            -OutputApkPath (Join-Path $env:LOOKTUBE_RELEASE_ASSETS_DIR "LookTube-Highspec-arm64-v8a-$env:LOOKTUBE_VERSION.apk")
 
       - name: Prepare release notes
         shell: pwsh
         run: |
+          $currentVersion = [version]$env:LOOKTUBE_VERSION
+          $semverTags = git -C release-src tag --list 'v*.*.*' | ForEach-Object {
+              $tag = $_.Trim()
+              if ([string]::IsNullOrWhiteSpace($tag)) {
+                  return
+              }
+
+              try {
+                  [pscustomobject]@{
+                      Tag = $tag
+                      Version = [version]$tag.TrimStart('v')
+                  }
+              } catch {
+                  return
+              }
+          }
+          $previousTag = $semverTags |
+              Where-Object { $_.Version -lt $currentVersion } |
+              Sort-Object Version -Descending |
+              Select-Object -First 1 -ExpandProperty Tag
+          $repositoryUrl = "https://github.com/$env:GITHUB_REPOSITORY"
+          $compareUrl = if ([string]::IsNullOrWhiteSpace($previousTag)) {
+              $null
+          } else {
+              "$repositoryUrl/compare/$previousTag...$env:LOOKTUBE_TAG_NAME"
+          }
+          $commitLog = if ([string]::IsNullOrWhiteSpace($previousTag)) {
+              git -C release-src log --no-merges --pretty=format:'- %s' -n 8 $env:LOOKTUBE_TAG_NAME
+          } else {
+              git -C release-src log --no-merges --pretty=format:'- %s' "$previousTag..$env:LOOKTUBE_TAG_NAME"
+          }
+          if ([string]::IsNullOrWhiteSpace(($commitLog | Out-String).Trim())) {
+              $commitLog = '- Maintenance release.'
+          }
+          $compareSection = if ([string]::IsNullOrWhiteSpace($compareUrl)) {
+              'Commit range: Initial tagged release for LookTube.'
+          } else {
+              "Commit range: [$previousTag...$env:LOOKTUBE_TAG_NAME]($compareUrl)"
+          }
           $releaseNotesPath = Join-Path $env:RUNNER_TEMP 'looktube-release-notes.txt'
           @"
-          Automated signed release for LookTube $env:LOOKTUBE_VERSION.
+          LookTube $env:LOOKTUBE_VERSION is a signed GitHub release build.
 
-          Install guidance:
-          - baseline is the default choice for broader device compatibility
-          - highspec is the optional higher-spec flavor for newer arm64 devices on Android 15+
-          - verify the attached SHA-256 checksum files before installing
+          ## Install guide
+          - Most users should install `LookTube-Baseline-arm64-v8a-$env:LOOKTUBE_VERSION.apk`.
+          - Use `LookTube-Baseline-x86_64-$env:LOOKTUBE_VERSION.apk` only for x86_64 emulators or uncommon x86_64 Android devices.
+          - `LookTube-Highspec-arm64-v8a-$env:LOOKTUBE_VERSION.apk` is the optional higher-spec build for newer arm64 devices on Android 15+.
+          - Verify the attached SHA-256 checksum file for the APK you choose before installing.
+
+          ## Changes in this release
+          $commitLog
+
+          ## Notes
+          - Baseline is the safest default when you are not sure which build to install.
+          - Highspec remains optional and targets newer devices with the higher-spec local-caption stack.
+
+          $compareSection
           "@ | Set-Content -Path $releaseNotesPath -Encoding utf8
           "LOOKTUBE_RELEASE_NOTES_PATH=$releaseNotesPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -161,10 +230,10 @@ jobs:
           body_path: ${{ env.LOOKTUBE_RELEASE_NOTES_PATH }}
           fail_on_unmatched_files: true
           files: |
-            release-src/app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk
-            release-src/app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk.sha256
-            release-src/app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk
-            release-src/app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk.sha256
+            ${{ env.LOOKTUBE_RELEASE_ASSETS_DIR }}/LookTube-Baseline-*-${{ env.LOOKTUBE_VERSION }}.apk
+            ${{ env.LOOKTUBE_RELEASE_ASSETS_DIR }}/LookTube-Baseline-*-${{ env.LOOKTUBE_VERSION }}.apk.sha256
+            ${{ env.LOOKTUBE_RELEASE_ASSETS_DIR }}/LookTube-Highspec-*-${{ env.LOOKTUBE_VERSION }}.apk
+            ${{ env.LOOKTUBE_RELEASE_ASSETS_DIR }}/LookTube-Highspec-*-${{ env.LOOKTUBE_VERSION }}.apk.sha256
 
       - name: Remove temporary signing keystore
         if: always()

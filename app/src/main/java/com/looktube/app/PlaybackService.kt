@@ -6,12 +6,12 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.cast.CastPlayer
 import androidx.media3.cast.RemoteCastPlayer
-import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -23,6 +23,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var localPlayer: ExoPlayer
     private lateinit var mediaSession: MediaSession
     private var castPlayer: CastPlayer? = null
+    private var isPlaybackRouteRemote = false
     private var localCaptionCastUrlProvider: LocalCaptionCastUrlProvider = NoOpLocalCaptionCastUrlProvider
     private var lastKnownLocalSnapshot: PlaybackSnapshot? = null
     private var lastKnownRemoteSnapshot: PlaybackSnapshot? = null
@@ -62,15 +63,18 @@ class PlaybackService : MediaSessionService() {
         override fun onEvents(player: Player, events: Player.Events) {
             capturePlaybackSnapshot(player)
         }
-    }
 
-    private val castSessionAvailabilityListener = object : SessionAvailabilityListener {
-        override fun onCastSessionAvailable() {
-            transferPlaybackToRemoteSession()
-        }
-
-        override fun onCastSessionUnavailable() {
-            restoreLocalPlaybackFromSnapshot()
+        override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+            val playbackRouteRemote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+            if (playbackRouteRemote == isPlaybackRouteRemote) {
+                return
+            }
+            isPlaybackRouteRemote = playbackRouteRemote
+            if (playbackRouteRemote) {
+                transferPlaybackToRemoteSession()
+            } else {
+                restoreLocalPlaybackFromSnapshot()
+            }
         }
     }
 
@@ -100,7 +104,8 @@ class PlaybackService : MediaSessionService() {
                 .build()
                 .also {
                     castPlayer = it
-                    it.setSessionAvailabilityListener(castSessionAvailabilityListener)
+                    isPlaybackRouteRemote =
+                        it.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
                 }
         }.getOrElse { localPlayer }.apply {
             addListener(playerListener)
@@ -118,7 +123,6 @@ class PlaybackService : MediaSessionService() {
         persistProgress()
         player.removeListener(playerListener)
         mediaSession.release()
-        castPlayer?.setSessionAvailabilityListener(null)
         castPlayer?.release()
         localCaptionCastUrlProvider.stop()
         localPlayer.release()
@@ -154,7 +158,7 @@ class PlaybackService : MediaSessionService() {
 
     private fun capturePlaybackSnapshot(player: Player) {
         val snapshot = player.toPlaybackSnapshotOrNull() ?: return
-        if (castPlayer?.isCastSessionAvailable == true) {
+        if (isPlaybackRouteRemote) {
             lastKnownRemoteSnapshot = snapshot
         } else {
             lastKnownLocalSnapshot = snapshot

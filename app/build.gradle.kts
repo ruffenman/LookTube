@@ -4,6 +4,19 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+val supportedBaselineReleaseAbis = setOf("arm64-v8a", "x86_64")
+val requestedBaselineReleaseAbi = providers.gradleProperty("looktubeBaselineReleaseAbi")
+    .orNull
+    ?.trim()
+    ?.takeIf(String::isNotBlank)
+
+check(
+    requestedBaselineReleaseAbi == null ||
+        requestedBaselineReleaseAbi in supportedBaselineReleaseAbis,
+) {
+    "looktubeBaselineReleaseAbi must be one of ${supportedBaselineReleaseAbis.joinToString()} when provided."
+}
+
 android {
     namespace = "com.looktube.app"
     compileSdk = 36
@@ -12,8 +25,8 @@ android {
         applicationId = "com.looktube.app"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.2"
+        versionCode = 3
+        versionName = "0.1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -24,7 +37,11 @@ android {
             dimension = "targetTier"
             minSdk = 28
             ndk {
-                abiFilters += listOf("arm64-v8a", "x86_64")
+                if (requestedBaselineReleaseAbi == null) {
+                    abiFilters += listOf("arm64-v8a", "x86_64")
+                } else {
+                    abiFilters += requestedBaselineReleaseAbi
+                }
             }
         }
         create("highspec") {
@@ -40,7 +57,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -71,6 +89,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
 
     testOptions {
         unitTests {

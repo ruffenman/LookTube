@@ -39,6 +39,84 @@ function Get-ConfiguredVersionName {
     return $resolvedVersionName
 }
 
+function Get-UnsignedApkPaths {
+    if (-not [string]::IsNullOrWhiteSpace($UnsignedApkPath)) {
+        $resolvedUnsignedApkPath = [IO.Path]::GetFullPath($UnsignedApkPath)
+        if (-not (Test-Path $resolvedUnsignedApkPath)) {
+            throw "Unsigned APK not found: $resolvedUnsignedApkPath"
+        }
+        return @($resolvedUnsignedApkPath)
+    }
+
+    $releaseOutputDirectory = [IO.Path]::Combine(
+        $repoRoot,
+        'app',
+        'build',
+        'outputs',
+        'apk',
+        $Flavor,
+        'release'
+    )
+    if (-not (Test-Path $releaseOutputDirectory)) {
+        throw "Release APK output directory not found: $releaseOutputDirectory"
+    }
+
+    $splitUnsignedApks = Get-ChildItem $releaseOutputDirectory -Filter "app-$Flavor-*-release-unsigned.apk" -File |
+        Sort-Object Name
+    if ($splitUnsignedApks.Count -gt 0) {
+        return @($splitUnsignedApks.FullName)
+    }
+
+    $singleUnsignedApk = [IO.Path]::Combine(
+        $releaseOutputDirectory,
+        "app-$Flavor-release-unsigned.apk"
+    )
+    if (Test-Path $singleUnsignedApk) {
+        return @($singleUnsignedApk)
+    }
+
+    throw "No unsigned release APKs were found for flavor '$Flavor' in $releaseOutputDirectory"
+}
+
+function Get-UnsignedApkAbi {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $fileNameWithoutExtension = [IO.Path]::GetFileNameWithoutExtension($Path)
+    $splitPrefix = "app-$Flavor-"
+    $splitSuffix = '-release-unsigned'
+    if (
+        $fileNameWithoutExtension.StartsWith($splitPrefix, [StringComparison]::OrdinalIgnoreCase) -and
+        $fileNameWithoutExtension.EndsWith($splitSuffix, [StringComparison]::OrdinalIgnoreCase)
+    ) {
+        $candidate = $fileNameWithoutExtension.Substring(
+            $splitPrefix.Length,
+            $fileNameWithoutExtension.Length - $splitPrefix.Length - $splitSuffix.Length
+        )
+        if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+            return $candidate
+        }
+    }
+
+    $zipArchive = [IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        $abis = $zipArchive.Entries | ForEach-Object {
+            if ($_.FullName -match '^lib/([^/]+)/') {
+                $Matches[1]
+            }
+        } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
+        if ($abis.Count -eq 1) {
+            return $abis[0]
+        }
+    } finally {
+        $zipArchive.Dispose()
+    }
+
+    return $null
+}
+
 function Get-LatestBuildToolsPath {
     $localAppDataSdkRoot = $null
     if ($env:LOCALAPPDATA) {
@@ -86,31 +164,9 @@ $flavorDisplayName = if ($Flavor.Length -eq 1) {
     $Flavor.Substring(0, 1).ToUpperInvariant() + $Flavor.Substring(1)
 }
 $flavorDisplayName = (Get-Culture).TextInfo.ToTitleCase($Flavor)
-
-if (-not $UnsignedApkPath) {
-    $UnsignedApkPath = [IO.Path]::Combine(
-        $repoRoot,
-        'app',
-        'build',
-        'outputs',
-        'apk',
-        $Flavor,
-        'release',
-        "app-$Flavor-release-unsigned.apk"
-    )
-}
-
-if (-not $OutputApkPath) {
-    $OutputApkPath = [IO.Path]::Combine(
-        $repoRoot,
-        'app',
-        'build',
-        'outputs',
-        'apk',
-        $Flavor,
-        'release',
-        "LookTube-$flavorDisplayName-$VersionName.apk"
-    )
+$unsignedApkPaths = Get-UnsignedApkPaths
+if (-not [string]::IsNullOrWhiteSpace($OutputApkPath) -and $unsignedApkPaths.Count -gt 1) {
+    throw 'OutputApkPath can only be used when signing a single unsigned APK.'
 }
 
 $zipalignExecutable = if ($IsWindows) { 'zipalign.exe' } else { 'zipalign' }
@@ -122,10 +178,6 @@ if (-not (Test-Path $KeystorePath)) {
     throw "Keystore not found: $KeystorePath"
 }
 
-if (-not (Test-Path $UnsignedApkPath)) {
-    throw "Unsigned APK not found: $UnsignedApkPath"
-}
-
 if (-not (Test-Path $zipalignPath)) {
     throw "zipalign not found: $zipalignPath"
 }
@@ -134,18 +186,10 @@ if (-not (Test-Path $apksignerPath)) {
     throw "apksigner not found: $apksignerPath"
 }
 
-$outputDir = Split-Path -Parent $OutputApkPath
-New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
-
-$alignedApkPath = Join-Path $outputDir (([IO.Path]::GetFileNameWithoutExtension($OutputApkPath)) + '-aligned.apk')
-$checksumPath = "$OutputApkPath.sha256"
-
-& $zipalignPath -p -f 4 $UnsignedApkPath $alignedApkPath
 $apksignerArguments = @(
     'sign',
     '--ks', $KeystorePath,
-    '--ks-key-alias', $KeyAlias,
-    '--out', $OutputApkPath
+    '--ks-key-alias', $KeyAlias
 )
 
 $resolvedKeystorePasswordEnvVar = $null
@@ -171,14 +215,38 @@ if ($keyPasswordConfigured) {
 } elseif ($keystorePasswordConfigured) {
     $apksignerArguments += @('--key-pass', "env:$resolvedKeystorePasswordEnvVar")
 }
+foreach ($resolvedUnsignedApkPath in $unsignedApkPaths) {
+    $resolvedOutputApkPath = $OutputApkPath
+    if ([string]::IsNullOrWhiteSpace($resolvedOutputApkPath)) {
+        $abi = Get-UnsignedApkAbi -Path $resolvedUnsignedApkPath
+        $artifactName = if ([string]::IsNullOrWhiteSpace($abi)) {
+            "LookTube-$flavorDisplayName-$VersionName.apk"
+        } else {
+            "LookTube-$flavorDisplayName-$abi-$VersionName.apk"
+        }
+        $resolvedOutputApkPath = [IO.Path]::Combine(
+            [IO.Path]::GetDirectoryName($resolvedUnsignedApkPath),
+            $artifactName
+        )
+    }
 
-$apksignerArguments += $alignedApkPath
+    $outputDir = Split-Path -Parent $resolvedOutputApkPath
+    New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
-& $apksignerPath @apksignerArguments
-& $apksignerPath verify --verbose --print-certs $OutputApkPath
+    $alignedApkPath = Join-Path $outputDir (([IO.Path]::GetFileNameWithoutExtension($resolvedOutputApkPath)) + '-aligned.apk')
+    $checksumPath = "$resolvedOutputApkPath.sha256"
 
-$hash = (Get-FileHash $OutputApkPath -Algorithm SHA256).Hash.ToLower()
-"$hash *$(Split-Path $OutputApkPath -Leaf)" | Set-Content $checksumPath -Encoding ascii
+    & $zipalignPath -p -f 4 $resolvedUnsignedApkPath $alignedApkPath
 
-Write-Host "Signed APK: $OutputApkPath"
-Write-Host "Checksum: $checksumPath"
+    $perApkApksignerArguments = @($apksignerArguments)
+    $perApkApksignerArguments += @('--out', $resolvedOutputApkPath, $alignedApkPath)
+
+    & $apksignerPath @perApkApksignerArguments
+    & $apksignerPath verify --verbose --print-certs $resolvedOutputApkPath
+
+    $hash = (Get-FileHash $resolvedOutputApkPath -Algorithm SHA256).Hash.ToLower()
+    "$hash *$(Split-Path $resolvedOutputApkPath -Leaf)" | Set-Content $checksumPath -Encoding ascii
+
+    Write-Host "Signed APK: $resolvedOutputApkPath"
+    Write-Host "Checksum: $checksumPath"
+}
