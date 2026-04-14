@@ -29,16 +29,23 @@ jobs:
       LOOKTUBE_RELEASE_KEY_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEY_PASSWORD }}
       LOOKTUBE_RELEASE_KEY_ALIAS: ${{ secrets.LOOKTUBE_RELEASE_KEY_ALIAS }}
     steps:
-      - name: Check out source
+      - name: Check out workflow tooling
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      - name: Check out release source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref }}
+          path: release-src
 
       - name: Verify tag points to a commit on main
         shell: pwsh
         run: |
-          $releaseSha = (git rev-parse HEAD).Trim()
+          $releaseSha = (git -C release-src rev-parse HEAD).Trim()
           $reachableFromMain = git branch -r --contains $releaseSha | Select-String 'origin/main'
           if (-not $reachableFromMain) {
               throw 'Release tags must point to a commit that is reachable from origin/main'
@@ -55,7 +62,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
+        run: chmod +x release-src/gradlew
 
       - name: Verify release secrets are configured
         shell: pwsh
@@ -84,19 +91,19 @@ jobs:
               "${{ github.ref_name }}"
           }
           $tagVersion = $tagName.TrimStart('v')
-          $versionMatch = Select-String -Path 'app/build.gradle.kts' -Pattern 'versionName\s*=\s*"([^"]+)"'
+          $versionMatch = Select-String -Path 'release-src/app/build.gradle.kts' -Pattern 'versionName\s*=\s*"([^"]+)"'
           $appVersion = $versionMatch.Matches | Select-Object -First 1 | ForEach-Object {
               $_.Groups[1].Value
           }
 
           if ([string]::IsNullOrWhiteSpace($appVersion)) {
-              throw 'Unable to resolve versionName from app/build.gradle.kts'
+              throw 'Unable to resolve versionName from release-src/app/build.gradle.kts'
           }
           if ($tagVersion -ne $appVersion) {
               throw "Tag version $tagVersion does not match app versionName $appVersion"
           }
-          "LOOKTUBE_TAG_NAME=$tagName" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+          "LOOKTUBE_TAG_NAME=$tagName" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "LOOKTUBE_VERSION=$tagVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Decode signing keystore
@@ -111,6 +118,7 @@ jobs:
 
       - name: Build unsigned release APKs
         shell: pwsh
+        working-directory: release-src
         run: ./gradlew :app:assembleBaselineRelease :app:assembleHighspecRelease
 
       - name: Sign release APKs
@@ -118,12 +126,14 @@ jobs:
         run: |
           pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
             -Flavor baseline `
+            -RepoRoot (Join-Path $PWD 'release-src') `
             -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
             -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
             -VersionName $env:LOOKTUBE_VERSION
 
           pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
             -Flavor highspec `
+            -RepoRoot (Join-Path $PWD 'release-src') `
             -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
             -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
             -VersionName $env:LOOKTUBE_VERSION
@@ -150,10 +160,10 @@ jobs:
           body_path: ${{ env.LOOKTUBE_RELEASE_NOTES_PATH }}
           fail_on_unmatched_files: true
           files: |
-            app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk
-            app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk.sha256
-            app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk
-            app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk.sha256
+            release-src/app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk
+            release-src/app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk.sha256
+            release-src/app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk
+            release-src/app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk.sha256
 
       - name: Remove temporary signing keystore
         if: always()

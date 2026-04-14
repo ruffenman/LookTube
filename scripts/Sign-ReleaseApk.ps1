@@ -1,6 +1,7 @@
 param(
     [ValidateSet('baseline', 'highspec')]
     [string]$Flavor = 'baseline',
+    [string]$RepoRoot,
     [string]$BuildToolsPath,
     [Parameter(Mandatory = $true)]
     [string]$KeystorePath,
@@ -15,7 +16,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
+if (-not $RepoRoot) {
+    $RepoRoot = Split-Path -Parent $PSScriptRoot
+}
+
+$repoRoot = $RepoRoot
 function Get-ConfiguredVersionName {
     $buildGradlePath = [IO.Path]::Combine($repoRoot, 'app', 'build.gradle.kts')
     if (-not (Test-Path $buildGradlePath)) {
