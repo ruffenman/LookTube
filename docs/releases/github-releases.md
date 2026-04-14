@@ -104,13 +104,14 @@ git push origin v0.1.2
 ```
 
 ## Required GitHub secrets
-Configure these secrets in GitHub before using the automated release workflow:
+Configure these secrets in a GitHub Actions environment named `release` before using the automated release workflow:
 - `LOOKTUBE_RELEASE_KEYSTORE_B64`
 - `LOOKTUBE_RELEASE_KEYSTORE_PASSWORD`
 - `LOOKTUBE_RELEASE_KEY_ALIAS`
 - `LOOKTUBE_RELEASE_KEY_PASSWORD`
 
 Notes:
+- for this public repository, environment secrets are preferable to plain repository secrets because they can be paired with environment protection rules such as required reviewers
 - `LOOKTUBE_RELEASE_KEYSTORE_B64` is the base64-encoded contents of the `.jks` file
 - if you only set one password during `keytool -genkeypair`, use that same password value for both `LOOKTUBE_RELEASE_KEYSTORE_PASSWORD` and `LOOKTUBE_RELEASE_KEY_PASSWORD`
 - the alias itself is not highly sensitive, but keeping it in secrets keeps all signing configuration in one place

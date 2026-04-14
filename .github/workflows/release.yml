@@ -16,6 +16,7 @@ jobs:
   release:
     name: Build, sign, and publish release
     runs-on: ubuntu-latest
+    environment: release
     env:
       LOOKTUBE_RELEASE_KEYSTORE_B64: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_B64 }}
       LOOKTUBE_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_PASSWORD }}
