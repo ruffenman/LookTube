@@ -2,6 +2,8 @@ package com.looktube.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import java.nio.charset.StandardCharsets.UTF_8
+import java.util.Base64
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -72,6 +74,57 @@ class SharedPreferencesFeedConfigurationStoreTest {
     }
 
     @Test
+    fun ignoresBooleanOnlyEncryptedPayloadRestoredFromLegacyState() {
+        val preferences = createPreferences("boolean-only-payload")
+        preferences.edit()
+            .putString("encrypted_payload_v1", encryptForTest("false"))
+            .apply()
+
+        val store = SharedPreferencesFeedConfigurationStore(
+            preferences = preferences,
+            securePayloadCipher = PrefixingSecurePayloadCipher(),
+        )
+
+        assertEquals("", store.persistedConfiguration.value.feedUrl)
+        assertFalse(store.persistedConfiguration.value.autoGenerateCaptionsForNewVideos)
+    }
+
+    @Test
+    fun migratesEncryptedPayloadWithLegacyBooleanPrefixWithoutPromotingItToFeedUrl() {
+        val preferences = createPreferences("legacy-boolean-prefix")
+        preferences.edit()
+            .putString(
+                "encrypted_payload_v1",
+                encryptForTest(
+                    listOf(
+                        "false",
+                        "https://www.giantbomb.com/feeds/premium-videos/?token=migrated-secret",
+                        "true",
+                        "7",
+                        "20177",
+                        "88",
+                        "5",
+                    ).joinToString("|") { field ->
+                        Base64.getEncoder().encodeToString(field.toByteArray(UTF_8))
+                    },
+                ),
+            )
+            .apply()
+
+        val store = SharedPreferencesFeedConfigurationStore(
+            preferences = preferences,
+            securePayloadCipher = PrefixingSecurePayloadCipher(),
+        )
+
+        assertEquals("https://www.giantbomb.com/feeds/premium-videos/?token=migrated-secret", store.persistedConfiguration.value.feedUrl)
+        assertTrue(store.persistedConfiguration.value.autoGenerateCaptionsForNewVideos)
+        assertEquals(7, store.persistedConfiguration.value.dailyOpenPointCount)
+        assertEquals(20_177L, store.persistedConfiguration.value.lastOpenedLocalEpochDay)
+        assertEquals(88L, store.persistedConfiguration.value.launchIntroQuoteDeckSeed)
+        assertEquals(5, store.persistedConfiguration.value.launchIntroQuoteDeckIndex)
+    }
+
+    @Test
     fun persistsAutoCaptionAndDailyOpenFieldsInEncryptedPayload() = runTest {
         val preferences = createPreferences("extended-fields")
         val store = SharedPreferencesFeedConfigurationStore(
@@ -104,6 +157,8 @@ class SharedPreferencesFeedConfigurationStoreTest {
             edit().clear().apply()
         }
     }
+
+    private fun encryptForTest(plaintext: String): String = "enc:${plaintext.reversed()}"
 }
 
 private class PrefixingSecurePayloadCipher : SecurePayloadCipher {

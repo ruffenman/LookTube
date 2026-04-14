@@ -55,7 +55,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             return null
         }
         return PersistedFeedConfiguration(
-            feedUrl = preferences.getString(KEY_FEED_URL, "").orEmpty(),
+            feedUrl = preferences.all[KEY_FEED_URL].toPersistedFeedUrl(),
         )
     }
 
@@ -125,16 +125,9 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                 return null
             }
             val resolvedParts = decodedParts.filterNotNull()
-            val fieldOffset = if (
-                resolvedParts.firstOrNull()?.startsWith("http", ignoreCase = true) == true ||
-                resolvedParts.size == 1
-            ) {
-                0
-            } else {
-                1
-            }
+            val fieldOffset = if (resolvedParts.firstOrNull().isLegacyBooleanSentinel()) 1 else 0
             return PersistedFeedConfiguration(
-                feedUrl = resolvedParts.getOrNull(fieldOffset).orEmpty(),
+                feedUrl = resolvedParts.getOrNull(fieldOffset).toPersistedFeedUrl(),
                 autoGenerateCaptionsForNewVideos = resolvedParts.getOrNull(fieldOffset + 1)?.toBooleanStrictOrNull()
                     ?: false,
                 dailyOpenPointCount = resolvedParts.getOrNull(fieldOffset + 2)?.toIntOrNull()?.coerceAtLeast(0)
@@ -159,3 +152,11 @@ private fun SecurePayloadCipher.encryptOrNull(plaintext: String): String? =
 
 private fun SecurePayloadCipher.decryptOrNull(ciphertext: String): String? =
     runCatching { decrypt(ciphertext) }.getOrNull()
+
+private fun Any?.toPersistedFeedUrl(): String =
+    (this as? String)
+        ?.takeUnless(String::isLegacyBooleanSentinel)
+        .orEmpty()
+
+private fun String?.isLegacyBooleanSentinel(): Boolean =
+    this.equals("true", ignoreCase = true) || this.equals("false", ignoreCase = true)
