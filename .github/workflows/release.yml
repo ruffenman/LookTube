@@ -24,19 +24,20 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       LOOKTUBE_RELEASE_KEYSTORE_B64: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_B64 }}
       LOOKTUBE_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_PASSWORD }}
       LOOKTUBE_RELEASE_KEY_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEY_PASSWORD }}
       LOOKTUBE_RELEASE_KEY_ALIAS: ${{ secrets.LOOKTUBE_RELEASE_KEY_ALIAS }}
     steps:
       - name: Check out workflow tooling
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
 
       - name: Check out release source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref }}
@@ -52,14 +53,14 @@ jobs:
           }
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Make Gradle wrapper executable
         run: chmod +x release-src/gradlew
@@ -153,7 +154,7 @@ jobs:
           "LOOKTUBE_RELEASE_NOTES_PATH=$releaseNotesPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.LOOKTUBE_TAG_NAME }}
           name: LookTube ${{ env.LOOKTUBE_VERSION }}
