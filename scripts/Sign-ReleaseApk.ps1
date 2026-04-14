@@ -76,7 +76,15 @@ if (-not $BuildToolsPath) {
 if (-not $VersionName) {
     $VersionName = Get-ConfiguredVersionName
 }
+if ([string]::IsNullOrWhiteSpace($Flavor)) {
+    throw 'Flavor must be provided.'
+}
 
+$flavorDisplayName = if ($Flavor.Length -eq 1) {
+    $Flavor.ToUpperInvariant()
+} else {
+    $Flavor.Substring(0, 1).ToUpperInvariant() + $Flavor.Substring(1)
+}
 $flavorDisplayName = (Get-Culture).TextInfo.ToTitleCase($Flavor)
 
 if (-not $UnsignedApkPath) {
@@ -140,8 +148,15 @@ $apksignerArguments = @(
     '--out', $OutputApkPath
 )
 
-$resolvedKeystorePasswordEnvVar = $KeystorePasswordEnvVar?.Trim()
-$resolvedKeyPasswordEnvVar = $KeyPasswordEnvVar?.Trim()
+$resolvedKeystorePasswordEnvVar = $null
+if (-not [string]::IsNullOrWhiteSpace($KeystorePasswordEnvVar)) {
+    $resolvedKeystorePasswordEnvVar = $KeystorePasswordEnvVar.Trim()
+}
+
+$resolvedKeyPasswordEnvVar = $null
+if (-not [string]::IsNullOrWhiteSpace($KeyPasswordEnvVar)) {
+    $resolvedKeyPasswordEnvVar = $KeyPasswordEnvVar.Trim()
+}
 $keystorePasswordConfigured = -not [string]::IsNullOrWhiteSpace($resolvedKeystorePasswordEnvVar) -and
     -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($resolvedKeystorePasswordEnvVar))
 $keyPasswordConfigured = -not [string]::IsNullOrWhiteSpace($resolvedKeyPasswordEnvVar) -and
