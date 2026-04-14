@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Existing release tag to build and publish, for example v0.1.2
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -27,11 +33,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref }}
 
       - name: Verify tag points to a commit on main
         shell: pwsh
         run: |
-          $reachableFromMain = git branch -r --contains "${{ github.sha }}" | Select-String 'origin/main'
+          $releaseSha = (git rev-parse HEAD).Trim()
+          $reachableFromMain = git branch -r --contains $releaseSha | Select-String 'origin/main'
           if (-not $reachableFromMain) {
               throw 'Release tags must point to a commit that is reachable from origin/main'
           }
@@ -70,7 +78,12 @@ jobs:
       - name: Verify tag matches app version
         shell: pwsh
         run: |
-          $tagVersion = "${{ github.ref_name }}".TrimStart('v')
+          $tagName = if ("${{ github.event_name }}" -eq 'workflow_dispatch') {
+              "${{ github.event.inputs.tag_name }}"
+          } else {
+              "${{ github.ref_name }}"
+          }
+          $tagVersion = $tagName.TrimStart('v')
           $versionMatch = Select-String -Path 'app/build.gradle.kts' -Pattern 'versionName\s*=\s*"([^"]+)"'
           $appVersion = $versionMatch.Matches | Select-Object -First 1 | ForEach-Object {
               $_.Groups[1].Value
@@ -82,6 +95,7 @@ jobs:
           if ($tagVersion -ne $appVersion) {
               throw "Tag version $tagVersion does not match app versionName $appVersion"
           }
+          "LOOKTUBE_TAG_NAME=$tagName" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
           "LOOKTUBE_VERSION=$tagVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -131,6 +145,7 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.LOOKTUBE_TAG_NAME }}
           name: LookTube ${{ env.LOOKTUBE_VERSION }}
           body_path: ${{ env.LOOKTUBE_RELEASE_NOTES_PATH }}
           fail_on_unmatched_files: true

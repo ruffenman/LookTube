@@ -35,10 +35,14 @@ function Get-ConfiguredVersionName {
 }
 
 function Get-LatestBuildToolsPath {
+    $localAppDataSdkRoot = $null
+    if ($env:LOCALAPPDATA) {
+        $localAppDataSdkRoot = [IO.Path]::Combine($env:LOCALAPPDATA, 'Android', 'Sdk')
+    }
     $sdkRoot = @(
         $env:ANDROID_HOME,
         $env:ANDROID_SDK_ROOT,
-        (if ($env:LOCALAPPDATA) { [IO.Path]::Combine($env:LOCALAPPDATA, 'Android', 'Sdk') } else { $null })
+        $localAppDataSdkRoot
     ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 
     if (-not $sdkRoot) {
