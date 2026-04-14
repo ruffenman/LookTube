@@ -6,20 +6,39 @@ param(
     [string]$KeystorePath,
     [Parameter(Mandatory = $true)]
     [string]$KeyAlias,
-    [string]$VersionName = '0.1.1',
+    [string]$VersionName,
     [string]$UnsignedApkPath,
-    [string]$OutputApkPath
+    [string]$OutputApkPath,
+    [string]$KeystorePasswordEnvVar = 'LOOKTUBE_RELEASE_KEYSTORE_PASSWORD',
+    [string]$KeyPasswordEnvVar = 'LOOKTUBE_RELEASE_KEY_PASSWORD'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+function Get-ConfiguredVersionName {
+    $buildGradlePath = [IO.Path]::Combine($repoRoot, 'app', 'build.gradle.kts')
+    if (-not (Test-Path $buildGradlePath)) {
+        throw "Unable to find app build file at $buildGradlePath"
+    }
+
+    $versionMatch = Select-String -Path $buildGradlePath -Pattern 'versionName\s*=\s*"([^"]+)"'
+    $resolvedVersionName = $versionMatch.Matches | Select-Object -First 1 | ForEach-Object {
+        $_.Groups[1].Value
+    }
+
+    if ([string]::IsNullOrWhiteSpace($resolvedVersionName)) {
+        throw "Unable to resolve versionName from $buildGradlePath"
+    }
+
+    return $resolvedVersionName
+}
 
 function Get-LatestBuildToolsPath {
     $sdkRoot = @(
         $env:ANDROID_HOME,
         $env:ANDROID_SDK_ROOT,
-        (Join-Path $env:LOCALAPPDATA 'Android\\Sdk')
+        (if ($env:LOCALAPPDATA) { [IO.Path]::Combine($env:LOCALAPPDATA, 'Android', 'Sdk') } else { $null })
     ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 
     if (-not $sdkRoot) {
@@ -45,19 +64,42 @@ function Get-LatestBuildToolsPath {
 if (-not $BuildToolsPath) {
     $BuildToolsPath = Get-LatestBuildToolsPath
 }
+if (-not $VersionName) {
+    $VersionName = Get-ConfiguredVersionName
+}
 
 $flavorDisplayName = (Get-Culture).TextInfo.ToTitleCase($Flavor)
 
 if (-not $UnsignedApkPath) {
-    $UnsignedApkPath = Join-Path $repoRoot "app\\build\\outputs\\apk\\$Flavor\\release\\app-$Flavor-release-unsigned.apk"
+    $UnsignedApkPath = [IO.Path]::Combine(
+        $repoRoot,
+        'app',
+        'build',
+        'outputs',
+        'apk',
+        $Flavor,
+        'release',
+        "app-$Flavor-release-unsigned.apk"
+    )
 }
 
 if (-not $OutputApkPath) {
-    $OutputApkPath = Join-Path $repoRoot "app\\build\\outputs\\apk\\$Flavor\\release\\LookTube-$flavorDisplayName-$VersionName.apk"
+    $OutputApkPath = [IO.Path]::Combine(
+        $repoRoot,
+        'app',
+        'build',
+        'outputs',
+        'apk',
+        $Flavor,
+        'release',
+        "LookTube-$flavorDisplayName-$VersionName.apk"
+    )
 }
 
-$zipalignPath = Join-Path $BuildToolsPath 'zipalign.exe'
-$apksignerPath = Join-Path $BuildToolsPath 'apksigner.bat'
+$zipalignExecutable = if ($IsWindows) { 'zipalign.exe' } else { 'zipalign' }
+$apksignerExecutable = if ($IsWindows) { 'apksigner.bat' } else { 'apksigner' }
+$zipalignPath = Join-Path $BuildToolsPath $zipalignExecutable
+$apksignerPath = Join-Path $BuildToolsPath $apksignerExecutable
 
 if (-not (Test-Path $KeystorePath)) {
     throw "Keystore not found: $KeystorePath"
@@ -82,7 +124,33 @@ $alignedApkPath = Join-Path $outputDir (([IO.Path]::GetFileNameWithoutExtension(
 $checksumPath = "$OutputApkPath.sha256"
 
 & $zipalignPath -p -f 4 $UnsignedApkPath $alignedApkPath
-& $apksignerPath sign --ks $KeystorePath --ks-key-alias $KeyAlias --out $OutputApkPath $alignedApkPath
+$apksignerArguments = @(
+    'sign',
+    '--ks', $KeystorePath,
+    '--ks-key-alias', $KeyAlias,
+    '--out', $OutputApkPath
+)
+
+$resolvedKeystorePasswordEnvVar = $KeystorePasswordEnvVar?.Trim()
+$resolvedKeyPasswordEnvVar = $KeyPasswordEnvVar?.Trim()
+$keystorePasswordConfigured = -not [string]::IsNullOrWhiteSpace($resolvedKeystorePasswordEnvVar) -and
+    -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($resolvedKeystorePasswordEnvVar))
+$keyPasswordConfigured = -not [string]::IsNullOrWhiteSpace($resolvedKeyPasswordEnvVar) -and
+    -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($resolvedKeyPasswordEnvVar))
+
+if ($keystorePasswordConfigured) {
+    $apksignerArguments += @('--ks-pass', "env:$resolvedKeystorePasswordEnvVar")
+}
+
+if ($keyPasswordConfigured) {
+    $apksignerArguments += @('--key-pass', "env:$resolvedKeyPasswordEnvVar")
+} elseif ($keystorePasswordConfigured) {
+    $apksignerArguments += @('--key-pass', "env:$resolvedKeystorePasswordEnvVar")
+}
+
+$apksignerArguments += $alignedApkPath
+
+& $apksignerPath @apksignerArguments
 & $apksignerPath verify --verbose --print-certs $OutputApkPath
 
 $hash = (Get-FileHash $OutputApkPath -Algorithm SHA256).Hash.ToLower()

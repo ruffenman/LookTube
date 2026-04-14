@@ -19,6 +19,8 @@ Example command:
 keytool -genkeypair -v -keystore "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -alias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}" -keyalg RSA -keysize 4096 -validity 3650
 ```
 
+When the keystore and key passwords are supplied through environment variables named `LOOKTUBE_RELEASE_KEYSTORE_PASSWORD` and `LOOKTUBE_RELEASE_KEY_PASSWORD`, the helper script signs non-interactively without placing the password values in command-line arguments. If you created the keystore with only one password, use that same password value for both environment variables.
+
 Notes:
 - `keytool` will prompt for passwords and certificate metadata interactively
 - keep the keystore file and its passwords somewhere you can recover later
@@ -51,15 +53,15 @@ Keep keystores, passwords, and signing material out of the repository.
 
 After building the unsigned baseline APK, align and sign it with Android build-tools, then rename the signed file to a stable public artifact name such as:
 
-`LookTube-Baseline-0.1.0.apk`
+`LookTube-Baseline-{{LOOKTUBE_VERSION}}.apk`
 
 Example flow:
 
 ```powershell
 $BUILD_TOOLS = "{{ANDROID_BUILD_TOOLS_PATH}}"
 $UNSIGNED_APK = "app/build/outputs/apk/baseline/release/app-baseline-release-unsigned.apk"
-$ALIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-0.1.0-aligned.apk"
-$SIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-0.1.0.apk"
+$ALIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-{{LOOKTUBE_VERSION}}-aligned.apk"
+$SIGNED_APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-{{LOOKTUBE_VERSION}}.apk"
 
 & "$BUILD_TOOLS\zipalign.exe" -p -f 4 $UNSIGNED_APK $ALIGNED_APK
 & "$BUILD_TOOLS\apksigner.bat" sign --ks "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" --ks-key-alias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}" --out $SIGNED_APK $ALIGNED_APK
@@ -71,18 +73,56 @@ This signs interactively, so passwords do not need to be placed in the command l
 The repository also includes a helper script that signs either release flavor and writes the adjacent checksum file:
 
 ```powershell
-pwsh -NoLogo -File .\\scripts\\Sign-ReleaseApk.ps1 -Flavor baseline -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}"
-pwsh -NoLogo -File .\\scripts\\Sign-ReleaseApk.ps1 -Flavor highspec -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}"
+pwsh -NoLogo -File .\\scripts\\Sign-ReleaseApk.ps1 -Flavor baseline -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}" -VersionName "{{LOOKTUBE_VERSION}}"
+pwsh -NoLogo -File .\\scripts\\Sign-ReleaseApk.ps1 -Flavor highspec -KeystorePath "{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}" -KeyAlias "{{LOOKTUBE_RELEASE_KEY_ALIAS}}" -VersionName "{{LOOKTUBE_VERSION}}"
 ```
 
 ## SHA-256 checksums
 Generate a checksum file for each signed APK before publishing:
 
 ```powershell
-$APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-0.1.0.apk"
+$APK = "app/build/outputs/apk/baseline/release/LookTube-Baseline-{{LOOKTUBE_VERSION}}.apk"
 $HASH = (Get-FileHash $APK -Algorithm SHA256).Hash.ToLower()
 "$HASH *$(Split-Path $APK -Leaf)" | Set-Content "$APK.sha256" -Encoding ascii
 ```
+
+## GitHub Actions automation
+The repository now includes `.github/workflows/release.yml` for tag-driven signed releases.
+
+Behavior:
+- triggers when a tag matching `v*.*.*` is pushed
+- verifies that the tag version matches `app/build.gradle.kts` `versionName`
+- builds baseline and highspec release APKs
+- signs them using GitHub Actions secrets
+- uploads both APKs and their `.sha256` files to the GitHub release for that tag
+
+To publish `0.1.2`, update `versionName` first and then push a matching tag:
+
+```powershell
+git tag v0.1.2
+git push origin v0.1.2
+```
+
+## Required GitHub secrets
+Configure these secrets in GitHub before using the automated release workflow:
+- `LOOKTUBE_RELEASE_KEYSTORE_B64`
+- `LOOKTUBE_RELEASE_KEYSTORE_PASSWORD`
+- `LOOKTUBE_RELEASE_KEY_ALIAS`
+- `LOOKTUBE_RELEASE_KEY_PASSWORD`
+
+Notes:
+- `LOOKTUBE_RELEASE_KEYSTORE_B64` is the base64-encoded contents of the `.jks` file
+- if you only set one password during `keytool -genkeypair`, use that same password value for both `LOOKTUBE_RELEASE_KEYSTORE_PASSWORD` and `LOOKTUBE_RELEASE_KEY_PASSWORD`
+- the alias itself is not highly sensitive, but keeping it in secrets keeps all signing configuration in one place
+
+PowerShell helper to copy the keystore as base64:
+
+```powershell
+$KEYSTORE_B64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("{{LOOKTUBE_RELEASE_KEYSTORE_PATH}}"))
+Set-Clipboard $KEYSTORE_B64
+```
+
+If you are unsure whether your key password differs from the keystore password, start by setting both GitHub secrets to the same value. That is the common case for a single-password keystore setup.
 
 ## GitHub release contents
 For each public release, upload:
@@ -95,12 +135,12 @@ Suggested first release shape:
 - tag: `v0.1.0`
 - title: `LookTube 0.1.0`
 - assets:
-  - `LookTube-Baseline-0.1.0.apk`
-  - `LookTube-Baseline-0.1.0.apk.sha256`
+  - `LookTube-Baseline-{{LOOKTUBE_VERSION}}.apk`
+  - `LookTube-Baseline-{{LOOKTUBE_VERSION}}.apk.sha256`
 
 If a release also includes the higher-spec flavor, add:
-- `LookTube-Highspec-0.1.0.apk`
-- `LookTube-Highspec-0.1.0.apk.sha256`
+- `LookTube-Highspec-{{LOOKTUBE_VERSION}}.apk`
+- `LookTube-Highspec-{{LOOKTUBE_VERSION}}.apk.sha256`
 
 ## Release notes guidance
 Keep release notes concise and user-facing:

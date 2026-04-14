@@ -1,0 +1,148 @@
+name: Release signed APKs
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, sign, and publish release
+    runs-on: ubuntu-latest
+    env:
+      LOOKTUBE_RELEASE_KEYSTORE_B64: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_B64 }}
+      LOOKTUBE_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_PASSWORD }}
+      LOOKTUBE_RELEASE_KEY_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEY_PASSWORD }}
+      LOOKTUBE_RELEASE_KEY_ALIAS: ${{ secrets.LOOKTUBE_RELEASE_KEY_ALIAS }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag points to a commit on main
+        shell: pwsh
+        run: |
+          $reachableFromMain = git branch -r --contains "${{ github.sha }}" | Select-String 'origin/main'
+          if (-not $reachableFromMain) {
+              throw 'Release tags must point to a commit that is reachable from origin/main'
+          }
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Verify release secrets are configured
+        shell: pwsh
+        run: |
+          $missingSecrets = @()
+          if ([string]::IsNullOrWhiteSpace($env:LOOKTUBE_RELEASE_KEYSTORE_B64)) {
+              $missingSecrets += 'LOOKTUBE_RELEASE_KEYSTORE_B64'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:LOOKTUBE_RELEASE_KEYSTORE_PASSWORD)) {
+              $missingSecrets += 'LOOKTUBE_RELEASE_KEYSTORE_PASSWORD'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:LOOKTUBE_RELEASE_KEY_ALIAS)) {
+              $missingSecrets += 'LOOKTUBE_RELEASE_KEY_ALIAS'
+          }
+
+          if ($missingSecrets.Count -gt 0) {
+              throw "Missing required GitHub Actions secrets: $($missingSecrets -join ', ')"
+          }
+
+      - name: Verify tag matches app version
+        shell: pwsh
+        run: |
+          $tagVersion = "${{ github.ref_name }}".TrimStart('v')
+          $versionMatch = Select-String -Path 'app/build.gradle.kts' -Pattern 'versionName\s*=\s*"([^"]+)"'
+          $appVersion = $versionMatch.Matches | Select-Object -First 1 | ForEach-Object {
+              $_.Groups[1].Value
+          }
+
+          if ([string]::IsNullOrWhiteSpace($appVersion)) {
+              throw 'Unable to resolve versionName from app/build.gradle.kts'
+          }
+          if ($tagVersion -ne $appVersion) {
+              throw "Tag version $tagVersion does not match app versionName $appVersion"
+          }
+
+          "LOOKTUBE_VERSION=$tagVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Decode signing keystore
+        shell: pwsh
+        run: |
+          $keystorePath = Join-Path $env:RUNNER_TEMP 'looktube-release.jks'
+          [IO.File]::WriteAllBytes(
+              $keystorePath,
+              [Convert]::FromBase64String($env:LOOKTUBE_RELEASE_KEYSTORE_B64)
+          )
+          "LOOKTUBE_RELEASE_KEYSTORE_PATH=$keystorePath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build unsigned release APKs
+        shell: pwsh
+        run: ./gradlew :app:assembleBaselineRelease :app:assembleHighspecRelease
+
+      - name: Sign release APKs
+        shell: pwsh
+        run: |
+          pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
+            -Flavor baseline `
+            -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
+            -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
+            -VersionName $env:LOOKTUBE_VERSION
+
+          pwsh -NoLogo -File ./scripts/Sign-ReleaseApk.ps1 `
+            -Flavor highspec `
+            -KeystorePath $env:LOOKTUBE_RELEASE_KEYSTORE_PATH `
+            -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS `
+            -VersionName $env:LOOKTUBE_VERSION
+
+      - name: Prepare release notes
+        shell: pwsh
+        run: |
+          $releaseNotesPath = Join-Path $env:RUNNER_TEMP 'looktube-release-notes.txt'
+          @"
+          Automated signed release for LookTube $env:LOOKTUBE_VERSION.
+
+          Install guidance:
+          - baseline is the default choice for broader device compatibility
+          - highspec is the optional higher-spec flavor for newer arm64 devices on Android 15+
+          - verify the attached SHA-256 checksum files before installing
+          "@ | Set-Content -Path $releaseNotesPath -Encoding utf8
+          "LOOKTUBE_RELEASE_NOTES_PATH=$releaseNotesPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: LookTube ${{ env.LOOKTUBE_VERSION }}
+          body_path: ${{ env.LOOKTUBE_RELEASE_NOTES_PATH }}
+          fail_on_unmatched_files: true
+          files: |
+            app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk
+            app/build/outputs/apk/baseline/release/LookTube-Baseline-${{ env.LOOKTUBE_VERSION }}.apk.sha256
+            app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk
+            app/build/outputs/apk/highspec/release/LookTube-Highspec-${{ env.LOOKTUBE_VERSION }}.apk.sha256
+
+      - name: Remove temporary signing keystore
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:LOOKTUBE_RELEASE_KEYSTORE_PATH) -and (Test-Path $env:LOOKTUBE_RELEASE_KEYSTORE_PATH)) {
+              Remove-Item $env:LOOKTUBE_RELEASE_KEYSTORE_PATH -Force
+          }
