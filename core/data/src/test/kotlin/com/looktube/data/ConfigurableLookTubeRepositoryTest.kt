@@ -266,16 +266,17 @@ class ConfigurableLookTubeRepositoryTest {
         repository.noteAppOpened()
 
         assertEquals(1, repository.feedConfiguration.value.dailyOpenPointCount)
+        assertEquals(1_744_761_600_000L, repository.feedConfiguration.value.lastOpenedAtEpochMillis)
     }
 
     @Test
-    fun consumeLaunchIntroQuoteAdvancesDeckAndReshufflesAfterFullPass() = runTest {
+    fun consumeLaunchIntroMessageAdvancesDeckAndReshufflesAfterFullPass() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(
                 PersistedFeedConfiguration(
                     feedUrl = "https://example.com/feed.xml",
-                    launchIntroQuoteDeckSeed = 17L,
-                    launchIntroQuoteDeckIndex = 0,
+                    launchIntroMessageDeckSeed = 17L,
+                    launchIntroMessageDeckIndex = 0,
                 ),
             ),
             syncedLibraryStore = FakeSyncedLibraryStore(),
@@ -286,15 +287,15 @@ class ConfigurableLookTubeRepositoryTest {
         )
 
         repository.bootstrap()
-        repository.consumeLaunchIntroQuote(deckSize = 3)
-        assertEquals(1, repository.feedConfiguration.value.launchIntroQuoteDeckIndex)
-        assertEquals(17L, repository.feedConfiguration.value.launchIntroQuoteDeckSeed)
+        repository.consumeLaunchIntroMessage(deckSize = 3)
+        assertEquals(1, repository.feedConfiguration.value.launchIntroMessageDeckIndex)
+        assertEquals(17L, repository.feedConfiguration.value.launchIntroMessageDeckSeed)
 
-        repository.consumeLaunchIntroQuote(deckSize = 3)
-        repository.consumeLaunchIntroQuote(deckSize = 3)
+        repository.consumeLaunchIntroMessage(deckSize = 3)
+        repository.consumeLaunchIntroMessage(deckSize = 3)
 
-        assertEquals(0, repository.feedConfiguration.value.launchIntroQuoteDeckIndex)
-        assertEquals(1_744_761_600_000L, repository.feedConfiguration.value.launchIntroQuoteDeckSeed)
+        assertEquals(0, repository.feedConfiguration.value.launchIntroMessageDeckIndex)
+        assertEquals(1_744_761_600_000L, repository.feedConfiguration.value.launchIntroMessageDeckSeed)
     }
 
     @Test

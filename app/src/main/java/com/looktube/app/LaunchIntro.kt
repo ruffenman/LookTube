@@ -35,7 +35,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -45,7 +44,7 @@ private const val LOOKTUBE_LAUNCH_INTRO_EXIT_DURATION_MS = 320
 
 @Composable
 internal fun LookTubeLaunchIntroOverlay(
-    quote: LaunchIntroQuote,
+    message: LaunchIntroMessage,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     shouldAutoDismiss: Boolean = true,
@@ -176,25 +175,17 @@ internal fun LookTubeLaunchIntroOverlay(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            text = "“${quote.text}”",
+                            text = message.headline,
                             style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = brandAlpha),
                             textAlign = TextAlign.Center,
                         )
                         Text(
-                            text = "— ${quote.speaker}",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = brandAlpha),
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = quote.sourceTitle,
+                            text = message.body,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = brandAlpha),
                             textAlign = TextAlign.Center,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }

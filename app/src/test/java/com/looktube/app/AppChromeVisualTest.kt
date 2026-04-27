@@ -62,7 +62,7 @@ class AppChromeVisualTest {
         composeRule.setContent {
             LookTubeTheme {
                 LookTubeLaunchIntroOverlay(
-                    quote = LaunchIntroQuotes.first(),
+                    message = GenericLaunchIntroMessages.first(),
                     onDismiss = {},
                     shouldAutoDismiss = false,
                 )

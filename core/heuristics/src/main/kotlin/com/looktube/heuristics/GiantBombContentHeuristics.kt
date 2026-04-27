@@ -16,30 +16,6 @@ val VideoSummary.displaySeriesTitle: String
 val VideoSummary.seriesGroupingKey: String
     get() = displaySeriesTitle.normalizedGroupingKey()
 
-val VideoSummary.castGroupingTitle: String
-    get() {
-        val haystack = listOf(title, description.stripHtml())
-            .joinToString(" ")
-            .lowercase()
-        val firstMatchedName = HEURISTIC_CAST_NAMES
-            .mapNotNull { name ->
-                haystack.indexOf(name.lowercase())
-                    .takeIf { it >= 0 }
-                    ?.let { it to name }
-            }
-            .minByOrNull { it.first }
-            ?.second
-        return firstMatchedName ?: when {
-            displaySeriesTitle.contains("bombcast", ignoreCase = true) -> "Bombcast crew"
-            displaySeriesTitle.contains("game mess", ignoreCase = true) -> "Jeff Grubb"
-            displaySeriesTitle.contains("blight club", ignoreCase = true) -> "Blight Club crew"
-            displaySeriesTitle.contains("dump truck", ignoreCase = true) -> "Dump Truck crew"
-            else -> "Mixed cast"
-        }
-    }
-
-val VideoSummary.castGroupingKey: String
-    get() = castGroupingTitle.normalizedGroupingKey()
 
 val VideoSummary.topicGroupingTitle: String
     get() {
@@ -268,22 +244,6 @@ private val KNOWN_SHOW_SLUGS = mapOf(
     "premium-this-is-the-run" to "This Is the Run",
 )
 
-private val HEURISTIC_CAST_NAMES = listOf(
-    "Jeff Grubb",
-    "Jan Ochoa",
-    "Dan Ryckert",
-    "Jeff Bakalar",
-    "Mike Minotti",
-    "Lucy James",
-    "Tamoor Hussain",
-    "Niki Grayson",
-    "Jess O'Brien",
-    "Shawn McDowell",
-    "Jason Oestreicher",
-    "Brad Shoemaker",
-    "Vinny Caravella",
-    "Alex Navarro",
-)
 
 private val TOPIC_PHRASE_REGEX = Regex("""\b[A-Z0-9][A-Za-z0-9+.'-]*(?:\s+[A-Z0-9][A-Za-z0-9+.'-]*){0,2}\b""")
 

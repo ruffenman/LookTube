@@ -85,8 +85,6 @@ import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
-import com.looktube.heuristics.castGroupingKey
-import com.looktube.heuristics.castGroupingTitle
 import com.looktube.heuristics.displaySeriesTitle
 import com.looktube.heuristics.seriesGroupingKey
 import com.looktube.heuristics.topicGroupingKey
@@ -1182,7 +1180,7 @@ private fun LibraryOverviewPanel(
         ) {
             LookTubePageHeader(
                 title = "Library",
-                subtitle = "Browse your synced Premium videos by show, cast, or topic and jump between sections quickly.",
+                subtitle = "Browse your synced Premium videos by show or topic and jump between sections quickly.",
             )
             LibraryConfigPanel(
                 libraryStatusBody = libraryStatusBody,
@@ -1324,7 +1322,6 @@ private enum class HeuristicGroupingMode(
 ) {
     None("None", "Videos"),
     Show("Show", "Show"),
-    Cast("Cast", "Cast"),
     Topic("Topic", "Topic"),
 }
 
@@ -2247,7 +2244,6 @@ private fun List<VideoSummary>.resolveGroupTitle(mode: HeuristicGroupingMode): S
     when (mode) {
         HeuristicGroupingMode.None -> map(VideoSummary::title)
         HeuristicGroupingMode.Show -> map(VideoSummary::displaySeriesTitle)
-        HeuristicGroupingMode.Cast -> map(VideoSummary::castGroupingTitle)
         HeuristicGroupingMode.Topic -> map(VideoSummary::topicGroupingTitle)
     }
         .groupingBy { it }
@@ -2260,7 +2256,6 @@ private fun VideoSummary.groupingKey(mode: HeuristicGroupingMode): String =
     when (mode) {
         HeuristicGroupingMode.None -> id
         HeuristicGroupingMode.Show -> seriesGroupingKey
-        HeuristicGroupingMode.Cast -> castGroupingKey
         HeuristicGroupingMode.Topic -> topicGroupingKey
     }
 

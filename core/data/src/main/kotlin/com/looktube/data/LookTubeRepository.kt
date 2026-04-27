@@ -31,7 +31,7 @@ interface LookTubeRepository {
 
     suspend fun bootstrap()
     suspend fun noteAppOpened()
-    suspend fun consumeLaunchIntroQuote(deckSize: Int)
+    suspend fun consumeLaunchIntroMessage(deckSize: Int)
 
     suspend fun updateFeedUrl(feedUrl: String)
     suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean)

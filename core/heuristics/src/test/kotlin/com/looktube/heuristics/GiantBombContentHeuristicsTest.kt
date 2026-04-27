@@ -25,18 +25,17 @@ class GiantBombContentHeuristicsTest {
     }
 
     @Test
-    fun infersCastAndTopicHeuristicsFromVideoMetadata() {
+    fun infersTopicHeuristicsFromVideoMetadata() {
         val video = VideoSummary(
             id = "1",
             title = "Giant Bombcast 901: Ranking the Best Sandwiches in Games",
-            description = "Jeff Grubb and Jan Ochoa debate the spiciest gaming sandwiches.",
+            description = "A discussion about the spiciest gaming sandwiches.",
             isPremium = true,
             feedCategory = "Premium",
             playbackUrl = null,
         )
 
         assertEquals("Giant Bombcast", video.displaySeriesTitle)
-        assertEquals("Jeff Grubb", video.castGroupingTitle)
         assertEquals("Best Sandwiches", video.topicGroupingTitle)
     }
 

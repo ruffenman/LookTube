@@ -72,7 +72,7 @@ types:
     latest_video_id: string (required)
     action: string (required, opens player page with selected video preselected for review without forcing autoplay)
   LibraryBrowseState:
-    grouping_mode: string (required, none | show | cast | topic)
+    grouping_mode: string (required, none | show | topic)
     sort_mode: string (required, latest | show | oldest)
     selected_show_filter: string (required, may be "All shows")
     show_filters_expanded: boolean (required)
@@ -237,7 +237,7 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that rotates through sourced Giant Bomb cast quotes, keeps the quote visible slightly longer before fading, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that shows a new-video digest when available or a generic product message otherwise, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
         - navigate between Settings, Library, and Player
@@ -261,7 +261,7 @@ contract:
     - name: library
       description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards that keep one stable outer container in both states, full-header expansion tap targets, a consistent top-left expand/collapse affordance, subdued collapsed header mosaic art with stacked card peeks beneath the lead header card, a more vibrant expanded full-card content-derived mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
-        - group by none, show, cast, or topic
+        - group by none, show, or topic
         - sort by latest, show, or oldest
         - expand or collapse show filters
         - expand or collapse grouped sections, or all groups at once
@@ -724,11 +724,11 @@ scenarios:
       - visible sort mode == "Latest"
       - visible show-filters control indicates collapsed by default
   - id: library_supports_multiple_grouping_modes
-    description: Library can regroup the same synced videos by show, cast, topic, or not grouped.
+    description: Library can regroup the same synced videos by show, topic, or not grouped.
     when:
       surface: library
       action:
-        set grouping_mode to one of [none, show, cast, topic]
+        set grouping_mode to one of [none, show, topic]
     then:
       - visible library organization changes to reflect the chosen grouping mode
   - id: grouped_library_headers_toggle_section_visibility
@@ -755,7 +755,7 @@ scenarios:
       surface: library
       state:
         browse_state:
-          grouping_mode: "cast"
+          grouping_mode: "show"
           sort_mode: "latest"
           selected_show_filter: "All shows"
           show_filters_expanded: false

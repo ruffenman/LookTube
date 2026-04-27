@@ -10,7 +10,7 @@ LookTube is built as a native Android app in Kotlin with Jetpack Compose. The re
   - managed-device instrumentation smoke tests
 - `core:heuristics`
   - single shared home for Giant Bomb site-content heuristics
-  - show, cast, topic, grouping-key, and feed-metadata inference rules
+  - show, topic, grouping-key, and feed-metadata inference rules
 - `core:model`
   - auth, video, and playback domain models
 - `core:data`

@@ -19,7 +19,7 @@ import com.looktube.model.VideoCaptionData
 import com.looktube.model.VideoCaptionTrack
 import com.looktube.model.VideoEngagementRecord
 import com.looktube.model.VideoSummary
-import com.looktube.model.advanceLaunchIntroQuoteDeck
+import com.looktube.model.advanceLaunchIntroMessageDeck
 import com.looktube.model.toRuntime
 import com.looktube.network.FeedSyncException
 import com.looktube.network.VideoFeedRequest
@@ -147,27 +147,30 @@ class ConfigurableLookTubeRepository(
 
     override suspend fun noteAppOpened() {
         val persistedConfiguration = feedConfigurationStore.persistedConfiguration.value
-        val currentEpochDay = Instant.ofEpochMilli(currentTimeMillisProvider())
+        val currentTimeMillis = currentTimeMillisProvider()
+        val currentEpochDay = Instant.ofEpochMilli(currentTimeMillis)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
             .toEpochDay()
-        if (persistedConfiguration.lastOpenedLocalEpochDay == currentEpochDay) {
-            return
-        }
         val updatedConfiguration = persistedConfiguration.copy(
-            dailyOpenPointCount = persistedConfiguration.dailyOpenPointCount + 1,
+            dailyOpenPointCount = if (persistedConfiguration.lastOpenedLocalEpochDay == currentEpochDay) {
+                persistedConfiguration.dailyOpenPointCount
+            } else {
+                persistedConfiguration.dailyOpenPointCount + 1
+            },
             lastOpenedLocalEpochDay = currentEpochDay,
+            lastOpenedAtEpochMillis = currentTimeMillis,
         )
         feedConfigurationStore.save(updatedConfiguration)
         feedConfigurationState.value = updatedConfiguration.toRuntime()
     }
 
-    override suspend fun consumeLaunchIntroQuote(deckSize: Int) {
+    override suspend fun consumeLaunchIntroMessage(deckSize: Int) {
         if (deckSize <= 0) {
             return
         }
         val updatedConfiguration = feedConfigurationStore.persistedConfiguration.value
-            .advanceLaunchIntroQuoteDeck(
+            .advanceLaunchIntroMessageDeck(
                 deckSize = deckSize,
                 nextDeckSeed = currentTimeMillisProvider(),
             )

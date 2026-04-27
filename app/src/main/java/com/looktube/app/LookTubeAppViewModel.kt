@@ -49,6 +49,11 @@ class LookTubeAppViewModel(
     val videoSelectionMode: StateFlow<VideoSelectionMode> = videoSelectionModeState.asStateFlow()
     private val playbackSelectionRequestState = MutableStateFlow(0L)
     val playbackSelectionRequest: StateFlow<Long> = playbackSelectionRequestState.asStateFlow()
+    private val previousAppOpenedAtEpochMillisState = MutableStateFlow(
+        repository.feedConfiguration.value.lastOpenedAtEpochMillis,
+    )
+    val previousAppOpenedAtEpochMillis: StateFlow<Long?> =
+        previousAppOpenedAtEpochMillisState.asStateFlow()
 
     val selectedVideo: StateFlow<VideoSummary?> = combine(
         repository.videos,
@@ -197,14 +202,14 @@ class LookTubeAppViewModel(
     }
 
     fun noteAppOpened() {
+        previousAppOpenedAtEpochMillisState.value = repository.feedConfiguration.value.lastOpenedAtEpochMillis
         viewModelScope.launch {
             repository.noteAppOpened()
         }
     }
-
-    fun consumeLaunchIntroQuote(deckSize: Int) {
+    fun consumeLaunchIntroMessage(deckSize: Int) {
         viewModelScope.launch {
-            repository.consumeLaunchIntroQuote(deckSize)
+            repository.consumeLaunchIntroMessage(deckSize)
         }
     }
 

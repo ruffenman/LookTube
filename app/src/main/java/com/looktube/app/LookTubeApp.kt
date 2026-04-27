@@ -111,6 +111,7 @@ fun LookTubeApp(
     val videoSelectionMode by viewModel.videoSelectionMode.collectAsStateWithLifecycle()
     val playbackSelectionRequest by viewModel.playbackSelectionRequest.collectAsStateWithLifecycle()
     val requestedPage by viewModel.requestedPage.collectAsStateWithLifecycle()
+    val previousAppOpenedAtEpochMillis by viewModel.previousAppOpenedAtEpochMillis.collectAsStateWithLifecycle()
     val recentPlaybackVideos by viewModel.recentPlaybackVideos.collectAsStateWithLifecycle()
     val lookPointsSummary by viewModel.lookPointsSummary.collectAsStateWithLifecycle()
     val seriesCompletionSummaries by viewModel.seriesCompletionSummaries.collectAsStateWithLifecycle()
@@ -126,11 +127,17 @@ fun LookTubeApp(
     var showLaunchIntro by rememberSaveable { mutableStateOf(showLaunchIntroOnStart) }
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
-    val launchIntroQuote = remember(
-        feedConfiguration.launchIntroQuoteDeckSeed,
-        feedConfiguration.launchIntroQuoteDeckIndex,
+    val launchIntroMessage = remember(
+        feedConfiguration.launchIntroMessageDeckSeed,
+        feedConfiguration.launchIntroMessageDeckIndex,
+        previousAppOpenedAtEpochMillis,
+        videos,
     ) {
-        currentLaunchIntroQuote(feedConfiguration)
+        currentLaunchIntroMessage(
+            feedConfiguration = feedConfiguration,
+            videos = videos,
+            previousAppOpenedAtEpochMillis = previousAppOpenedAtEpochMillis,
+        )
     }
     val selectedCaptionData = selectedPlaybackTarget?.video?.id?.let(captionData::get)
     val captionDataManagementItems = remember(
@@ -432,11 +439,11 @@ fun LookTubeApp(
             }
             if (showLaunchIntro) {
                 LookTubeLaunchIntroOverlay(
-                    quote = launchIntroQuote,
+                    message = launchIntroMessage,
                     onDismiss = {
                         if (showLaunchIntro) {
                             showLaunchIntro = false
-                            viewModel.consumeLaunchIntroQuote(LaunchIntroQuoteDeckSize)
+                            viewModel.consumeLaunchIntroMessage(LaunchIntroMessageDeckSize)
                         }
                     },
                     modifier = Modifier.fillMaxSize(),

@@ -120,8 +120,9 @@ class SharedPreferencesFeedConfigurationStoreTest {
         assertTrue(store.persistedConfiguration.value.autoGenerateCaptionsForNewVideos)
         assertEquals(7, store.persistedConfiguration.value.dailyOpenPointCount)
         assertEquals(20_177L, store.persistedConfiguration.value.lastOpenedLocalEpochDay)
-        assertEquals(88L, store.persistedConfiguration.value.launchIntroQuoteDeckSeed)
-        assertEquals(5, store.persistedConfiguration.value.launchIntroQuoteDeckIndex)
+        assertEquals(88L, store.persistedConfiguration.value.launchIntroMessageDeckSeed)
+        assertEquals(5, store.persistedConfiguration.value.launchIntroMessageDeckIndex)
+        assertEquals(null, store.persistedConfiguration.value.lastOpenedAtEpochMillis)
     }
 
     @Test
@@ -138,8 +139,9 @@ class SharedPreferencesFeedConfigurationStoreTest {
                 autoGenerateCaptionsForNewVideos = true,
                 dailyOpenPointCount = 7,
                 lastOpenedLocalEpochDay = 20_177L,
-                launchIntroQuoteDeckSeed = 88L,
-                launchIntroQuoteDeckIndex = 5,
+                launchIntroMessageDeckSeed = 88L,
+                launchIntroMessageDeckIndex = 5,
+                lastOpenedAtEpochMillis = 1_744_761_600_000L,
             ),
         )
 
@@ -147,8 +149,9 @@ class SharedPreferencesFeedConfigurationStoreTest {
         assertTrue(store.persistedConfiguration.value.autoGenerateCaptionsForNewVideos)
         assertEquals(7, store.persistedConfiguration.value.dailyOpenPointCount)
         assertEquals(20_177L, store.persistedConfiguration.value.lastOpenedLocalEpochDay)
-        assertEquals(88L, store.persistedConfiguration.value.launchIntroQuoteDeckSeed)
-        assertEquals(5, store.persistedConfiguration.value.launchIntroQuoteDeckIndex)
+        assertEquals(88L, store.persistedConfiguration.value.launchIntroMessageDeckSeed)
+        assertEquals(5, store.persistedConfiguration.value.launchIntroMessageDeckIndex)
+        assertEquals(1_744_761_600_000L, store.persistedConfiguration.value.lastOpenedAtEpochMillis)
     }
 
     private fun createPreferences(nameSuffix: String): SharedPreferences {

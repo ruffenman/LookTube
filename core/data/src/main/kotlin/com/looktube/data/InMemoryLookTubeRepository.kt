@@ -73,21 +73,22 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override suspend fun noteAppOpened() {
         feedConfigurationState.value = feedConfigurationState.value.copy(
             dailyOpenPointCount = feedConfigurationState.value.dailyOpenPointCount + 1,
+            lastOpenedAtEpochMillis = System.currentTimeMillis(),
         )
     }
 
-    override suspend fun consumeLaunchIntroQuote(deckSize: Int) {
+    override suspend fun consumeLaunchIntroMessage(deckSize: Int) {
         if (deckSize <= 0) {
             return
         }
-        val nextIndex = feedConfigurationState.value.launchIntroQuoteDeckIndex + 1
+        val nextIndex = feedConfigurationState.value.launchIntroMessageDeckIndex + 1
         feedConfigurationState.value = if (nextIndex >= deckSize) {
             feedConfigurationState.value.copy(
-                launchIntroQuoteDeckSeed = System.currentTimeMillis(),
-                launchIntroQuoteDeckIndex = 0,
+                launchIntroMessageDeckSeed = System.currentTimeMillis(),
+                launchIntroMessageDeckIndex = 0,
             )
         } else {
-            feedConfigurationState.value.copy(launchIntroQuoteDeckIndex = nextIndex)
+            feedConfigurationState.value.copy(launchIntroMessageDeckIndex = nextIndex)
         }
     }
 

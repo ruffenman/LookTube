@@ -19,7 +19,7 @@ Its central promise is deliberately narrow:
 ## User-visible surfaces
 ### App shell
 - keeps the standard top app bar and bottom navigation visible outside fullscreen playback
-- may show a short, cold-start-only LookTube intro overlay that rotates through sourced Giant Bomb cast quotes, auto-dismisses with a short fade, can be skipped immediately with any tap, and does not replay on background resume
+- may show a short, cold-start-only LookTube intro overlay that summarizes videos published since the previous app open when available, otherwise rotates through generic product messages, auto-dismisses with a short fade, can be skipped immediately with any tap, and does not replay on background resume
 - exposes one global Look Points badge in the top app bar on Library and Player so score remains visible without being embedded into page-local control rows, and can show a small centered icon-only playback indicator while playback is active that routes straight to Player when tapped
 ### Settings
 - sole user input for access is the copied Premium feed URL
