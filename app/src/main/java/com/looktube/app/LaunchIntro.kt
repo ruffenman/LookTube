@@ -5,12 +5,17 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -33,7 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -114,8 +120,9 @@ internal fun LookTubeLaunchIntroOverlay(
         }
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
+            .testTag("launch-intro")
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
@@ -125,22 +132,20 @@ internal fun LookTubeLaunchIntroOverlay(
                     ),
                 ),
             )
-            .pointerInput(onDismiss) {
-                detectTapGestures(
-                    onTap = {
-                        if (!dismissHandled) {
-                            dismissHandled = true
-                            onDismiss()
-                        }
-                    },
-                )
+            .clickable(role = Role.Button, onClickLabel = "Skip launch intro") {
+                if (!dismissHandled) {
+                    dismissHandled = true
+                    onDismiss()
+                }
             }
             .padding(24.dp),
     ) {
         Surface(
             modifier = Modifier
                 .align(Alignment.Center)
-                .offset(y = brandOffsetY),
+                .offset(y = brandOffsetY)
+                .fillMaxWidth()
+                .heightIn(max = (maxHeight - 64.dp).coerceAtLeast(0.dp)),
             shape = RoundedCornerShape(36.dp),
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
             tonalElevation = 10.dp,
@@ -148,6 +153,7 @@ internal fun LookTubeLaunchIntroOverlay(
         ) {
             Column(
                 modifier = Modifier
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 32.dp, vertical = 36.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
@@ -175,18 +181,40 @@ internal fun LookTubeLaunchIntroOverlay(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text(
-                            text = message.headline,
+                            text = message.quote?.let { "“${it.text}”" } ?: message.headline,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = brandAlpha),
                             textAlign = TextAlign.Center,
                         )
                         Text(
-                            text = message.body,
+                            text = message.quote?.let { "— ${it.speaker.name}" } ?: message.body,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = brandAlpha),
                             textAlign = TextAlign.Center,
                         )
+                        message.quote?.let { quote ->
+                            Text(
+                                text = quote.context,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = brandAlpha),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                        if (message.id == "new-video-digest" && message.quote != null) {
+                            Text(
+                                text = message.headline,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = brandAlpha),
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = message.body,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = brandAlpha),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
             }

@@ -5,6 +5,7 @@ LookTube is an independent fan project. It is not affiliated with, endorsed by, 
 ## What it does
 - syncs a copied Giant Bomb Premium feed URL into a local library
 - supports grouped library browsing, playback resume, fullscreen playback, and cast-aware playback flows
+- rotates through sourced public Giant Bomb cast quotes on the skippable cold-start splash; Settings keeps the quotes and original sources available afterward
 - keeps the product feed-first instead of relying on browser-login automation
 - supports local caption-generation paths, with `baseline` as the default lower-spec target and `highspec` as an opt-in higher-spec target that defaults to Moonshine while keeping Whisper.cpp available as a fallback
 ## Releases
@@ -40,6 +41,7 @@ For contributor workflow, connected-device deployment, integration probes, scree
 - `THIRD_PARTY_NOTICES.txt` - third-party attribution notes for bundled and flavor-specific components
 - `WARP.md` - short operational instructions for future dev-agent sessions
 - `docs/architecture/overview.md` - module boundaries and data flow
+- `docs/content/splash-quotes.md` - splash quote provenance, cast eligibility, and editorial verification rules
 - `docs/integration/giantbomb.md` - validated external integration notes and open risks
 - `docs/releases/github-releases.md` - Android signing, GitHub release packaging, and checksum workflow
 - `docs/testing/local-ci.md` - local validation and device-check guidance

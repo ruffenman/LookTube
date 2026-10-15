@@ -32,7 +32,7 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - Library and Player share one global Look Points badge in the top app bar, and the shell can show a small centered playback icon between the title and badge while playback is active; tapping that indicator routes to Player and re-syncs the selected video with the active playback session when possible
 - the Settings surface keeps the copied feed URL visible and supports clearing synced cache while preserving that feed URL
 - the app no longer seeds placeholder library items on first open or after clearing synced data; instead, Library shows a clean empty-state panel until a real feed sync succeeds
-- true cold starts show a brief, professional LookTube intro overlay that summarizes videos published since the previous app open when available, otherwise rotates through generic LookTube messages via a shuffled deck, auto-dismisses with a short fade, can be skipped instantly with a tap, and does not replay when returning from background
+- true cold starts show a brief, professional LookTube intro overlay that rotates through verified, attributed public Giant Bomb cast quotes via a shuffled deck, retains the new-video digest when available, and exposes the full quote/source catalogue in Settings, auto-dismisses with a short fade, can be skipped instantly with a tap, and does not replay when returning from background
 - the Settings surface also shows offline caption model readiness, lets the user download the local caption model needed for provider-free caption generation, exposes a persistent toggle for automatically generating captions for newly discovered videos, lists videos with saved or partial caption data, and can clear all caption data or open an entry in Player without autoplay for inspection
 - the Player surface can generate or regenerate captions for the selected video on-device, delete partial or completed caption data for that video, attach generated captions as explicit text tracks for local playback, and keep them available during cast handoff through explicit Cast subtitle mapping
 - explicit same-video selections, launch or notification preselection opens, caption-data inspection opens from Settings, and stale remote-route recovery keep Player and cast session state aligned without forcing unwanted autoplay or leaving playback stuck on a dead remote route
@@ -41,6 +41,14 @@ The current app already covers a substantial first-use slice for a Premium subsc
 - the default app build target stays on the lower-spec whisper.cpp caption path, while the opt-in `highspec` target defaults to Moonshine and still exposes Whisper.cpp as a compatibility fallback without regressing the baseline build
 - the product remains explicitly feed-first and avoids unsupported website-login automation
 - the main shell is covered by automated smoke validation and regular Ralph loop gates
+
+## Sourced splash quotes
+- Cold starts rotate through a shuffled, non-repeating deck of short, verbatim public quotes from verified current or former regular Giant Bomb cast members.
+- Each entry records the speaker, original public article, publication date, context, and separate evidence of the speaker's Giant Bomb role. Guest authorship alone does not establish eligibility. Excerpts preserve original wording and punctuation; no invented quotes, paraphrases, or inferred speakers ship.
+- The splash displays the quote, speaker, and context, remains immediately skippable by tap or accessibility action, auto-dismisses on the existing timer, and does not replay on background resume. Any new-video digest remains available alongside the quote.
+- Settings exposes a scrollable Splash quotes & sources screen with every shipped entry and links to its original source. Attribution does not imply endorsement of LookTube.
+- Quotes are bundled locally and require no startup network request. Unsupported or disputed entries can be removed individually without changing persisted deck storage.
+- Regression coverage checks deck cycling, attribution completeness, digest coexistence, source navigation, and immediate/automatic dismissal. Physical-device visual acceptance remains a separate check.
 
 ## Next slice
 Improve real-device local-caption runtime so the newly exposed caption-management flow is practical for regular use.

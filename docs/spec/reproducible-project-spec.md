@@ -38,7 +38,7 @@ An implementation that materially changes these choices can still be valid, but 
 ## Core user flows
 ### First-use setup
 1. User opens the app.
-2. App may show a brief cold-start-only brand intro with either a new-video digest or a generic product message, and it can still be skipped immediately with any tap.
+2. App may show a brief cold-start-only brand intro with a verified, attributed Giant Bomb cast quote and an optional new-video digest, and it can still be skipped immediately with any tap.
 3. User pastes a copied Giant Bomb Premium feed URL.
 4. App persists that feed URL locally with encrypted-at-rest protection where available.
 5. User triggers sync.
@@ -59,7 +59,7 @@ An implementation that materially changes these choices can still be valid, but 
 ### App shell
 - three top-level destinations: `Settings`, `Library`, and `Player`
 - app opens on the Settings page by default
-- true cold starts may show a brief LookTube intro overlay that summarizes videos published since the previous app open when available, otherwise rotates through generic product messages, can be skipped immediately, and does not replay when resuming from background
+- true cold starts may show a brief LookTube intro overlay that rotates through verified, attributed public Giant Bomb cast quotes with an optional new-video digest and a persistent quotes-and-sources catalogue in Settings, can be skipped immediately, and does not replay when resuming from background
 - top app bar and bottom navigation stay visible outside player fullscreen mode
 - while shell chrome is visible, the top app bar exposes one global Look Points badge on Library and Player rather than page-local Look Points controls, can show a small centered icon-only playback indicator between the title and badge when playback is active, and lets that indicator route directly to Player while re-syncing selection with the active session when possible
 - notification launch intents can route directly to the Player page and optionally preselect a video for review without forcing autoplay

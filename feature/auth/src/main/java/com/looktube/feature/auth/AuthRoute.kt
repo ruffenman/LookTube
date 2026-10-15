@@ -70,6 +70,7 @@ fun AuthRoute(
     onOpenCaptionDataVideoRequested: (String) -> Unit,
     onClearSyncedDataRequested: () -> Unit,
     onClearCaptionDataRequested: () -> Unit,
+    additionalSettingsContent: @Composable () -> Unit = {},
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
@@ -337,6 +338,7 @@ fun AuthRoute(
                 )
             }
         }
+        additionalSettingsContent()
     }
 }
 

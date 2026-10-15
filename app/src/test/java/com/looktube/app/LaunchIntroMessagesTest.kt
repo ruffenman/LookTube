@@ -4,11 +4,13 @@ import com.looktube.model.FeedConfiguration
 import com.looktube.model.VideoSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNotNull
+import java.net.URI
 import org.junit.Test
 
 class LaunchIntroMessagesTest {
     @Test
-    fun shuffledGenericDeckDoesNotRepeatDuringFirstFullPass() {
+    fun shuffledQuoteDeckDoesNotRepeatDuringFirstFullPass() {
         val messageIds = (0 until LaunchIntroMessageDeckSize).map { deckIndex ->
             currentLaunchIntroMessage(
                 feedConfiguration = FeedConfiguration(
@@ -25,7 +27,7 @@ class LaunchIntroMessagesTest {
     }
 
     @Test
-    fun genericMessageDeckWrapsSafelyWhenIndexExceedsDeckSize() {
+    fun quoteDeckWrapsSafelyWhenIndexExceedsDeckSize() {
         val wrappedMessage = currentLaunchIntroMessage(
             feedConfiguration = FeedConfiguration(
                 feedUrl = "",
@@ -36,11 +38,11 @@ class LaunchIntroMessagesTest {
             previousAppOpenedAtEpochMillis = null,
         )
 
-        assertTrue(GenericLaunchIntroMessages.any { message -> message.id == wrappedMessage.id })
+        assertTrue(LaunchIntroQuotes.any { quote -> quote.id == wrappedMessage.quote?.id })
     }
 
     @Test
-    fun newVideosSincePreviousOpenUseDigestInsteadOfGenericMessage() {
+    fun newVideosSincePreviousOpenKeepDigestAndAttributedQuote() {
         val message = currentLaunchIntroMessage(
             feedConfiguration = FeedConfiguration(feedUrl = ""),
             videos = listOf(
@@ -64,9 +66,42 @@ class LaunchIntroMessagesTest {
         )
 
         assertEquals("new-video-digest", message.id)
+        assertNotNull(message.quote)
         assertEquals("2 new videos since last visit", message.headline)
         assertTrue(message.body.indexOf("Newest video") < message.body.indexOf("Newer video"))
         assertTrue(!message.body.contains("Older video"))
+    }
+
+    @Test
+    fun quoteCatalogueExceedsOldDeckAndEveryEntryHasPublicSourceAndCastEvidence() {
+        assertTrue(LaunchIntroQuotes.size > 20)
+        assertEquals(LaunchIntroQuotes.size, LaunchIntroQuotes.map { it.id }.distinct().size)
+        LaunchIntroQuotes.forEach { quote ->
+            assertTrue(quote.text.isNotBlank())
+            assertTrue(quote.context.isNotBlank())
+            assertTrue(quote.speaker.name.isNotBlank())
+            assertTrue(quote.speaker.role.isNotBlank())
+            assertTrue(quote.source.title.isNotBlank())
+            java.time.LocalDate.parse(quote.source.publishedOn)
+            listOf(quote.source.url, quote.speaker.evidenceUrl).forEach { url ->
+                assertEquals("https", URI(url).scheme)
+                assertEquals("giantbomb.com", URI(url).host)
+            }
+        }
+    }
+
+    @Test
+    fun extremeAndNegativeStoredIndicesResolveToAnAttributedQuote() {
+        listOf(-1, Int.MIN_VALUE, Int.MAX_VALUE).forEach { index ->
+            val message = currentLaunchIntroMessage(
+                FeedConfiguration(feedUrl = "", launchIntroMessageDeckIndex = index),
+                videos = emptyList(),
+                previousAppOpenedAtEpochMillis = null,
+            )
+            assertNotNull(message.quote)
+            assertEquals(message.quote!!.text, message.headline)
+            assertEquals("— ${message.quote.speaker.name}", message.body)
+        }
     }
 }
 

@@ -237,9 +237,10 @@ contract:
         video_engagement: VideoEngagementRecord
   surfaces:
     - name: app_shell
-      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that shows a new-video digest when available or a generic product message otherwise, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
+      description: Shared shell chrome for Settings, Library, and Player, including the optional cold-start-only LookTube intro overlay that shows a verified, attributed public Giant Bomb cast quote together with a new-video digest when available, plus a persistent quotes-and-sources catalogue in Settings, a global Look Points badge, and a small centered icon-only playback indicator while playback is active that can route directly to Player.
       primary_actions:
         - dismiss the launch intro immediately with any tap when it is visible
+        - revisit the bundled splash quotes and open their public original sources from Settings
         - navigate between Settings, Library, and Player
         - open Player from the active playback indicator in the top app bar
     - name: settings

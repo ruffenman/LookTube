@@ -62,7 +62,11 @@ class AppChromeVisualTest {
         composeRule.setContent {
             LookTubeTheme {
                 LookTubeLaunchIntroOverlay(
-                    message = GenericLaunchIntroMessages.first(),
+                    message = currentLaunchIntroMessage(
+                        feedConfiguration = com.looktube.model.FeedConfiguration(feedUrl = ""),
+                        videos = emptyList(),
+                        previousAppOpenedAtEpochMillis = null,
+                    ),
                     onDismiss = {},
                     shouldAutoDismiss = false,
                 )

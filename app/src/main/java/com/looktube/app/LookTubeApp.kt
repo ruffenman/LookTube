@@ -36,6 +36,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -125,6 +127,8 @@ fun LookTubeApp(
     var lastHandledPlaybackSelectionRequest by rememberSaveable { mutableStateOf(0L) }
     var lastHandledCaptionTrackPath by rememberSaveable { mutableStateOf<String?>(null) }
     var showLaunchIntro by rememberSaveable { mutableStateOf(showLaunchIntroOnStart) }
+    var showSplashQuoteSources by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
     val fullscreenMode = PlayerFullscreenMode.valueOf(fullscreenModeName)
     val isPlayerFullscreen = fullscreenMode.isPlayerSurfaceFullscreen()
     val launchIntroMessage = remember(
@@ -381,6 +385,12 @@ fun LookTubeApp(
                             onOpenCaptionDataVideoRequested = viewModel::inspectVideoInPlayer,
                             onClearSyncedDataRequested = viewModel::clearSyncedData,
                             onClearCaptionDataRequested = viewModel::clearCaptionData,
+                            additionalSettingsContent = {
+                                OutlinedButton(
+                                    onClick = { showSplashQuoteSources = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Text("Splash quotes & sources") }
+                            },
                         )
 
                         "library" -> LibraryRoute(
@@ -447,6 +457,12 @@ fun LookTubeApp(
                         }
                     },
                     modifier = Modifier.fillMaxSize(),
+                )
+            }
+            if (showSplashQuoteSources) {
+                SplashQuoteSources(
+                    onDismiss = { showSplashQuoteSources = false },
+                    onOpenSource = uriHandler::openUri,
                 )
             }
         }
