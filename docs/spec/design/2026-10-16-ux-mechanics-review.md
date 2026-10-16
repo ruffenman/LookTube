@@ -22,7 +22,7 @@
 
 ## Stylistic proposals
 
-These are proposed directions, not additional shipped redesigns.
+These are proposed directions, not additional shipped redesigns. The [illustrative style comparison](browse-style-proposals.html) lets you compare three layouts, light/dark palettes, and larger text using sample content.
 
 | Priority | Proposal | Concrete treatment and tradeoff |
 | --- | --- | --- |
