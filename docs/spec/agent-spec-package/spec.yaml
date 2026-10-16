@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.24"
+  version: "0.2.25"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -1501,6 +1501,6 @@ debug_iteration:
 
 continuous_group_motion:
   header: one stable composition, same title, count, art and explicit toggle in both states
-  episodes: 300-ms vertical contraction/reveal, exiting lazy rows retained until complete, reversal supported
+  episodes: 300-ms vertical contraction/reveal without whole-row translation, compact preview enters late and retracts early, measured outgoing rows retained until complete, reversal supported
   safety: no outgoing-row playback, persist target state only, preserve lazy composition and jump indexing
   surfaces: shared 24-dp neutral outlined panels in Settings Library Player, explicit theme surface-container palettes

@@ -4,8 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.MutableTransitionState
@@ -489,10 +487,8 @@ fun LibraryRoute(
                                     visibility.targetState = displayedSection.section.key !in collapsedSectionKeys
                                     androidx.compose.animation.AnimatedVisibility(
                                         visibleState = visibility,
-                                        enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top) +
-                                            slideInVertically(tween(GROUP_TRANSITION_MILLIS)) { -it },
-                                        exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top) +
-                                            slideOutVertically(tween(GROUP_TRANSITION_MILLIS)) { -it },
+                                        enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top),
+                                        exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top),
                                     ) {
                                         Surface(
                                             modifier = Modifier.fillMaxWidth(),
@@ -1442,8 +1438,8 @@ private fun GroupedSeriesSectionCard(
         UnifiedSeriesSectionHeader(section, watchedVideoCount, completionSummary, isExpanded, onToggleExpanded)
         AnimatedVisibility(
             visible = !isExpanded,
-            enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top),
-            exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top),
+            enter = expandVertically(tween(140, delayMillis = 160), expandFrom = Alignment.Top),
+            exit = shrinkVertically(tween(140), shrinkTowards = Alignment.Top),
         ) {
             Column {
                 CollapsedHeaderPreviewStack(
