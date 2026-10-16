@@ -440,6 +440,11 @@ class LibrarySortTest {
         )
 
         assertEquals(listOf(2, 5, 6), buildSectionStartIndices(displayedSections))
+        // While closing, only the previously measured episode remains in the list.
+        val closingSections = displayedSections.toMutableList().apply {
+            this[0] = this[0].copy(renderedVideos = this[0].section.videos.take(1))
+        }
+        assertEquals(listOf(2, 4, 5), buildSectionStartIndices(closingSections))
     }
 
     @Test

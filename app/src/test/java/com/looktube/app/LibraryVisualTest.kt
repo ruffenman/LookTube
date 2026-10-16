@@ -1,6 +1,8 @@
 package com.looktube.app
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -138,7 +140,7 @@ class LibraryVisualTest {
                 Box(
                     modifier = Modifier
                         .width(412.dp)
-                        .fillMaxWidth(),
+                        .fillMaxWidth().background(MaterialTheme.colorScheme.background),
                 ) {
                     LibraryRoute(
                         paddingValues = PaddingValues(),
@@ -171,7 +173,7 @@ class LibraryVisualTest {
                 Box(
                     modifier = Modifier
                         .width(412.dp)
-                        .fillMaxWidth(),
+                        .fillMaxWidth().background(MaterialTheme.colorScheme.background),
                 ) {
                     LibraryRoute(
                         paddingValues = PaddingValues(),
@@ -240,7 +242,7 @@ class LibraryVisualTest {
                 Box(
                     modifier = Modifier
                         .width(412.dp)
-                        .fillMaxWidth(),
+                        .fillMaxWidth().background(MaterialTheme.colorScheme.background),
                 ) {
                     LibraryRoute(
                         paddingValues = PaddingValues(),

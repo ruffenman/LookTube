@@ -78,6 +78,7 @@ import androidx.media3.common.Player
 import androidx.media3.cast.MediaRouteButtonViewProvider
 import androidx.media3.ui.PlayerView
 import com.google.android.gms.cast.framework.CastContext
+import com.looktube.designsystem.LookTubeStyle
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
@@ -254,10 +255,11 @@ private fun CaptionStatusCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
+        border = LookTubeStyle.panelBorder,
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -284,12 +286,12 @@ private fun CaptionStatusCard(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(LookTubeStyle.insetShape)
                     .clickable { statsExpanded = !statsExpanded },
-                shape = RoundedCornerShape(18.dp),
+                shape = LookTubeStyle.insetShape,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                 tonalElevation = 0.dp,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+                border = LookTubeStyle.panelBorder,
             ) {
                 Column(
                     modifier = Modifier
@@ -511,10 +513,11 @@ private fun PlayerFramePlaceholder(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(16f / 9f),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.58f),
-        tonalElevation = 2.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f)),
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
+        border = LookTubeStyle.panelBorder,
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -576,10 +579,11 @@ private fun PlayerQuickActions(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
+        border = LookTubeStyle.panelBorder,
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -626,7 +630,7 @@ private fun HistoryMenuButton(
     Box(modifier = modifier) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = LookTubeStyle.insetShape,
             color = if (expanded) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f)
             } else {

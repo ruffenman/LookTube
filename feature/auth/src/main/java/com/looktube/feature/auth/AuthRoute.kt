@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.looktube.designsystem.LookTubeStyle
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.model.AccountSession
@@ -181,9 +182,10 @@ fun AuthRoute(
         )
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-            tonalElevation = 1.dp,
+            shape = LookTubeStyle.panelShape,
+            color = LookTubeStyle.panelColor,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Column(
@@ -207,14 +209,14 @@ fun AuthRoute(
                     visualTransformation = if (revealFeedUrl) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
                     trailingIcon = { TextButton(onClick = { revealFeedUrl = !revealFeedUrl }) { Text(if (revealFeedUrl) "Hide" else "Show") } },
-                    shape = RoundedCornerShape(18.dp),
+                    shape = LookTubeStyle.insetShape,
                 )
 
                 Button(
                     onClick = { onFeedSyncRequested(draftFeedUrl.trim()) },
                     enabled = canSignIn,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = LookTubeStyle.insetShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -241,7 +243,7 @@ fun AuthRoute(
                     OutlinedButton(
                         onClick = { clearTarget = "library" },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = LookTubeStyle.insetShape,
                     ) {
                         Text("Clear synced data")
                     }
@@ -253,9 +255,10 @@ fun AuthRoute(
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
-            tonalElevation = 1.dp,
+            shape = LookTubeStyle.panelShape,
+            color = LookTubeStyle.panelColor,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         ) {
             Column(
@@ -294,7 +297,7 @@ fun AuthRoute(
                 )
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = LookTubeStyle.insetShape,
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
                     tonalElevation = 0.dp,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.78f)),
@@ -340,7 +343,7 @@ fun AuthRoute(
                     onClick = onDownloadLocalCaptionModel,
                     enabled = !localCaptionModelState.isReady && !localCaptionModelState.isDownloading,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = LookTubeStyle.insetShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.secondary,
                         contentColor = MaterialTheme.colorScheme.onSecondary,
@@ -416,7 +419,7 @@ private fun CaptionDataManagementPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(enabled = hasCaptionData) { onMenuExpandedChanged(true) },
-                shape = RoundedCornerShape(18.dp),
+                shape = LookTubeStyle.insetShape,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                 tonalElevation = 0.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.78f)),
@@ -499,7 +502,7 @@ private fun CaptionDataManagementPanel(
             onClick = onClearCaptionDataRequested,
             enabled = hasCaptionData,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = LookTubeStyle.insetShape,
         ) {
             Text("Clear all caption data")
         }

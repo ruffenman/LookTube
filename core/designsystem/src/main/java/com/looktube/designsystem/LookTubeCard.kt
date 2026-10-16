@@ -29,7 +29,7 @@ fun LookTubeCard(
     statusLabelContentColor: Color = Color.Unspecified,
 ) {
     val resolvedContainerColor = if (containerColor == Color.Unspecified) {
-        MaterialTheme.colorScheme.surfaceVariant
+        LookTubeStyle.panelColor
     } else {
         containerColor
     }
@@ -50,9 +50,9 @@ fun LookTubeCard(
     }
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)),
+        shape = LookTubeStyle.panelShape,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = LookTubeStyle.panelBorder,
         colors = CardDefaults.cardColors(
             containerColor = resolvedContainerColor,
             contentColor = resolvedContentColor,

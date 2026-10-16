@@ -1,6 +1,9 @@
 package com.looktube.designsystem
 import androidx.compose.foundation.isSystemInDarkTheme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -32,6 +35,13 @@ private val LightColors = lightColorScheme(
     surface = Color(0xFFFFFBF3),
     onSurface = Color(0xFF171A1F),
     surfaceVariant = Color(0xFFE5DED0),
+    surfaceDim = Color(0xFFDDD7CB),
+    surfaceBright = Color(0xFFFFFBF3),
+    surfaceContainerLowest = Color(0xFFFFFDF8),
+    surfaceContainerLow = Color(0xFFF8F4EA),
+    surfaceContainer = Color(0xFFF0EBE0),
+    surfaceContainerHigh = Color(0xFFEAE4D8),
+    surfaceContainerHighest = Color(0xFFE5DED0),
     onSurfaceVariant = Color(0xFF454137),
     outline = Color(0xFF77715F),
     outlineVariant = Color(0xFFC8C1B4),
@@ -55,6 +65,13 @@ private val DarkColors = darkColorScheme(
     surface = LookTubeSlateElevated,
     onSurface = LookTubeInk,
     surfaceVariant = LookTubeSlateSoft,
+    surfaceDim = LookTubeSlate,
+    surfaceBright = Color(0xFF343B44),
+    surfaceContainerLowest = Color(0xFF101317),
+    surfaceContainerLow = LookTubeSlateElevated,
+    surfaceContainer = Color(0xFF20252B),
+    surfaceContainerHigh = LookTubeSlateSoft,
+    surfaceContainerHighest = Color(0xFF303740),
     onSurfaceVariant = Color(0xFFC5CBD5),
     outline = Color(0xFF8C94A0),
     outlineVariant = Color(0xFF3A424D),
@@ -64,6 +81,13 @@ private val DarkColors = darkColorScheme(
 fun LookTubeTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        shapes = Shapes(
+            extraSmall = RoundedCornerShape(8.dp),
+            small = RoundedCornerShape(12.dp),
+            medium = RoundedCornerShape(16.dp),
+            large = LookTubeStyle.panelShape,
+            extraLarge = LookTubeStyle.panelShape,
+        ),
         content = content,
     )
 }

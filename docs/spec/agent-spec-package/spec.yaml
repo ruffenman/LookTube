@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.23"
+  version: "0.2.24"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -1484,9 +1484,9 @@ optional_autoplay:
   privacy: local deterministic recommendations without external model or history upload
 
 group_header_hierarchy:
-  expanded_header: compact opaque structural panel with SHOW GROUP or TOPIC GROUP, title and counts, leading accent, and separate minimum-48-dp Collapse group button
+  expanded_header: persistent neutral structural panel shared with collapsed state, SHOW GROUP or TOPIC GROUP, wrapping title and counts, separate minimum-48-dp Expand or Collapse group button
   safety: full header and dedicated collapse button only toggle expansion; group watch actions are explicitly scoped Mark all watched or Mark all unwatched
-  card_pack: small decorative thumbnail stack in expanded header, existing collapsed mosaic and staggered card peeks, animated header size and lazy item placement/fades
+  card_pack: same decorative thumbnail stack in both headers, tucked collapsed card peeks, coordinated lazy row contraction/reveal instead of swapping headers
   episodes: inset gutter, numbered play badge on single thumbnail, two-line grouped description preview and full details on request
   preservation: stable lazy keys, persistent collapse choices, jump menu, touch-passive indicator, filters and autoplay
   validation: real touches never play when collapsing or mark a group accidentally; 320-dp width with 2x text; physical screenshots and transition recording separately from JVM fixtures
@@ -1498,3 +1498,9 @@ debug_iteration:
   release_packages: unchanged
   workflow: debug build and physical layout/motion iteration first; signed normal-app acceptance after stable checks
   fixtures: optional Seed-DebugBrowseFixture.py, explicit serial and debug package, 40 non-playable videos, no normal app data or credential reads
+
+continuous_group_motion:
+  header: one stable composition, same title, count, art and explicit toggle in both states
+  episodes: 300-ms vertical contraction/reveal, exiting lazy rows retained until complete, reversal supported
+  safety: no outgoing-row playback, persist target state only, preserve lazy composition and jump indexing
+  surfaces: shared 24-dp neutral outlined panels in Settings Library Player, explicit theme surface-container palettes

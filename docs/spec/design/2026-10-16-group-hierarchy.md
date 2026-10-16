@@ -11,3 +11,9 @@ Episodes sit in an inset column with a connecting gutter. Numbered play badges d
 Touch regression checks cover the dedicated collapse control (including avoiding a double toggle through the parent), actual episode selection, group watch action scoping, and the collapse action at 320-dp width / 2x text. Existing collapse persistence, edge-scroll safety, popup dismissal, lazy composition and refresh-anchor checks remain required. Light and dark JVM fixtures are regression checks, separate from the physical-device screenshots and transition recording needed for visual acceptance.
 
 This pass does not introduce a separate compact-density preference or redesign the collapsed artwork gallery. It applies a clearer hierarchy to the existing browse layout while retaining its stack identity.
+
+## Revision: continuous header and shared surfaces
+
+The first revision's unrelated collapsed hero and expanded structural header produced an abrupt visual swap. This revision replaces both with a persistent neutral header. Artwork, title and controls stay in place. Tucked episode previews contract/reveal beneath it opposite the full episode rows. The rows stay individually lazy, remain in the list until their outgoing contraction finishes, and cannot launch playback while closing. Rapid toggles reverse the existing transition. The group header does not morph into an unrelated silhouette.
+
+Shared structural panel tokens and complete light/dark surface-container palettes align Settings, Library, Player, menus and dialogs. Media overlays retain their contrast because text still has to remain legible over arbitrary thumbnails. This supersedes the earlier decision to retain the mosaic hero unchanged.

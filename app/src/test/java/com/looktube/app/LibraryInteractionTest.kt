@@ -85,6 +85,37 @@ class LibraryInteractionTest {
         firstHeader().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Expanded"))
     }
 
+    @Test fun collapseShrinksExistingRowsAndReversesWithoutReplacingTheHeader() {
+        val selected = mutableListOf<String>()
+        composeRule.setContent { Library(onSelected = { selected += it }) }
+        goToFirstHeader()
+        val headerBounds = firstHeader().getUnclippedBoundsInRoot()
+        val episode = composeRule.onNodeWithTag("library-video-episode-0")
+        val initialHeight = episode.getUnclippedBoundsInRoot().let { it.bottom - it.top }
+        composeRule.mainClock.autoAdvance = false
+        firstHeader().performClick()
+        composeRule.mainClock.advanceTimeBy(96)
+        assertCollapsed()
+        assertEquals(headerBounds, firstHeader().getUnclippedBoundsInRoot())
+        // The row still exists during contraction, rather than being deleted and faded.
+        episode.assertExists()
+        composeRule.onNodeWithText("Episode 19").assertDoesNotExist()
+        firstHeader().performClick()
+        composeRule.mainClock.advanceTimeBy(400)
+        firstHeader().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Expanded"))
+        assertEquals(headerBounds, firstHeader().getUnclippedBoundsInRoot())
+        assertEquals(initialHeight, episode.getUnclippedBoundsInRoot().let { it.bottom - it.top })
+        firstHeader().performClick()
+        composeRule.mainClock.advanceTimeBy(400)
+        episode.assertDoesNotExist()
+        firstHeader().performClick()
+        composeRule.mainClock.advanceTimeBy(400)
+        episode.assertExists()
+        composeRule.onNodeWithText("Episode 19").assertDoesNotExist()
+        composeRule.runOnIdle { assertTrue(selected.isEmpty()) }
+        composeRule.mainClock.autoAdvance = true
+    }
+
     @Test fun groupWatchActionIsExplicitlyScopedAndDoesNotPlayOrCollapse() {
         val marked = mutableListOf<String>()
         val selected = mutableListOf<String>()

@@ -2,6 +2,13 @@ package com.looktube.feature.library
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -61,7 +68,6 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -69,7 +75,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -95,6 +100,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.IntOffset
 import coil3.compose.AsyncImage
+import com.looktube.designsystem.LookTubeStyle
 import com.looktube.designsystem.LookTubeCard
 import com.looktube.designsystem.LookTubePageHeader
 import com.looktube.heuristics.displaySeriesTitle
@@ -113,7 +119,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlinx.coroutines.launch
-import kotlin.random.Random
+import kotlinx.coroutines.Job
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -234,15 +240,49 @@ fun LibraryRoute(
                 .sortedWith(sectionComparator(sortOption))
         }
     }
-    val effectiveCollapsedSectionKeys = collapsedSectionKeys
-    val displayedSections = remember(sections, effectiveCollapsedSectionKeys) {
+    // Retain outgoing lazy rows until their measured shrink finishes. Keeping the
+    // same keys also lets a second tap reverse the transition without replacing cards.
+    var closingSectionKeys by remember { mutableStateOf(emptySet<String>()) }
+    var outgoingVideoIds by remember { mutableStateOf(emptyMap<String, Set<String>>()) }
+    var openingSectionKeys by remember { mutableStateOf(emptySet<String>()) }
+    val groupTransitionJobs = remember { mutableMapOf<String, Job>() }
+    fun toggleSection(key: String) {
+        groupTransitionJobs.remove(key)?.cancel()
+        val expanding = key in collapsedSectionKeys
+        collapsedSectionKeys = collapsedSectionKeys.toggle(key)
+        if (expanding) {
+            openingSectionKeys = openingSectionKeys + key
+            closingSectionKeys = closingSectionKeys - key
+        } else {
+            // Only rows already measured at the tap may animate out. Retaining the
+            // whole group would compose successive episodes as earlier rows shrink.
+            outgoingVideoIds = outgoingVideoIds + (key to listState.layoutInfo.visibleItemsInfo
+                .mapNotNull { (it.key as? String)?.takeIf { value -> value.startsWith("video-") }?.removePrefix("video-") }
+                .toSet())
+            closingSectionKeys = closingSectionKeys + key
+            openingSectionKeys = openingSectionKeys - key
+        }
+        groupTransitionJobs[key] = scope.launch {
+            Animatable(0f).animateTo(1f, tween(GROUP_TRANSITION_MILLIS + 32))
+            closingSectionKeys = closingSectionKeys - key
+            openingSectionKeys = openingSectionKeys - key
+            outgoingVideoIds = outgoingVideoIds - key
+            groupTransitionJobs.remove(key)
+        }
+    }
+    val effectiveCollapsedSectionKeys = collapsedSectionKeys - closingSectionKeys
+    val displayedSections = remember(sections, effectiveCollapsedSectionKeys, closingSectionKeys, outgoingVideoIds) {
         buildDisplayedSections(
             sections = sections,
             collapsedSectionKeys = effectiveCollapsedSectionKeys,
-        )
+        ).map { displayed ->
+            if (displayed.section.key in closingSectionKeys) displayed.copy(
+                renderedVideos = displayed.section.videos.filter { it.id in outgoingVideoIds[displayed.section.key].orEmpty() },
+            ) else displayed
+        }
     }
-    val expandedSectionCount = remember(displayedSections) {
-        displayedSections.count(DisplayedSeriesSection::isExpanded)
+    val expandedSectionCount = remember(displayedSections, collapsedSectionKeys) {
+        displayedSections.count { it.section.key !in collapsedSectionKeys }
     }
     val sectionStartIndices = remember(displayedSections) {
         buildSectionStartIndices(displayedSections)
@@ -416,8 +456,6 @@ fun LibraryRoute(
                             )
                             item(key = "section-${displayedSection.section.key}") {
                                 GroupedSeriesSectionCard(
-                                    modifier = Modifier.animateItem(placementSpec = tween(220))
-                                        .then(if (displayedSection.isExpanded) Modifier else Modifier.padding(bottom = 14.dp)),
                                     section = displayedSection.section,
                                     watchedVideoCount = displayedSection.section.videos.count { video ->
                                         videoEngagement[video.id].isWatched(playbackProgress[video.id])
@@ -427,10 +465,8 @@ fun LibraryRoute(
                                     } else {
                                         null
                                     },
-                                    isExpanded = displayedSection.isExpanded,
-                                    onToggleExpanded = {
-                                        collapsedSectionKeys = effectiveCollapsedSectionKeys.toggle(displayedSection.section.key)
-                                    },
+                                    isExpanded = displayedSection.section.key !in collapsedSectionKeys,
+                                    onToggleExpanded = { toggleSection(displayedSection.section.key) },
                                     onMarkSectionWatched = {
                                         onMarkVideosWatched(displayedSection.section.videos.map(VideoSummary::id))
                                     },
@@ -442,33 +478,42 @@ fun LibraryRoute(
                             }
                             if (displayedSection.isExpanded) {
                                 itemsIndexed(
-                                    items = displayedSection.section.videos,
+                                    items = displayedSection.renderedVideos,
                                         key = { _, video -> "video-${video.id}" },
                                     contentType = { _, _ -> "grouped-episode" },
                                 ) { index, video ->
-                                    val isLast = index == displayedSection.section.videos.lastIndex
-                                    Column(Modifier.animateItem(
-                                        fadeInSpec = tween(180), placementSpec = tween(220), fadeOutSpec = tween(160),
-                                    )) {
+                                    val isLast = index == displayedSection.renderedVideos.lastIndex
+                                    val visibility = remember(video.id) {
+                                        MutableTransitionState(displayedSection.section.key !in openingSectionKeys)
+                                    }
+                                    visibility.targetState = displayedSection.section.key !in collapsedSectionKeys
+                                    androidx.compose.animation.AnimatedVisibility(
+                                        visibleState = visibility,
+                                        enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top) +
+                                            slideInVertically(tween(GROUP_TRANSITION_MILLIS)) { -it },
+                                        exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top) +
+                                            slideOutVertically(tween(GROUP_TRANSITION_MILLIS)) { -it },
+                                    ) {
                                         Surface(
                                             modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(bottomStart = if (isLast) 26.dp else 0.dp, bottomEnd = if (isLast) 26.dp else 0.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+                                            shape = RoundedCornerShape(bottomStart = if (isLast) 24.dp else 0.dp, bottomEnd = if (isLast) 24.dp else 0.dp),
+                                            color = LookTubeStyle.panelColor,
+                                            contentColor = MaterialTheme.colorScheme.onSurface,
                                         ) {
                                             val gutterColor = MaterialTheme.colorScheme.outlineVariant
                                             Column(Modifier.drawBehind {
                                                 drawLine(gutterColor, Offset(10.dp.toPx(), 0f), Offset(10.dp.toPx(), size.height), 2.dp.toPx())
                                             }.padding(start = 22.dp, end = 10.dp, top = 12.dp, bottom = if (isLast) 10.dp else 0.dp)) {
                                                 GroupedSectionVideoCard(
-                                                    positionLabel = "Video ${index + 1} of ${displayedSection.section.videos.size}",
+                                                    positionLabel = "Video ${displayedSection.section.videos.indexOf(video) + 1} of ${displayedSection.section.videos.size}",
                                                     video = video,
                                                     progress = playbackProgress[video.id],
                                                     engagementRecord = videoEngagement[video.id],
                                                     dismissDetailsSignal = listState.isScrollInProgress,
                                                     textEndPadding = railTextClearance,
-                                                    onMarkVideoWatched = onMarkVideoWatched,
-                                                    onMarkVideoUnwatched = onMarkVideoUnwatched,
-                                                    onVideoSelected = onVideoSelected,
+                                                    onMarkVideoWatched = { id -> if (displayedSection.section.key !in collapsedSectionKeys) onMarkVideoWatched(id) },
+                                                    onMarkVideoUnwatched = { id -> if (displayedSection.section.key !in collapsedSectionKeys) onMarkVideoUnwatched(id) },
+                                                    onVideoSelected = { id -> if (displayedSection.section.key !in collapsedSectionKeys) onVideoSelected(id) },
                                                 )
                                             }
                                         }
@@ -505,99 +550,6 @@ fun LibraryRoute(
                     },
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ExpandedSeriesSectionBackdrop(
-    section: SeriesSection,
-) {
-    SeriesSectionBackdropMosaic(
-        section = section,
-        tileArtAlpha = 1f,
-        tileShadowElevation = 2.dp,
-    )
-}
-
-@Composable
-private fun CollapsedSeriesSectionBackdrop(
-    section: SeriesSection,
-) {
-    SeriesSectionBackdropMosaic(
-        section = section,
-        tileArtAlpha = 0.4f,
-        tileShadowElevation = 0.dp,
-    )
-}
-
-@Composable
-private fun SeriesSectionBackdropMosaic(
-    section: SeriesSection,
-    tileArtAlpha: Float,
-    tileShadowElevation: Dp,
-) {
-    if (section.videos.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f)),
-        )
-        return
-    }
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF1A1E28)),
-    ) {
-        val tileSpecs = remember(section.key, section.videos.size) {
-            generateMosaicTiles(section.key, section.videos.size)
-        }
-        tileSpecs.forEachIndexed { index, tile ->
-            val video = section.videos[tile.videoIndex.coerceIn(section.videos.indices)]
-            SectionHeaderBackdropTile(
-                video = video,
-                artAlpha = tileArtAlpha,
-                cropAlignment = BiasAlignment(tile.cropAlignX, tile.cropAlignY),
-                shadowElevation = tileShadowElevation,
-                modifier = Modifier
-                    .offset(
-                        x = maxWidth * tile.xFraction,
-                        y = maxHeight * tile.yFraction,
-                    )
-                    .width(maxWidth * tile.widthFraction)
-                    .height(maxHeight * tile.heightFraction),
-            )
-        }
-    }
-}
-
-
-@Composable
-private fun SectionHeaderBackdropTile(
-    video: VideoSummary,
-    artAlpha: Float,
-    cropAlignment: Alignment,
-    shadowElevation: Dp,
-    modifier: Modifier = Modifier,
-) {
-    val thumbnailUrl = video.thumbnailUrl
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-    ) {
-        if (!thumbnailUrl.isNullOrBlank()) {
-            ThumbnailImage(
-                thumbnailUrl = thumbnailUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { clip = true },
-                contentScale = ContentScale.Crop,
-                alignment = cropAlignment,
-                alpha = artAlpha,
-            )
         }
     }
 }
@@ -742,9 +694,10 @@ private fun LibraryEmptyStatePanel(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
-        tonalElevation = 2.dp,
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -821,7 +774,7 @@ private fun BrowseDropdownControlsRow(
 
 /** A small, non-playable version of the same pack that becomes the collapsed preview stack. */
 @Composable
-private fun ExpandedGroupCardStack(section: SeriesSection) {
+private fun GroupArtworkStack(section: SeriesSection) {
     val cards = section.videos.take(3)
     Box(Modifier.size(width = 80.dp, height = 60.dp).testTag("library-group-stack-${section.title}")) {
         cards.indices.reversed().forEach { index ->
@@ -837,32 +790,6 @@ private fun ExpandedGroupCardStack(section: SeriesSection) {
                     Text(section.title.take(1), style = MaterialTheme.typography.titleMedium)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun SeriesSectionHeaderBackdrop(
-    section: SeriesSection,
-    isExpanded: Boolean,
-    shape: Shape,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .clip(shape),
-    ) {
-        if (isExpanded) {
-            ExpandedSeriesSectionBackdrop(section = section)
-        } else {
-            CollapsedSeriesSectionBackdrop(section = section)
-        }
-        if (!isExpanded) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.28f)),
-            )
         }
     }
 }
@@ -888,11 +815,11 @@ private fun BrowseSelectionDropdown(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(LookTubeStyle.insetShape)
                     .testTag("browse-dropdown-$label")
                     .semantics { contentDescription = "$label: $value" }
                     .clickable { onExpandedChanged(true) },
-                shape = RoundedCornerShape(18.dp),
+                shape = LookTubeStyle.insetShape,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
                 tonalElevation = 0.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -991,9 +918,10 @@ private fun BrowseControlsPanel(
     var showFiltersExpanded by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
-        tonalElevation = 2.dp,
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1032,9 +960,9 @@ private fun BrowseControlsPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { showFiltersExpanded = !showFiltersExpanded },
-                shape = RoundedCornerShape(18.dp),
+                shape = LookTubeStyle.insetShape,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                tonalElevation = 1.dp,
+                tonalElevation = 0.dp,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
                 Row(
@@ -1138,15 +1066,7 @@ internal data class SeriesSection(
 internal data class DisplayedSeriesSection(
     val section: SeriesSection,
     val isExpanded: Boolean,
-)
-internal data class GroupHeaderBackdropTileSpec(
-    val xFraction: Float,
-    val yFraction: Float,
-    val widthFraction: Float,
-    val heightFraction: Float,
-    val videoIndex: Int,
-    val cropAlignX: Float,
-    val cropAlignY: Float,
+    val renderedVideos: List<VideoSummary> = if (isExpanded) section.videos else emptyList(),
 )
 internal fun collapsedHeaderPeekCount(videoCount: Int): Int = (videoCount - 1).coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT)
 internal fun collapsedHeaderPeekOffsets(videoCount: Int): List<Dp> =
@@ -1161,30 +1081,7 @@ private val GROUP_HEADER_PEEK_REVEAL_STEP = 22.dp
 private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 100.dp
-private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 190.dp
-private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-50).dp
-private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 18
-
-internal fun generateMosaicTiles(sectionKey: String, videoCount: Int): List<GroupHeaderBackdropTileSpec> {
-    if (videoCount == 0) return emptyList()
-    val random = Random(sectionKey.hashCode())
-    return List(GROUP_HEADER_MOSAIC_TILE_COUNT) {
-        val w = 0.22f + random.nextFloat() * 0.34f  // 0.22..0.56
-        val h = 0.30f + random.nextFloat() * 0.44f  // 0.30..0.74
-        GroupHeaderBackdropTileSpec(
-            xFraction = -0.08f + random.nextFloat() * 1.0f,   // -0.08..0.92
-            yFraction = -0.10f + random.nextFloat() * 0.92f,  // -0.10..0.82
-            widthFraction = w,
-            heightFraction = h,
-            videoIndex = random.nextInt(videoCount),
-            cropAlignX = random.nextFloat() * 2f - 1f,
-            cropAlignY = random.nextFloat() * 2f - 1f,
-        )
-    }
-}
-
-private fun Random.centeredJitter(magnitude: Float): Float = (nextFloat() - 0.5f) * magnitude * 2f
-
+private const val GROUP_TRANSITION_MILLIS = 300
 private fun collapsedHeaderPreviewStackHeight(videoCount: Int): Dp {
     val cardCount = videoCount.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT + 1)
     return if (cardCount == 0) 0.dp
@@ -1229,9 +1126,10 @@ private fun LibraryOverviewPanel(
     var showLibraryConfig by rememberSaveable { mutableStateOf(false) }
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
-        tonalElevation = 2.dp,
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1321,9 +1219,9 @@ private fun LibraryConfigPanel(
             .clip(RoundedCornerShape(24.dp))
             .clickable { onExpandedChanged(!isExpanded) }
             .animateContentSize(),
-        shape = RoundedCornerShape(24.dp),
+        shape = LookTubeStyle.panelShape,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-        tonalElevation = 2.dp,
+        tonalElevation = 0.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(
@@ -1400,7 +1298,6 @@ private const val RESULTS_ANCHOR_INDEX = 1
 private const val VIDEO_LIST_START_INDEX = 2
 private val LIST_TOP_CONTENT_PADDING = 16.dp
 private val GROUPED_HEADER_MAX_END_PADDING = 148.dp
-private val GROUPED_EXPANDED_INFO_PLATE_MAX_END_PADDING = 96.dp
 private val GROUPED_COLLAPSED_PREVIEW_MAX_END_PADDING = 72.dp
 
 internal fun videoComparator(sortOption: LibrarySortOption): Comparator<VideoSummary> =
@@ -1539,272 +1436,86 @@ private fun GroupedSeriesSectionCard(
     headerTextEndPadding: Dp,
 ) {
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .animateContentSize(animationSpec = tween(220)),
-        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp, bottomStart = if (isExpanded) 0.dp else 26.dp, bottomEnd = if (isExpanded) 0.dp else 26.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
-        tonalElevation = 0.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.54f)),
-    ) {
-        Column(
-            modifier = Modifier.padding(
-                start = 10.dp,
-                top = 10.dp,
-                end = 10.dp,
-                bottom = if (isExpanded) 0.dp else 4.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
+    Column(modifier = modifier.fillMaxWidth()) {
+        // One identity, title, artwork and touch target in both states. Only the
+        // material below this header moves; it never swaps to another composition.
+        UnifiedSeriesSectionHeader(section, watchedVideoCount, completionSummary, isExpanded, onToggleExpanded)
+        AnimatedVisibility(
+            visible = !isExpanded,
+            enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top),
+            exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top),
         ) {
-            if (isExpanded) {
-                ExpandedSeriesSectionHeader(
+            Column {
+                CollapsedHeaderPreviewStack(
                     section = section,
-                    watchedVideoCount = watchedVideoCount,
-                    completionSummary = completionSummary,
-                    onToggleExpanded = onToggleExpanded,
+                    textEndPadding = headerTextEndPadding,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                        .height(collapsedHeaderPreviewStackHeight(section.videos.size)),
                 )
-            } else {
-                // Use a Box so header draws on top of the stacked cards (z-order).
-                // Cards are placed first, then header on top.
-                val stackHeight = collapsedHeaderPreviewStackHeight(section.videos.size)
-                val visibleCardHeight = (stackHeight + GROUP_HEADER_COLLAPSED_CARD_TUCK).coerceAtLeast(0.dp)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT + visibleCardHeight),
-                ) {
-                    // Stacked cards drawn FIRST (behind)
-                    if (section.videos.isNotEmpty()) {
-                        CollapsedHeaderPreviewStack(
-                            section = section,
-                            textEndPadding = headerTextEndPadding,
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .fillMaxWidth()
-                                .offset(y = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT + GROUP_HEADER_COLLAPSED_CARD_TUCK)
-                                .padding(horizontal = 6.dp)
-                                .height(collapsedHeaderPreviewStackHeight(section.videos.size)),
-                        )
-                    }
-                    // Header drawn SECOND (on top, covering the cards)
-                    SeriesSectionHeader(
-                        section = section,
-                        watchedVideoCount = watchedVideoCount,
-                        completionSummary = completionSummary,
-                        isExpanded = false,
-                        onToggleExpanded = onToggleExpanded,
-                        textEndPadding = headerTextEndPadding,
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .fillMaxWidth()
-                            .zIndex(1f),
-                    )
-                }
-            }
-            if (isExpanded) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    FilterChip(
-                        selected = sectionIsFullyWatched,
-                        onClick = {
-                            if (sectionIsFullyWatched) {
-                                onMarkSectionUnwatched()
-                            } else {
-                                onMarkSectionWatched()
-                            }
-                        },
-                        modifier = Modifier.testTag("library-group-watch-${section.title}"),
-                        label = { Text(if (sectionIsFullyWatched) "Mark all unwatched" else "Mark all watched") },
-                    )
-                }
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
-                )
+                Spacer(Modifier.height(14.dp))
             }
         }
-    }
-}
-
-@Composable
-private fun ExpandedSeriesSectionHeader(
-    section: SeriesSection,
-    watchedVideoCount: Int,
-    completionSummary: SeriesCompletionSummary?,
-    onToggleExpanded: () -> Unit,
-) {
-    val accent = MaterialTheme.colorScheme.primary
-    val shape = RoundedCornerShape(18.dp)
-    Surface(
-        modifier = Modifier.fillMaxWidth().clip(shape)
-            .testTag("library-section-${section.title}")
-            .semantics { stateDescription = "Expanded" }
-            .clickable(role = Role.Button, onClickLabel = "Collapse ${section.title}", onClick = onToggleExpanded),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
-    ) {
-        Column(
-            modifier = Modifier.drawBehind {
-                drawRect(accent, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height))
-            }.padding(start = 18.dp, end = 14.dp, top = 8.dp, bottom = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top),
+            exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "${section.kindLabel.uppercase()} GROUP",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp, top = 4.dp)) {
+                FilterChip(
+                    selected = sectionIsFullyWatched,
+                    enabled = isExpanded,
+                    onClick = { if (sectionIsFullyWatched) onMarkSectionUnwatched() else onMarkSectionWatched() },
+                    modifier = Modifier.testTag("library-group-watch-${section.title}"),
+                    label = { Text(if (sectionIsFullyWatched) "Mark all unwatched" else "Mark all watched") },
                 )
-                OutlinedButton(
-                    onClick = onToggleExpanded,
-                    modifier = Modifier.heightIn(min = 48.dp).testTag("library-collapse-${section.title}"),
-                ) { Text("Collapse group") }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(section.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        buildList {
-                            add("${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}")
-                            add("$watchedVideoCount watched")
-                            if (completionSummary?.isCompleted == true) add("Complete")
-                        }.joinToString(" • "),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                ExpandedGroupCardStack(section)
             }
         }
     }
 }
 
 @Composable
-private fun SeriesSectionHeader(
+private fun UnifiedSeriesSectionHeader(
     section: SeriesSection,
     watchedVideoCount: Int,
     completionSummary: SeriesCompletionSummary?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
-    textEndPadding: Dp,
-    modifier: Modifier = Modifier,
 ) {
-    val supportingText = buildList {
-        add("${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}")
-        add("$watchedVideoCount/${section.videos.size} watched")
-        if (completionSummary?.let { it.totalVideoCount > 0 && it.watchedVideoCount == it.totalVideoCount } == true) {
-            add("Complete")
-        }
-    }.joinToString(" • ")
-    val shape = RoundedCornerShape(22.dp)
-    val headerMinHeight = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = headerMinHeight)
-            .clip(shape)
+        modifier = Modifier.fillMaxWidth().clip(LookTubeStyle.panelShape)
             .testTag("library-section-${section.title}")
             .semantics { stateDescription = if (isExpanded) "Expanded" else "Collapsed" }
-            .clickable(role = Role.Button, onClickLabel = if (isExpanded) "Collapse ${section.title}" else "Expand ${section.title}", onClick = onToggleExpanded),
-        shape = shape,
-        color = Color.Transparent,
+            .clickable(role = Role.Button,
+                onClickLabel = "${if (isExpanded) "Collapse" else "Expand"} ${section.title}",
+                onClick = onToggleExpanded),
+        shape = LookTubeStyle.panelShape,
+        color = LookTubeStyle.panelColor,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 0.dp,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isExpanded) 0.68f else 0.92f),
-        ),
+        border = LookTubeStyle.panelBorder,
     ) {
-        // Content Box establishes the measured height; backdrop draws behind via matchParentSize.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = headerMinHeight)
-        ) {
-            SeriesSectionHeaderBackdrop(
-                section = section,
-                isExpanded = isExpanded,
-                shape = shape,
-                modifier = Modifier.matchParentSize(),
-            )
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(10.dp)
-                        .size(40.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.84f),
-                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                    tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = if (isExpanded) "−" else "+",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                        )
-                    }
-                }
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(
-                            start = 10.dp,
-                            end = cappedGroupedContentEndPadding(
-                                textEndPadding = textEndPadding,
-                                maxPadding = GROUPED_EXPANDED_INFO_PLATE_MAX_END_PADDING,
-                            ),
-                            bottom = 10.dp,
-                        )
-                        .fillMaxWidth(if (isExpanded) 0.68f else 0.66f)
-                        .widthIn(max = if (isExpanded) 312.dp else 288.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.inverseSurface.copy(alpha = if (isExpanded) 0.76f else 0.84f),
-                    tonalElevation = 0.dp,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)),
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = section.kindLabel.uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.72f),
-                        )
-                        Text(
-                            text = section.title,
-                            style = if (isExpanded) {
-                                MaterialTheme.typography.titleLarge
-                            } else {
-                                MaterialTheme.typography.headlineSmall
-                            },
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            maxLines = if (isExpanded) 2 else 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = supportingText,
-                            style = if (isExpanded) {
-                                MaterialTheme.typography.bodySmall
-                            } else {
-                                MaterialTheme.typography.bodySmall
-                            },
-                            color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.78f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${section.kindLabel.uppercase()} GROUP", Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedButton(
+                    onClick = onToggleExpanded,
+                    modifier = Modifier.widthIn(min = 148.dp).heightIn(min = 48.dp)
+                        .testTag("library-collapse-${section.title}"),
+                ) { Text(if (isExpanded) "Collapse group" else "Expand group") }
             }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(section.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text(buildList {
+                        add("${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}")
+                        add("$watchedVideoCount/${section.videos.size} watched")
+                        if (completionSummary?.isCompleted == true) add("Complete")
+                    }.joinToString(" • "), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                GroupArtworkStack(section)
+            }
+        }
     }
 }
 
@@ -1870,8 +1581,9 @@ private fun VideoListCard(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.72f)),
+        shape = LookTubeStyle.panelShape,
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = LookTubeStyle.panelColor, contentColor = MaterialTheme.colorScheme.onSurface),
+        border = LookTubeStyle.panelBorder,
     ) {
         Column {
             Box(
@@ -1986,7 +1698,7 @@ private fun VideoListCard(
     }
     if (showFullDetails) {
         Dialog(onDismissRequest = { showFullDetails = false }) {
-            Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
+            Surface(shape = LookTubeStyle.panelShape, color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
                 Column(Modifier.heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.85f).padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(video.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -2304,7 +2016,7 @@ internal fun buildSectionStartIndices(
     var currentIndex = VIDEO_LIST_START_INDEX
     sections.forEach { section ->
         add(currentIndex)
-        currentIndex += 1 + if (section.isExpanded) section.section.videos.size else 0
+        currentIndex += 1 + section.renderedVideos.size
     }
 }
 

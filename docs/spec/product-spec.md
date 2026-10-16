@@ -113,11 +113,18 @@ Improve real-device local-caption runtime so the newly exposed caption-managemen
 - The shared Media3 service owns continuation for local/background playback and the existing cast route. Preserve metadata, saved captions, watch progress, and fullscreen state. Recommendations are deterministic and on-device, with no external AI service or transmission of watch history.
 
 ## Group header and episode hierarchy
-- Expanded groups use a compact opaque structural header labelled SHOW GROUP or TOPIC GROUP, with an unobscured wrapping title and counts, a restrained leading accent, and a distinct Collapse group button with a minimum 48-dp height. The whole header remains a collapse target; neither it nor its dedicated control starts playback.
-- Preserve the card-pack metaphor: a small decorative stack of the group's own thumbnails remains in the expanded header; the existing collapsed mosaic and staggered preview cards remain. Animate header size and lazy item placement/fades on expansion/collapse so the pack opens and compresses without giving the scroll indicator touch ownership or composing all offscreen episodes.
+- Both group states use one neutral structural header with SHOW GROUP or TOPIC GROUP, fully wrapping title/counts and a minimum-48-dp explicit Expand group / Collapse group button. The full header toggles only expansion.
+- Preserve the card-pack metaphor with the group's decorative thumbnail stack in the persistent header, tucked collapsed previews and coordinated vertical contraction/reveal of individually lazy episode rows.
 - Episode cards are inset beside a connecting gutter and show a numbered play badge over their single-thumbnail artwork. Grouped descriptions preview two lines with Read more for overflow. Group watch actions explicitly say Mark all watched/unwatched; episode watch actions stay individually scoped.
 - Preserve stable episode keys, persisted collapse choices, filtering, jump navigation, autoplay, and individually lazy episode rows. Check native collapse touches do not trigger playback or toggle twice, group actions do not play a video, and the collapse control remains reachable at 320-dp width / 2x text. Use physical-device screenshots and a transition recording for visual acceptance separately from JVM fixtures.
 
 ## Isolated debug iteration
 - Debug builds use a separate `.debug` application ID suffix and LookTube Debug launcher label, allowing baseline/highspec debug installs alongside their normal releases. Release application IDs and signing remain unchanged.
 - Prefer debug deployment and physical UI/motion checks before requesting release signing. The optional seed helper populates only a selected debug package with 40 non-playable fixture videos; it does not read normal account data. Real artwork/data acceptance remains a separate final check on the signed normal app.
+
+
+## Unified surfaces and continuous group motion
+- Use the shared 24-dp structural panel shape, neutral surface treatment and thin outline across Settings, Library and Player. Specify every Material surface-container tone in the slate/gold and warm-light palettes so default cards, dialogs and menus cannot introduce an unrelated tint. Keep semantic status colors and media readability overlays.
+- A group uses the same header composition, title, metadata, artwork stack and explicit 48-dp expand/collapse control in both states. Collapsed groups show compact tucked episode previews beneath that header; do not swap between an artwork hero and an opaque structural header.
+- Contract/reveal individually lazy episode rows with one 300-ms vertical motion. Retain exiting rows until contraction completes, disable their playback during contraction, and support reversing a toggle mid-transition. Header identity and bounds stay fixed. Transient render retention must not change the persisted collapse choice or make far-offscreen episodes eager.
+- Prefer physical debug-build motion and layout iteration before release signing. Automated continuity/reversal, touch safety, persistence, jump indices and large-text checks supplement native inspection.
