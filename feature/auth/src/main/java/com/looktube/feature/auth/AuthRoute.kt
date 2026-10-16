@@ -69,9 +69,8 @@ fun AuthRoute(
     selectedLocalCaptionEngine: LocalCaptionEngine,
     localCaptionModelState: LocalCaptionModelState,
     captionDataItems: List<CaptionDataManagementItem>,
-    onFeedUrlChanged: (String) -> Unit,
+    onFeedSyncRequested: (String) -> Unit,
     onAutoGenerateCaptionsForNewVideosChanged: (Boolean) -> Unit,
-    onSignInRequested: () -> Unit,
     onLocalCaptionEngineSelected: (String) -> Unit,
     onDownloadLocalCaptionModel: () -> Unit,
     onOpenCaptionDataVideoRequested: (String) -> Unit,
@@ -80,7 +79,12 @@ fun AuthRoute(
     additionalSettingsContent: @Composable () -> Unit = {},
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
-    val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
+    var draftFeedUrl by remember(feedConfiguration.feedUrl) { mutableStateOf(feedConfiguration.feedUrl) }
+    val draftChanged = draftFeedUrl.trim() != feedConfiguration.feedUrl
+    val parsedFeedUrl = remember(draftFeedUrl) { runCatching { java.net.URI(draftFeedUrl.trim()) }.getOrNull() }
+    val feedUrlHasError = draftFeedUrl.isNotBlank() &&
+        (parsedFeedUrl?.scheme?.lowercase() !in setOf("https", "http") || parsedFeedUrl?.host.isNullOrBlank())
+    val canSignIn = draftFeedUrl.isNotBlank() && !feedUrlHasError && !isSigningIn
     val colorScheme = MaterialTheme.colorScheme
     var clearTarget by remember { mutableStateOf<String?>(null) }
     var revealFeedUrl by rememberSaveable { mutableStateOf(false) }
@@ -113,6 +117,8 @@ fun AuthRoute(
         else -> "Your feed URL is ready. Tap Sync Premium feed to load the library."
     }
     val feedUrlSupportingText = when {
+        feedUrlHasError -> "Enter a complete http:// or https:// feed URL."
+        draftChanged -> "Changes are saved only when you choose Save & sync feed."
         feedConfiguration.feedUrl.isBlank() -> "Paste the copied Premium RSS feed URL from Giant Bomb."
         isSigningIn -> "Keep this feed URL saved while the current sync finishes."
         else -> "This copied feed URL stays saved on this device for the next sync."
@@ -189,8 +195,10 @@ fun AuthRoute(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 OutlinedTextField(
-                    value = feedConfiguration.feedUrl,
-                    onValueChange = onFeedUrlChanged,
+                    value = draftFeedUrl,
+                    onValueChange = { draftFeedUrl = it },
+                    enabled = !isSigningIn,
+                    isError = feedUrlHasError,
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text("Premium feed URL") },
                     supportingText = { Text(feedUrlSupportingText) },
@@ -202,7 +210,7 @@ fun AuthRoute(
                 )
 
                 Button(
-                    onClick = onSignInRequested,
+                    onClick = { onFeedSyncRequested(draftFeedUrl.trim()) },
                     enabled = canSignIn,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
@@ -216,6 +224,8 @@ fun AuthRoute(
                             modifier = Modifier.padding(end = 12.dp),
                         )
                         Text("Syncing…")
+                    } else if (draftChanged) {
+                        Text("Save & sync feed")
                     } else if (accountSession.isSignedIn) {
                         Text("Re-sync Premium library")
                     } else {
@@ -223,6 +233,9 @@ fun AuthRoute(
                     }
                 }
 
+                if (draftChanged && !isSigningIn) {
+                    TextButton(onClick = { draftFeedUrl = feedConfiguration.feedUrl }) { Text("Discard changes") }
+                }
                 if (canClearData) {
                     OutlinedButton(
                         onClick = { clearTarget = "library" },

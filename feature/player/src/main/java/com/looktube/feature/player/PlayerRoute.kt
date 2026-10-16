@@ -41,6 +41,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -353,23 +355,46 @@ private fun CaptionStatusCard(
                     },
                 )
                 if (hasCaptionData) {
-                    FilterChip(
-                        selected = false,
+                    CaptionDeleteAction(
+                        videoId = selectedVideo.id,
+                        videoTitle = selectedVideo.title,
+                        hasSavedCaptionTrack = hasSavedCaptionTrack,
                         enabled = !isGenerating,
-                        onClick = { onDeleteCaptionDataRequested(selectedVideo.id) },
-                        label = {
-                            Text(
-                                if (hasSavedCaptionTrack) {
-                                    "Delete caption data"
-                                } else {
-                                    "Delete partial data"
-                                },
-                            )
-                        },
+                        onDeleteConfirmed = onDeleteCaptionDataRequested,
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+fun CaptionDeleteAction(
+    videoId: String,
+    videoTitle: String,
+    hasSavedCaptionTrack: Boolean,
+    enabled: Boolean,
+    onDeleteConfirmed: (String) -> Unit,
+) {
+    var confirmDeletion by rememberSaveable(videoId) { mutableStateOf(false) }
+    LaunchedEffect(enabled) { if (!enabled) confirmDeletion = false }
+    FilterChip(
+        selected = false,
+        enabled = enabled,
+        onClick = { confirmDeletion = true },
+        label = { Text(if (hasSavedCaptionTrack) "Delete caption data" else "Delete partial data") },
+    )
+    if (confirmDeletion) {
+        AlertDialog(
+            onDismissRequest = { confirmDeletion = false },
+            title = { Text("Delete captions?") },
+            text = { Text("Remove completed and partial captions for $videoTitle? Your video and playback progress stay saved.") },
+            confirmButton = { TextButton(onClick = {
+                confirmDeletion = false
+                onDeleteConfirmed(videoId)
+            }, enabled = enabled) { Text("Delete captions") } },
+            dismissButton = { TextButton(onClick = { confirmDeletion = false }) { Text("Cancel") } },
+        )
     }
 }
 

@@ -50,6 +50,26 @@ class LookTubeAppViewModelTest {
     }
 
     @Test
+    fun savesTheWholeDraftBeforeRequestingItsFeed() = runTest {
+        val feedStore = FakeFeedConfigurationStore()
+        val feedService = FakeVideoFeedService()
+        val repository = ConfigurableLookTubeRepository(
+            feedConfigurationStore = feedStore,
+            syncedLibraryStore = FakeSyncedLibraryStore(),
+            playbackBookmarkStore = InMemoryPlaybackBookmarkStore(),
+            videoEngagementStore = InMemoryVideoEngagementStore(),
+            videoFeedService = feedService,
+            ioDispatcher = StandardTestDispatcher(testScheduler),
+        )
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+        viewModel.saveAndSyncPremiumFeed("  https://example.com/new-feed.xml  ")
+        advanceUntilIdle()
+        assertEquals("https://example.com/new-feed.xml", feedStore.persistedConfiguration.value.feedUrl)
+        assertEquals(listOf("https://example.com/new-feed.xml"), feedService.requestedUrls)
+    }
+
+    @Test
     fun refreshesConfiguredFeedThroughViewModel() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),
@@ -234,7 +254,9 @@ private class FakeSyncedLibraryStore : SyncedLibraryStore {
 }
 
 private class FakeVideoFeedService : VideoFeedService {
+    val requestedUrls = mutableListOf<String>()
     override fun loadVideos(request: VideoFeedRequest): List<VideoSummary> {
+        requestedUrls += request.feedUrl
         return listOf(
             VideoSummary(
                 id = "live-app-1",

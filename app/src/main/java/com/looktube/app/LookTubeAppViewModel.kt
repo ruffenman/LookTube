@@ -218,6 +218,16 @@ class LookTubeAppViewModel(
             repository.updateAutoGenerateCaptionsForNewVideos(enabled)
         }
     }
+    fun saveAndSyncPremiumFeed(feedUrl: String) {
+        viewModelScope.launch {
+            val trimmedUrl = feedUrl.trim()
+            if (trimmedUrl != repository.feedConfiguration.value.feedUrl) {
+                repository.updateFeedUrl(trimmedUrl)
+            }
+            repository.signInToPremiumFeed()
+        }
+    }
+
     fun signInToPremiumFeed() {
         viewModelScope.launch {
             repository.signInToPremiumFeed()

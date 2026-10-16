@@ -1,10 +1,16 @@
 package com.looktube.app
 
 import androidx.activity.ComponentActivity
+import android.view.MotionEvent
+import android.view.inspector.WindowInspector
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,6 +21,7 @@ import com.looktube.feature.library.LibraryRoute
 import com.looktube.model.*
 import org.junit.Before
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,7 +40,7 @@ class LibraryInteractionTest {
     }
 
     private val videos = (0 until 20).map { episode ->
-        VideoSummary(id = "episode-$episode", title = "Episode $episode", description = "A long description ".repeat(150),
+        VideoSummary(id = "episode-$episode", title = "Episode $episode", description = "A long description ".repeat(90),
             isPremium = true, feedCategory = "Premium", playbackUrl = null, seriesTitle = "First Show", publishedAtEpochMillis = 2_000L)
     } + (0 until 16).map { group ->
         VideoSummary(id = "other-$group", title = "Other episode $group", description = "Other details",
@@ -43,11 +50,12 @@ class LibraryInteractionTest {
     @Composable private fun Library(
         progress: Map<String, PlaybackProgress> = emptyMap(),
         engagement: Map<String, VideoEngagementRecord> = emptyMap(),
+        feedVideos: List<VideoSummary> = videos,
     ) {
         LookTubeTheme {
             LibraryRoute(
                 paddingValues = PaddingValues(), syncState = LibrarySyncState(SyncPhase.Success, "Synced"), hasSavedFeedUrl = true,
-                videos = videos, playbackProgress = progress, videoEngagement = engagement, seriesCompletionSummaries = emptyMap(),
+                videos = feedVideos, playbackProgress = progress, videoEngagement = engagement, seriesCompletionSummaries = emptyMap(),
                 onVideoSelected = {}, onMarkVideoWatched = {}, onMarkVideoUnwatched = {},
                 onMarkVideosWatched = {}, onMarkVideosUnwatched = {},
             )
@@ -102,7 +110,7 @@ class LibraryInteractionTest {
         val topPosition = composeRule.onNodeWithTag("library-top").getUnclippedBoundsInRoot().top
         composeRule.onNodeWithTag("library-section-index").performScrollToNode(hasText("Other Show P"))
         assertEquals(topPosition, composeRule.onNodeWithTag("library-top").getUnclippedBoundsInRoot().top)
-        composeRule.onNodeWithTag("library-top").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("library-popup-top").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("library-search").assertIsDisplayed()
         composeRule.onNodeWithTag("library-section-index").assertDoesNotExist()
     }
@@ -111,6 +119,58 @@ class LibraryInteractionTest {
         composeRule.setContent { Library() }
         goToFirstHeader()
         composeRule.onNodeWithText("Episode 19").assertDoesNotExist()
+    }
+
+    @Test fun shortSwipeAtRightEdgeDoesNotJumpAcrossTheLibrary() {
+        composeRule.setContent { Library() }
+        goToFirstHeader()
+        val list = composeRule.onNodeWithTag("library-list")
+        val before = list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
+        list.performTouchInput { swipe(Offset(centerX, height * 0.75f), Offset(centerX, height * 0.65f), 400) }
+        val expectedDelta = list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value() - before
+        goToFirstHeader()
+        composeRule.onNodeWithTag("library-scroll-track").performTouchInput {
+            swipe(Offset(centerX, height * 0.75f), Offset(centerX, height * 0.65f), 400)
+        }
+        val after = list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
+        assertTrue("A short edge swipe jumped from $before to $after (ordinary swipe delta $expectedDelta)", after - before < 1_000f)
+        composeRule.onNodeWithText("Episode 19").assertDoesNotExist()
+    }
+
+    @Test fun jumpControlIsVisibleAtTheTopAndOutsideTapDismissesWithoutExpandingAGroup() {
+        composeRule.setContent { Library() }
+        composeRule.onNodeWithText("Jump to show").assertIsDisplayed()
+        goToFirstHeader()
+        firstHeader().performClick()
+        composeRule.onNodeWithTag("library-index-toggle").performClick()
+        composeRule.onNodeWithTag("library-section-index").assertIsDisplayed()
+        composeRule.runOnIdle {
+            // Dispatch Android's outside-window event: Compose touch injection only
+            // targets its chosen root and does not cross native popup windows.
+            val popup = WindowInspector.getGlobalWindowViews().single { it.javaClass.simpleName == "PopupLayout" }
+            val event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_OUTSIDE, -1f, -1f, 0)
+            popup.dispatchTouchEvent(event)
+            event.recycle()
+        }
+        composeRule.onNodeWithTag("library-section-index").assertDoesNotExist()
+        assertCollapsed()
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w320dp-h568dp-xhdpi")
+    fun narrowLayoutWithLargeTextKeepsNavigationReachableAndBackDismissesPopup() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) { Library() }
+        }
+        composeRule.onNodeWithTag("library-top").assertIsDisplayed()
+        composeRule.onNodeWithTag("library-index-toggle").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("library-section-index").assertIsDisplayed()
+        composeRule.runOnIdle {
+            val popup = WindowInspector.getGlobalWindowViews().single { it.javaClass.simpleName == "PopupLayout" }
+            popup.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_BACK))
+            popup.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_BACK))
+        }
+        composeRule.onNodeWithTag("library-section-index").assertDoesNotExist()
     }
 
     @Test fun watchFiltersCombineWithSearchAndResetToTheWholeLibrary() {
@@ -159,9 +219,36 @@ class LibraryInteractionTest {
         composeRule.setContent { Library() }
         composeRule.onNodeWithTag("library-list").performScrollToNode(hasTestTag("library-details-episode-0"))
         composeRule.onNodeWithTag("library-details-episode-0").performClick()
+        assertTrue(composeRule.onNodeWithTag("video-details-scroll").fetchSemanticsNode()
+            .config[SemanticsProperties.VerticalScrollAxisRange].maxValue() > 0f)
         composeRule.onNodeWithTag("video-details-scroll").performTouchInput { swipeUp() }
         composeRule.onNodeWithText("Close").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("video-details-scroll").assertDoesNotExist()
+    }
+
+    @Test fun refreshInsertingAndRenamingGroupsKeepsTheVisibleEpisodeAnchored() {
+        val snapshot = mutableStateOf(videos)
+        composeRule.setContent { Library(feedVideos = snapshot.value) }
+        composeRule.onNodeWithTag("library-list").performScrollToNode(hasText("Episode 8"))
+        val before = composeRule.onNodeWithText("Episode 8").getUnclippedBoundsInRoot().top
+        composeRule.runOnIdle {
+            snapshot.value = listOf(videos.first().copy(id = "new", seriesTitle = "New Show", publishedAtEpochMillis = 3_000L)) +
+                videos.map { if (it.seriesTitle == "First Show") it.copy(seriesTitle = "Renamed Show") else it }
+        }
+        composeRule.onNodeWithText("Episode 8").assertIsDisplayed()
+        assertEquals(before, composeRule.onNodeWithText("Episode 8").getUnclippedBoundsInRoot().top)
+    }
+
+    @Test fun diagnosticFieldsAreHiddenUntilTechnicalDetailsAreRequested() {
+        composeRule.setContent { Library() }
+        composeRule.onNodeWithTag("library-list").performScrollToNode(hasTestTag("library-details-episode-0"))
+        composeRule.onNodeWithTag("library-details-episode-0").performClick()
+        composeRule.onNodeWithText("Playable URL").assertDoesNotExist()
+        composeRule.onNodeWithText("Technical details").performScrollTo().performClick()
+        composeRule.onNodeWithText("Playable URL").assertExists()
+        composeRule.onNodeWithText("Close").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("library-details-episode-0").performClick()
+        composeRule.onNodeWithText("Playable URL").assertDoesNotExist()
     }
 
     @Test fun collapseChoiceSurvivesLeavingCompositionWithoutSavedState() {

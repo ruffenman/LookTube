@@ -449,12 +449,6 @@ class LibrarySortTest {
     }
 
     @Test
-    fun jumpRailFadeDelayIsShortAfterScrollingAndLongerAfterRailSelections() {
-        assertEquals(200L, jumpRailFadeDelayMs(JumpRailInteraction.Scroll))
-        assertEquals(1_000L, jumpRailFadeDelayMs(JumpRailInteraction.TargetSelection))
-    }
-
-    @Test
     fun collapsedHeaderPeekCountCapsAtThreeAndRespectsGroupSize() {
         assertEquals(0, collapsedHeaderPeekCount(0))
         assertEquals(1, collapsedHeaderPeekCount(2))

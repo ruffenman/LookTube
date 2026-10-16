@@ -17,3 +17,7 @@ Persisted keys can outlive a feed snapshot. This small preference set is retaine
 ## Validation
 
 Library interaction tests cover persistence, grouping changes, independent index scrolling, Top, lazy composition, and accessible track progress. Jump-anchor unit tests account for expanded episode rows. Physical-device screenshot checks remain required for visual acceptance.
+
+## 2026-10-16 gesture-safety revision
+
+Physical-device and interaction-test reproduction showed the 48-dp overlaid track converting ordinary edge swipes into enormous absolute jumps. Replace touch seeking with a passive indicator and keep explicit accessible progress actions. Reserve an always-visible browse bar for Top and Jump to show/topic. Use a focusable native popup for outside/Back dismissal and consume the dismissing event. This supersedes the original overlaid Top/Index and touch-track decision above.

@@ -23,6 +23,7 @@ class SettingsInteractionTest {
     @get:Rule val composeRule = createAndroidComposeRule<ComponentActivity>()
     private var libraryClears = 0
     private var captionClears = 0
+    private val requestedFeeds = mutableListOf<String>()
 
     private fun showSettings(phase: SyncPhase = SyncPhase.Success) {
         composeRule.setContent {
@@ -34,7 +35,7 @@ class SettingsInteractionTest {
                     availableLocalCaptionEngines = listOf(WhisperCppLocalCaptionEngine), selectedLocalCaptionEngine = WhisperCppLocalCaptionEngine,
                     localCaptionModelState = LocalCaptionModelState(),
                     captionDataItems = listOf(CaptionDataManagementItem("video", "Video", "Complete", "Generated captions")),
-                    onFeedUrlChanged = {}, onAutoGenerateCaptionsForNewVideosChanged = {}, onSignInRequested = {},
+                    onFeedSyncRequested = { requestedFeeds += it }, onAutoGenerateCaptionsForNewVideosChanged = {},
                     onLocalCaptionEngineSelected = {}, onDownloadLocalCaptionModel = {}, onOpenCaptionDataVideoRequested = {},
                     onClearSyncedDataRequested = { libraryClears++ }, onClearCaptionDataRequested = { captionClears++ },
                 )
@@ -46,6 +47,26 @@ class SettingsInteractionTest {
         showSettings(SyncPhase.Error)
         composeRule.onNodeWithText("Needs attention").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Synced").assertDoesNotExist()
+    }
+
+    @Test fun feedEditsStayDraftsUntilExplicitSyncAndCanBeDiscarded() {
+        showSettings()
+        composeRule.onNode(hasSetTextAction()).performScrollTo().performTextReplacement("https://example.com/changed")
+        composeRule.runOnIdle { assertEquals(emptyList<String>(), requestedFeeds) }
+        composeRule.onNodeWithText("Discard changes").performScrollTo().performClick()
+        composeRule.onNode(hasSetTextAction()).assertTextContains("https://example.com/feed")
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("  https://example.com/new-feed  ")
+        composeRule.onNodeWithText("Save & sync feed").performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(listOf("https://example.com/new-feed"), requestedFeeds) }
+    }
+
+    @Test fun incompleteFeedUrlCannotBeSavedOrSynced() {
+        showSettings()
+        composeRule.onNode(hasSetTextAction()).performScrollTo().performTextReplacement("https://")
+        composeRule.onNodeWithText("Save & sync feed").performScrollTo().assertIsNotEnabled()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("https://exa mple.com/feed")
+        composeRule.onNodeWithText("Save & sync feed").assertIsNotEnabled()
+        composeRule.runOnIdle { assertEquals(emptyList<String>(), requestedFeeds) }
     }
 
     @Test fun libraryClearRequiresConfirmationAndCancelDoesNothing() {

@@ -22,15 +22,16 @@ Its central promise is deliberately narrow:
 - may show a short, cold-start-only LookTube intro overlay that rotates through verified, attributed public Giant Bomb cast quotes with an optional new-video digest and a persistent quotes-and-sources catalogue in Settings, auto-dismisses with a short fade, can be skipped immediately with any tap, and does not replay on background resume
 - exposes one global Look Points badge in the top app bar on Library and Player so score remains visible without being embedded into page-local control rows, and can show a small centered icon-only playback indicator while playback is active that routes straight to Player when tapped
 ### Settings
-- sole user input for access is the copied Premium feed URL
+- sole user input for access is the copied Premium feed URL; edits stay in a local unpersisted draft with Discard changes until explicit Save & sync validates and saves the complete URL before requesting its feed
 - communicates setup, ready, syncing, synced, and error-adjacent states
 - masks the saved feed URL until Show is selected, surfaces refresh errors even with cached data, and confirms library and caption-data clearing separately while preserving the saved feed URL
 - exposes offline caption model readiness, engine selection where the higher-spec target supports it, a local-model download action, a persistent toggle for automatically generating captions for newly discovered videos, and caption-data inspection/clear actions without mixing any future provider credentials into the main feed URL flow
 ### Library
 - combines status, search, watch-state filters, reset and result counts, grouping, sorting, jump navigation, and top-level progress context in one browse surface
 - persists collapse choices by grouping and stable identity across filtering, grouping changes, recreation, and relaunch; composes expanded episodes as individual lazy rows with correct section anchors
-- keeps Top pinned whenever scrolling back is possible, opens section labels only through Index, and supports tap, drag, and accessible scroll progress
-- keeps long video details scrollable with an explicit fixed Close action
+- reserves a stable browse bar for Top and an always-visible Jump to show/topic control with current-section context; the bounded popup dismisses on selection, outside tap, or Back without activating underlying cards
+- keeps the scroll indicator touch-passive so edge swipes remain ordinary list scrolling, while explicit navigation and accessible progress remain available
+- keeps long video details scrollable with a fixed Close action, description first, and diagnostic fields behind Technical details
 - uses a clean empty-state panel before the first successful sync or after clearing synced data, instead of seeded placeholder library items
 - wraps status plus browse controls inside a default-collapsed Browse options element that sits above the scrolling episode list
 - grouped headers can collapse or expand independently with compact circular icon-based expand/collapse controls, allow the entire header to toggle expansion, keep dimmed art visible while collapsed with stacked compact child cards from later videos remaining visible beneath the header and surfacing date, duration, and title metadata, use a subdued neutral collapsed style and a content-derived expanded full-card rectangular frame-tile mosaic with a tighter readable bottom info plate that stays visually separated from the affordance, expose one whole-group watched-state toggle at a time above the divider and child list, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
@@ -40,7 +41,7 @@ Its central promise is deliberately narrow:
 ### Player
 - must handle empty, unavailable, preparing, and active playback states clearly
 - keeps the player frame above the supporting metadata when a video is selected
-- supports resume, cast routing, fullscreen from controls/rotation, left/right double-tap seek behavior, a bounded surfaced History menu that sizes to content with a chrome-aware cap, manual watched/unwatched actions, per-video offline caption generation, and per-video caption-data deletion with standard subtitle controls
+- supports resume, cast routing, fullscreen from controls/rotation, left/right double-tap seek behavior, a bounded surfaced History menu that sizes to content with a chrome-aware cap, manual watched/unwatched actions, per-video offline caption generation, and confirmed per-video caption-data deletion with standard subtitle controls
 - should still start local playback if the user locks the device immediately after issuing the play request
 - explains remote playback on the player surface with a non-blocking visual indicator and should recover local playback cleanly after cast-session loss, reconnect, or same-video reselection
 ## Captions

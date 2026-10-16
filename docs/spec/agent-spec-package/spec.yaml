@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.19"
+  version: "0.2.20"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -252,7 +252,7 @@ contract:
         - synced
         - needs attention
       primary_actions:
-        - edit saved feed URL
+        - edit a local feed URL draft, discard changes, or explicitly Save & sync
         - sync Premium feed
         - clear synced data
         - choose the active local caption engine when multiple engines are available for the current build target
@@ -268,7 +268,7 @@ contract:
         - expand or collapse grouped sections, or all groups at once
         - manually mark a video watched or unwatched
         - open a details dialog from truncated descriptions
-        - jump to a section from the right-side jump rail
+        - jump to a section through the always-visible browse bar
         - open a video in the player
     - name: player
       description: Playback surface for empty, unavailable, preparing, active, and remote-playback states with the player frame kept above compact supporting metadata/actions, launch-intent and settings-driven preselection that does not force autoplay, visible double-tap skip confirmation feedback that avoids overlapping the main control clusters, roomier fullscreen-landscape controls, persistently visible transport controls during remote playback, no local-device-awake requirement during remote playback, a bounded surfaced History menu that sizes to content with a chrome-aware cap, and an offline-caption card that defaults to selected-engine plus progress while exposing detailed metrics through an expandable stats section.
@@ -370,6 +370,37 @@ scenarios:
       - visible status label == "Ready"
       - primary sync action is enabled
       - primary sync action label == "Sync Premium feed"
+  - id: settings_feed_edits_are_explicit_drafts
+    description: Feed input never persists a partial URL or reconfigures background refresh while typing.
+    when:
+      surface: settings
+      action:
+        edit the copied feed URL
+    then:
+      - the saved feed and refresh schedule stay unchanged while editing
+      - Discard changes restores the saved URL
+      - incomplete HTTP(S) URLs disable Save & sync
+      - Save & sync saves the complete trimmed URL before requesting its feed
+  - id: library_popup_dismissal_is_modal
+    description: Outside taps and Back dismiss section navigation without activating underlying content.
+    when:
+      surface: library
+      action:
+        open Jump to show or topic, then tap outside or press Back
+    then:
+      - the popup closes
+      - underlying groups and selected video remain unchanged
+      - an ordinary edge swipe never becomes an absolute library seek
+  - id: player_caption_deletion_requires_confirmation
+    description: Completed and partial caption deletion require confirmation for the selected video.
+    when:
+      surface: player
+      action:
+        request caption deletion
+    then:
+      - Cancel leaves captions intact
+      - confirming deletes only the selected video's caption data
+      - active generation prevents deletion
   - id: settings_surface_exposes_auto_caption_toggle
     description: Settings exposes a persistent toggle for automatically generating captions for newly discovered videos.
     when:
@@ -760,9 +791,9 @@ scenarios:
       - the original grouping retains its collapsed group after every transition and relaunch
       - expanded episodes compose as individual lazy rows with matching jump anchors
       - Top stays pinned whenever the list can scroll back
-      - opening Index exposes a readable independently scrollable section list beneath Top
-      - selecting Top or a section closes Index and jumps to the correct visible row
-      - the scroll track supports touch and accessibility progress actions
+      - Jump to show/topic remains visible at the overview and opens a readable independently scrollable section popup
+      - selecting Top or a section closes the popup and jumps to the correct visible row
+      - edge swipes scroll normally; the indicator supports accessible progress actions without touch seeking
   - id: library_search_and_watch_filters
     description: Search and watch-state filters make a populated library easy to narrow and reset.
     when:
@@ -829,7 +860,7 @@ scenarios:
       - visible filtered count becomes narrower than the total count when matching items exist
       - active filter summary identifies the chosen show
   - id: library_jump_rail_includes_top_and_section_targets
-    description: Grouped browsing exposes a right-side jump rail that always includes a top target and section targets for grouped results.
+    description: Grouped browsing exposes a permanently allocated browse bar with Top and a labelled Jump to show/topic control even at the overview.
     when:
       surface: library
       state:
@@ -844,7 +875,7 @@ scenarios:
       - jump rail contains target "Top"
       - jump rail contains at least one section target
   - id: library_overview_panel_stays_above_scrolling_results
-    description: The default-collapsed Browse options remains above the scrolling episode list, can scroll away before the results take over the viewport, while Top and Index stay pinned to the browse viewport whenever scrolling back is possible.
+    description: The default-collapsed Browse options remains above the scrolling episode list, can scroll away before the results take over the viewport, while a stable browse bar reserves space for Top and Jump to show/topic.
     when:
       surface: library
       state:
@@ -853,7 +884,7 @@ scenarios:
     then:
       - Browse options is collapsed before the user expands it
       - library status and browsing controls remain above the scrolling results panel until scrolled away
-      - Top remains visible while the section index scrolls independently
+      - the browse bar stays fixed while the section popup scrolls independently
   - id: library_video_cards_show_resume_progress_when_available
     description: Library cards display resume context when saved playback progress exists for a video.
     when:

@@ -53,12 +53,14 @@ The current app already covers a substantial first-use slice for a Premium subsc
 ## Browse stability and interaction polish
 - Collapse choices use stable mode-qualified section keys and survive scrolling, jump navigation, filters, grouping switches, screen recreation, and app restarts. Filtering never deletes choices for hidden groups. Expand/collapse-all affects only the visible groups.
 - Expanded groups keep their visual containment while individual episodes are lazy rows with stable keys. Jump anchors and scroll position calculations account for visible episode rows.
-- Back to top stays pinned within the usable viewport whenever the library can scroll backward, independently of the section index. The section index opens explicitly, remains readable, and closes after selecting a section; it does not permanently cover video cards.
-- The scroll track has a generous touch area, tap and drag support, and accessibility progress actions. Pixel measurements use density-aware conversion.
+- An always-visible browse bar reserves its own space beneath the list. It exposes Top (disabled at the beginning), Jump to show/topic, and the current section without covering cards. Its height does not change when scrolling starts. The bounded section popup closes after selection, outside taps, or Back; a dismissing tap never activates underlying content.
+- The scroll indicator is touch-passive: ordinary swipes at the screen edge must scroll normally and never seek to an absolute library position. Explicit section selection and accessible progress actions remain supported. Pixel measurements use density-aware conversion.
 - Library search and watch-state filters are visible above results, expose a clear reset action and matching result count, and preserve browse state when returning from Player.
-- Video details are scrollable with an explicit close action. Group headers announce expanded/collapsed state and actions.
+- Video details lead with the description and useful metadata; diagnostic fields and raw URLs require an explicit Technical details disclosure that resets on close. Details scroll with Close kept fixed. Group headers announce expanded/collapsed state and actions.
+- Feed URL edits remain local drafts until Save & sync; Discard changes restores the saved URL. Reject incomplete HTTP(S) URLs, and save the complete URL before requesting its feed. Editing must not reconfigure background refresh.
+- Per-video caption deletion requires confirmation for the selected video, matching the existing bulk-clear flow. Cancellation preserves data and active generation prevents deletion.
 - Settings refresh errors remain visible even when a cached library exists, and clearing library/caption data requires an explanation and confirmation. Caption action chips wrap on narrow screens.
-- Regression tests exercise a populated library, scrolling away and back, filter/grouping switches, restoration, a pinned Top action, long-group lazy rows, details, and confirmation cancellation. Standard validation includes Library and Player feature unit tests.
+- Regression tests exercise a populated library, short edge swipes, outside/Back popup dismissal, snapshot insertion without losing the visible episode, filter/grouping switches, restoration, stable navigation, lazy rows, details, URL draft submission/discard, and confirmation cancellation. Standard validation includes Library and Player feature unit tests.
 
 ## Next slice
 Improve real-device local-caption runtime so the newly exposed caption-management flow is practical for regular use.
