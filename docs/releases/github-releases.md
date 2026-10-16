@@ -113,6 +113,13 @@ git push origin v0.1.2
 ```
 
 ## Required GitHub secrets
+### Device updates without publishing a release
+
+The manual `Build signed highspec device update` workflow builds and validates the current `main` commit, signs the highspec APK using the existing `release` environment, and uploads a short-lived Actions artifact. It creates no tag or GitHub Release. The artifact includes the signed APK, checksum, and exact source commit. Signing credentials remain on the GitHub runner.
+
+Dispatch it with `gh workflow run device-highspec-release.yml --ref main`, then download the successful run's `looktube-highspec-device-update` artifact. Before deployment, verify its checksum, source commit, package ID `com.looktube.app.highspec`, version compatibility, and signing certificate against the installed app. Install with `adb -s <serial> install -r <signed-apk>`; do not uninstall or clear data to work around a signing mismatch. A baseline APK has a separate package and cannot update highspec data.
+
+### Signing credentials
 Configure these secrets in a GitHub Actions environment named `release` before using the automated release workflow:
 - `LOOKTUBE_RELEASE_KEYSTORE_B64`
 - `LOOKTUBE_RELEASE_KEYSTORE_PASSWORD`

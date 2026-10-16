@@ -1,0 +1,66 @@
+name: Build signed highspec device update
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highspec-device-update
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 40
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - name: Build and validate highspec
+        run: |
+          chmod +x gradlew
+          ./gradlew verifyHighspec :app:assembleHighspecRelease
+      - name: Sign device update
+        shell: pwsh
+        env:
+          LOOKTUBE_RELEASE_KEYSTORE_B64: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_B64 }}
+          LOOKTUBE_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEYSTORE_PASSWORD }}
+          LOOKTUBE_RELEASE_KEY_PASSWORD: ${{ secrets.LOOKTUBE_RELEASE_KEY_PASSWORD }}
+          LOOKTUBE_RELEASE_KEY_ALIAS: ${{ secrets.LOOKTUBE_RELEASE_KEY_ALIAS }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($name in @('LOOKTUBE_RELEASE_KEYSTORE_B64', 'LOOKTUBE_RELEASE_KEYSTORE_PASSWORD', 'LOOKTUBE_RELEASE_KEY_PASSWORD', 'LOOKTUBE_RELEASE_KEY_ALIAS')) {
+              if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+                  throw "Missing signing configuration: $name"
+              }
+          }
+          $keystore = Join-Path $env:RUNNER_TEMP 'looktube-device-update.jks'
+          try {
+              [IO.File]::WriteAllBytes($keystore, [Convert]::FromBase64String($env:LOOKTUBE_RELEASE_KEYSTORE_B64))
+              $outputDirectory = Join-Path $env:GITHUB_WORKSPACE 'device-update'
+              $apk = Join-Path $outputDirectory 'LookTube-Highspec-device-update.apk'
+              ./scripts/Sign-ReleaseApk.ps1 -Flavor highspec -KeystorePath $keystore -KeyAlias $env:LOOKTUBE_RELEASE_KEY_ALIAS -OutputApkPath $apk
+              if ($LASTEXITCODE -ne 0) { throw 'APK signing or verification failed.' }
+              # Bind the artifact to the exact workflow commit; publish no GitHub Release or tag.
+              $env:GITHUB_SHA | Set-Content (Join-Path $outputDirectory 'source-commit.txt') -Encoding ascii
+              Remove-Item -LiteralPath (Join-Path $outputDirectory 'LookTube-Highspec-device-update-aligned.apk')
+          } finally {
+              if (Test-Path -LiteralPath $keystore) { Remove-Item -LiteralPath $keystore }
+          }
+      - name: Upload signed APK and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: looktube-highspec-device-update
+          path: device-update/
+          if-no-files-found: error
+          retention-days: 3
