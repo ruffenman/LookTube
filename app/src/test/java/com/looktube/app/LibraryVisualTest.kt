@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -38,6 +40,26 @@ class LibraryVisualTest {
 
     @Test
     fun libraryBrowseSurface() {
+        showBrowseLibrary()
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    @Test
+    fun libraryExpandedGroupHierarchySurface() {
+        showBrowseLibrary()
+        composeRule.onNodeWithTag("library-list").performScrollToIndex(2)
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w412dp-h915dp-night-xhdpi")
+    fun libraryExpandedGroupHierarchyDarkSurface() {
+        showBrowseLibrary()
+        composeRule.onNodeWithTag("library-list").performScrollToIndex(2)
+        composeRule.onRoot().captureRoboImage()
+    }
+
+    private fun showBrowseLibrary() {
         val videos = listOf(
             VideoSummary(
                 id = "bombcast-1",
@@ -140,7 +162,6 @@ class LibraryVisualTest {
             }
         }
 
-        composeRule.onRoot().captureRoboImage()
     }
 
     @Test

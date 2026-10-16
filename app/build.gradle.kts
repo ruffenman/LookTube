@@ -25,8 +25,8 @@ android {
         applicationId = "com.looktube.app"
         minSdk = 28
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.1.8"
+        versionCode = 9
+        versionName = "0.1.9"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

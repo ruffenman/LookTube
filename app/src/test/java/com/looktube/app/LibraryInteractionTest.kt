@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
@@ -51,13 +52,15 @@ class LibraryInteractionTest {
         progress: Map<String, PlaybackProgress> = emptyMap(),
         engagement: Map<String, VideoEngagementRecord> = emptyMap(),
         feedVideos: List<VideoSummary> = videos,
+        onSelected: (String) -> Unit = {},
+        onGroupWatched: (List<String>) -> Unit = {},
     ) {
         LookTubeTheme {
             LibraryRoute(
                 paddingValues = PaddingValues(), syncState = LibrarySyncState(SyncPhase.Success, "Synced"), hasSavedFeedUrl = true,
                 videos = feedVideos, playbackProgress = progress, videoEngagement = engagement, seriesCompletionSummaries = emptyMap(),
-                onVideoSelected = {}, onMarkVideoWatched = {}, onMarkVideoUnwatched = {},
-                onMarkVideosWatched = {}, onMarkVideosUnwatched = {},
+                onVideoSelected = onSelected, onMarkVideoWatched = {}, onMarkVideoUnwatched = {},
+                onMarkVideosWatched = onGroupWatched, onMarkVideosUnwatched = {},
             )
         }
     }
@@ -65,6 +68,52 @@ class LibraryInteractionTest {
     private fun firstHeader() = composeRule.onNodeWithTag("library-section-First Show")
     private fun goToFirstHeader() = composeRule.onNodeWithTag("library-list").performScrollToIndex(2)
     private fun assertCollapsed() = firstHeader().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Collapsed"))
+
+    @Test fun explicitCollapseTouchDoesNotPlayAnEpisodeOrToggleTwice() {
+        val selected = mutableListOf<String>()
+        composeRule.setContent { Library(onSelected = { selected += it }) }
+        goToFirstHeader()
+        composeRule.onNodeWithTag("library-collapse-First Show").assertIsDisplayed()
+            .assertHeightIsAtLeast(48.dp).performTouchInput { click() }
+        assertCollapsed()
+        composeRule.runOnIdle { assertTrue(selected.isEmpty()) }
+        firstHeader().performClick()
+        composeRule.onNodeWithTag("library-list").performScrollToNode(hasTestTag("library-video-episode-0"))
+        composeRule.onNodeWithTag("library-video-episode-0").performTouchInput { click() }
+        composeRule.runOnIdle { assertEquals(listOf("episode-0"), selected) }
+        goToFirstHeader()
+        firstHeader().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Expanded"))
+    }
+
+    @Test fun groupWatchActionIsExplicitlyScopedAndDoesNotPlayOrCollapse() {
+        val marked = mutableListOf<String>()
+        val selected = mutableListOf<String>()
+        composeRule.setContent { Library(onSelected = { selected += it }, onGroupWatched = { marked += it }) }
+        goToFirstHeader()
+        composeRule.onNodeWithTag("library-group-watch-First Show").performScrollTo().assertTextContains("Mark all watched")
+            .performClick()
+        composeRule.runOnIdle {
+            assertEquals((0 until 20).map { "episode-$it" }.toSet(), marked.toSet())
+            assertEquals(20, marked.size)
+            assertTrue(selected.isEmpty())
+        }
+        firstHeader().assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Expanded"))
+    }
+
+    @Test
+    @Config(sdk = [35], qualifiers = "w320dp-h568dp-xhdpi")
+    fun enlargedTextKeepsTheGroupCollapseActionReachable() {
+        val selected = mutableListOf<String>()
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                Library(onSelected = { selected += it })
+            }
+        }
+        goToFirstHeader()
+        composeRule.onNodeWithTag("library-collapse-First Show").assertIsDisplayed().performTouchInput { click() }
+        assertCollapsed()
+        composeRule.runOnIdle { assertTrue(selected.isEmpty()) }
+    }
 
     @Test fun collapsedGroupSurvivesScrollingAwayAndPinnedTopReturnsDirectly() {
         composeRule.setContent { Library() }

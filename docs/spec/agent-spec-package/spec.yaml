@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.21"
+  version: "0.2.22"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -262,7 +262,7 @@ contract:
         - open a video with saved caption data in Player without autoplay
         - clear all caption data
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards that keep continuous visual containment with individually lazy episode rows, full-header expansion tap targets, a consistent top-left expand/collapse affordance, subdued collapsed header mosaic art with stacked card peeks beneath the lead header card, a more vibrant expanded full-card content-derived mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards that keep continuous visual containment with individually lazy episode rows, full-header expansion tap targets, a circular collapsed expand control and a labelled expanded Collapse group button, subdued collapsed header mosaic art with stacked card peeks beneath the lead header card, a compact opaque expanded header with group kind, title and counts, plus inset episodes with numbered play badges and two-line descriptions, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
         - group by none, show, or topic
         - sort by latest, show, or oldest
@@ -940,7 +940,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, circular icon-only expand or collapse affordances pinned top-left in both states, continuous visual group containment with individually lazy episode rows, a subdued collapsed style with stacked compact child-card previews visible beneath the header and surfacing date, duration, and title metadata, a thumbnail-forward content-derived expanded rectangular frame-tile backdrop that is limited to the header itself, and visually nested episode cards inside that containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, a circular top-left collapsed expand affordance and an explicit minimum-48-dp Collapse group button when expanded, continuous visual group containment with individually lazy episode rows, a subdued collapsed style with stacked compact child-card previews visible beneath the header and surfacing date, duration, and title metadata, a compact opaque expanded header labelled SHOW GROUP or TOPIC GROUP with unobscured title and counts, and visually nested episode cards inside that containing card when expanded.
     when:
       surface: library
       state:
@@ -948,18 +948,18 @@ scenarios:
         grouped_by_show: true
     then:
       - visible grouped header does not rely on tap-instruction copy to explain expand or collapse
-      - visible grouped header exposes either "Mark as Watched" or "Mark as Unwatched", but not both at the same time
-      - visible grouped header uses iconography rather than text labels for expand/collapse
-      - expanded grouped header keeps the expand or collapse control visually separated from the bottom info plate
-      - collapsed grouped header keeps the expand or collapse control in the same top-left position as the expanded state
+      - expanded group exposes either "Mark all watched" or "Mark all unwatched", but not both at the same time
+      - expanded grouped header uses an explicit Collapse group label; collapsed grouped header retains its circular expand icon
+      - expanded grouped header exposes a labelled Collapse group action that does not overlap episode playback targets
+      - expanded group header and its dedicated collapse control only toggle expansion and never start playback
       - collapsed grouped header keeps the expand or collapse control circular and pinned top-left
       - collapsed grouped header shows up to three stacked compact preview cards sourced from later videos in the group, capped by the group's actual video count
       - collapsed grouped header preview cards remain visibly staggered beneath the header in even steps
       - collapsed grouped header preview cards expose title metadata plus date or duration metadata when available
-      - expanded grouped header keeps the frame-tile mosaic treatment on the header only
+      - expanded grouped header uses an opaque structural panel rather than episode-like hero art
       - nested episode cards keep their normal single-thumbnail art treatment
       - visible grouped header places the watched toggle above the divider and nested episode cards
-      - expanded videos appear visually nested under the grouped header they belong to
+      - expanded videos appear inset beside a group gutter and expose numbered play badges; their own tap target starts only that episode
   - id: shell_look_points_are_global_on_library_and_player
     description: While normal shell chrome is visible, Look Points appear as one global top-bar badge on Library and Player instead of as page-local widgets.
     when:
@@ -1482,3 +1482,11 @@ optional_autoplay:
   controls: next title and reason, persistent toggle in Settings and Player, explicit Play next now even when disabled
   exhaustion: stop when no candidate remains; no error retries or watched-video loop
   privacy: local deterministic recommendations without external model or history upload
+
+group_header_hierarchy:
+  expanded_header: compact opaque structural panel with SHOW GROUP or TOPIC GROUP, title and counts, leading accent, and separate minimum-48-dp Collapse group button
+  safety: full header and dedicated collapse button only toggle expansion; group watch actions are explicitly scoped Mark all watched or Mark all unwatched
+  card_pack: small decorative thumbnail stack in expanded header, existing collapsed mosaic and staggered card peeks, animated header size and lazy item placement/fades
+  episodes: inset gutter, numbered play badge on single thumbnail, two-line grouped description preview and full details on request
+  preservation: stable lazy keys, persistent collapse choices, jump menu, touch-passive indicator, filters and autoplay
+  validation: real touches never play when collapsing or mark a group accidentally; 320-dp width with 2x text; physical screenshots and transition recording separately from JVM fixtures

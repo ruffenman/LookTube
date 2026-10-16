@@ -3,6 +3,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -63,6 +64,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
@@ -413,7 +416,8 @@ fun LibraryRoute(
                             )
                             item(key = "section-${displayedSection.section.key}") {
                                 GroupedSeriesSectionCard(
-                                    modifier = if (displayedSection.isExpanded) Modifier else Modifier.padding(bottom = 14.dp),
+                                    modifier = Modifier.animateItem(placementSpec = tween(220))
+                                        .then(if (displayedSection.isExpanded) Modifier else Modifier.padding(bottom = 14.dp)),
                                     section = displayedSection.section,
                                     watchedVideoCount = displayedSection.section.videos.count { video ->
                                         videoEngagement[video.id].isWatched(playbackProgress[video.id])
@@ -443,14 +447,20 @@ fun LibraryRoute(
                                     contentType = { _, _ -> "grouped-episode" },
                                 ) { index, video ->
                                     val isLast = index == displayedSection.section.videos.lastIndex
-                                    Column {
+                                    Column(Modifier.animateItem(
+                                        fadeInSpec = tween(180), placementSpec = tween(220), fadeOutSpec = tween(160),
+                                    )) {
                                         Surface(
                                             modifier = Modifier.fillMaxWidth(),
                                             shape = RoundedCornerShape(bottomStart = if (isLast) 26.dp else 0.dp, bottomEnd = if (isLast) 26.dp else 0.dp),
                                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
                                         ) {
-                                            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = if (isLast) 10.dp else 0.dp)) {
+                                            val gutterColor = MaterialTheme.colorScheme.outlineVariant
+                                            Column(Modifier.drawBehind {
+                                                drawLine(gutterColor, Offset(10.dp.toPx(), 0f), Offset(10.dp.toPx(), size.height), 2.dp.toPx())
+                                            }.padding(start = 22.dp, end = 10.dp, top = 12.dp, bottom = if (isLast) 10.dp else 0.dp)) {
                                                 GroupedSectionVideoCard(
+                                                    positionLabel = "Video ${index + 1} of ${displayedSection.section.videos.size}",
                                                     video = video,
                                                     progress = playbackProgress[video.id],
                                                     engagementRecord = videoEngagement[video.id],
@@ -809,6 +819,28 @@ private fun BrowseDropdownControlsRow(
     }
 }
 
+/** A small, non-playable version of the same pack that becomes the collapsed preview stack. */
+@Composable
+private fun ExpandedGroupCardStack(section: SeriesSection) {
+    val cards = section.videos.take(3)
+    Box(Modifier.size(width = 80.dp, height = 60.dp).testTag("library-group-stack-${section.title}")) {
+        cards.indices.reversed().forEach { index ->
+            Surface(
+                modifier = Modifier.offset(x = (index * 4).dp, y = (index * 6).dp).size(width = 68.dp, height = 44.dp),
+                shape = RoundedCornerShape(7.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                cards[index].thumbnailUrl?.takeIf(String::isNotBlank)?.let { url ->
+                    ThumbnailImage(url, contentDescription = null, modifier = Modifier.fillMaxSize())
+                } ?: Box(contentAlignment = Alignment.Center) {
+                    Text(section.title.take(1), style = MaterialTheme.typography.titleMedium)
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun SeriesSectionHeaderBackdrop(
     section: SeriesSection,
@@ -1130,7 +1162,6 @@ private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 100.dp
 private val GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT = 190.dp
-private val GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT = 236.dp
 private val GROUP_HEADER_COLLAPSED_CARD_TUCK = (-50).dp
 private const val GROUP_HEADER_MOSAIC_TILE_COUNT = 18
 
@@ -1510,7 +1541,8 @@ private fun GroupedSeriesSectionCard(
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
     Surface(
         modifier = modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .animateContentSize(animationSpec = tween(220)),
         shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp, bottomStart = if (isExpanded) 0.dp else 26.dp, bottomEnd = if (isExpanded) 0.dp else 26.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
         tonalElevation = 0.dp,
@@ -1526,21 +1558,12 @@ private fun GroupedSeriesSectionCard(
             verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
         ) {
             if (isExpanded) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT),
-                ) {
-                    SeriesSectionHeader(
-                        section = section,
-                        watchedVideoCount = watchedVideoCount,
-                        completionSummary = completionSummary,
-                        isExpanded = true,
-                        onToggleExpanded = onToggleExpanded,
-                        textEndPadding = headerTextEndPadding,
-                        modifier = Modifier.align(Alignment.TopStart),
-                    )
-                }
+                ExpandedSeriesSectionHeader(
+                    section = section,
+                    watchedVideoCount = watchedVideoCount,
+                    completionSummary = completionSummary,
+                    onToggleExpanded = onToggleExpanded,
+                )
             } else {
                 // Use a Box so header draws on top of the stacked cards (z-order).
                 // Cards are placed first, then header on top.
@@ -1592,12 +1615,68 @@ private fun GroupedSeriesSectionCard(
                                 onMarkSectionWatched()
                             }
                         },
-                        label = { Text(watchToggleActionLabel(sectionIsFullyWatched)) },
+                        modifier = Modifier.testTag("library-group-watch-${section.title}"),
+                        label = { Text(if (sectionIsFullyWatched) "Mark all unwatched" else "Mark all watched") },
                     )
                 }
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedSeriesSectionHeader(
+    section: SeriesSection,
+    watchedVideoCount: Int,
+    completionSummary: SeriesCompletionSummary?,
+    onToggleExpanded: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    val shape = RoundedCornerShape(18.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(shape)
+            .testTag("library-section-${section.title}")
+            .semantics { stateDescription = "Expanded" }
+            .clickable(role = Role.Button, onClickLabel = "Collapse ${section.title}", onClick = onToggleExpanded),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.4f)),
+    ) {
+        Column(
+            modifier = Modifier.drawBehind {
+                drawRect(accent, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height))
+            }.padding(start = 18.dp, end = 14.dp, top = 8.dp, bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "${section.kindLabel.uppercase()} GROUP",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = onToggleExpanded,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("library-collapse-${section.title}"),
+                ) { Text("Collapse group") }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(section.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        buildList {
+                            add("${section.videos.size} ${if (section.videos.size == 1) "video" else "videos"}")
+                            add("$watchedVideoCount watched")
+                            if (completionSummary?.isCompleted == true) add("Complete")
+                        }.joinToString(" • "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ExpandedGroupCardStack(section)
             }
         }
     }
@@ -1621,11 +1700,7 @@ private fun SeriesSectionHeader(
         }
     }.joinToString(" • ")
     val shape = RoundedCornerShape(22.dp)
-    val headerMinHeight = if (isExpanded) {
-        GROUP_HEADER_EXPANDED_HEADER_MIN_HEIGHT
-    } else {
-        GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT
-    }
+    val headerMinHeight = GROUP_HEADER_COLLAPSED_HEADER_MIN_HEIGHT
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -1735,6 +1810,7 @@ private fun SeriesSectionHeader(
 
 @Composable
 private fun GroupedSectionVideoCard(
+    positionLabel: String,
     video: VideoSummary,
     progress: PlaybackProgress?,
     engagementRecord: VideoEngagementRecord?,
@@ -1752,7 +1828,9 @@ private fun GroupedSectionVideoCard(
         textEndPadding = textEndPadding,
         onMarkVideoWatched = onMarkVideoWatched,
         onMarkVideoUnwatched = onMarkVideoUnwatched,
-        modifier = Modifier.clickable { onVideoSelected(video.id) },
+        positionLabel = positionLabel,
+        modifier = Modifier.testTag("library-video-${video.id}")
+            .clickable(role = Role.Button, onClickLabel = "Play ${video.title}") { onVideoSelected(video.id) },
     )
 }
 
@@ -1767,6 +1845,7 @@ private fun VideoListCard(
     onMarkVideoWatched: (String) -> Unit,
     onMarkVideoUnwatched: (String) -> Unit,
     modifier: Modifier = Modifier,
+    positionLabel: String? = null,
 ) {
     val isWatched = engagementRecord.isWatched(progress)
     val displayedProgress = displayedPlaybackProgress(
@@ -1801,6 +1880,17 @@ private fun VideoListCard(
                     .aspectRatio(16f / 9f),
             ) {
                 VideoThumbnail(video)
+                positionLabel?.let { label ->
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopStart).padding(10.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.84f),
+                        contentColor = Color.White,
+                    ) {
+                        Text("▶  $label", Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                }
                 Surface(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -1854,7 +1944,7 @@ private fun VideoListCard(
                     Text(
                         text = video.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 4,
+                        maxLines = if (positionLabel != null) 2 else 4,
                         overflow = TextOverflow.Ellipsis,
                         onTextLayout = { descriptionTruncated = it.hasVisualOverflow },
                     )
