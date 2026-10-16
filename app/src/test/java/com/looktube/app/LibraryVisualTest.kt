@@ -274,5 +274,5 @@ class LibraryVisualTest {
     }
 
     private fun testThumbnailResourceUri(resourceName: String): String =
-        "android.resource://com.looktube.app/drawable/$resourceName"
+        "android.resource://${composeRule.activity.packageName}/drawable/$resourceName"
 }

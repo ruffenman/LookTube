@@ -68,6 +68,27 @@ adb devices
 
 2. If multiple devices are attached, choose one serial and use `adb -s <serial>` for launch or follow-up shell commands.
 
+### Fast, isolated UI iteration
+
+Prefer a debug build on the phone before requesting release signing. Debug variants use separate package IDs and the launcher label **LookTube Debug**:
+
+| Target | Debug package | Normal release package |
+| --- | --- | --- |
+| Baseline | `com.looktube.app.debug` | `com.looktube.app` |
+| Highspec | `com.looktube.app.highspec.debug` | `com.looktube.app.highspec` |
+
+For a single selected phone:
+
+```powershell
+.\gradlew.bat :app:assembleHighspecDebug
+adb -s <serial> install -r app/build/outputs/apk/highspec/debug/app-highspec-debug.apk
+python scripts/Seed-DebugBrowseFixture.py --serial <serial> --package com.looktube.app.highspec.debug
+```
+
+The seed helper replaces only the chosen debug app's feed/cache/watch fixture preferences with 40 non-playable sample videos, including a multi-video stack, a longer title and a large collection. It does not read the normal app's data or credentials. Its deliberately invalid feed URL may produce a refresh warning; the local fixture cache remains usable. Do not interpret fixture artwork as acceptance of real library artwork. Use a separately configured debug feed when that is needed and authorized; do not copy or log release credentials to populate a preview.
+
+Iterate locally with debug installs, ADB screenshots and transition recordings. Keep the normal signed app and its data intact. After UI/mechanics checks pass, request the signed update and verify it once against the normal populated library. Debug installs use the automatic development key; normal release updates still require the matching release certificate.
+
 ### Standard all-target deploy
 Use the default lower-spec target plus the higher-spec target together when the connected device meets the highspec flavor requirements:
 - API 35+
@@ -75,8 +96,8 @@ Use the default lower-spec target plus the higher-spec target together when the 
 
 ```powershell path=null start=null
 .\gradlew.bat :app:installBaselineDebug :app:installHighspecDebug
-adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
-adb shell monkey -p com.looktube.app.highspec -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.looktube.app.debug -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.looktube.app.highspec.debug -c android.intent.category.LAUNCHER 1
 ```
 
 ### Single-target deploy
@@ -84,7 +105,7 @@ If the task only needs the default lower-spec target:
 
 ```powershell path=null start=null
 .\gradlew.bat :app:installBaselineDebug
-adb shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+adb shell monkey -p com.looktube.app.debug -c android.intent.category.LAUNCHER 1
 ```
 
 ### Targeting a specific connected device
@@ -92,17 +113,17 @@ The Gradle install tasks deploy to connected eligible devices. If you need to la
 
 ```powershell path=null start=null
 $DEVICE_SERIAL = "{{DEVICE_SERIAL}}"
-adb -s $DEVICE_SERIAL shell monkey -p com.looktube.app -c android.intent.category.LAUNCHER 1
+adb -s $DEVICE_SERIAL shell monkey -p com.looktube.app.debug -c android.intent.category.LAUNCHER 1
 ```
 
-Swap the package name to `com.looktube.app.highspec` when launching the highspec flavor.
+Swap the package name to `com.looktube.app.highspec.debug` when launching the highspec flavor.
 
 ## Connected-device notification validation
 Use a connected Android device when notification reliability changes are under review:
 
 ```powershell path=null start=null
 adb devices
-adb shell dumpsys jobscheduler com.looktube.app
+adb shell dumpsys jobscheduler com.looktube.app.debug
 adb shell dumpsys notification --noredact | findstr "looktube.library.updates"
 ```
 

@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.22"
+  version: "0.2.23"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -1490,3 +1490,11 @@ group_header_hierarchy:
   episodes: inset gutter, numbered play badge on single thumbnail, two-line grouped description preview and full details on request
   preservation: stable lazy keys, persistent collapse choices, jump menu, touch-passive indicator, filters and autoplay
   validation: real touches never play when collapsing or mark a group accidentally; 320-dp width with 2x text; physical screenshots and transition recording separately from JVM fixtures
+
+debug_iteration:
+  application_id_suffix: .debug
+  launcher_label: LookTube Debug
+  packages: com.looktube.app.debug and com.looktube.app.highspec.debug
+  release_packages: unchanged
+  workflow: debug build and physical layout/motion iteration first; signed normal-app acceptance after stable checks
+  fixtures: optional Seed-DebugBrowseFixture.py, explicit serial and debug package, 40 non-playable videos, no normal app data or credential reads
