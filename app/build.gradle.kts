@@ -163,7 +163,23 @@ dependencies {
     testImplementation(libs.roborazzi.compose)
 
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.espresso.core)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+
+val verifyVariantContracts = tasks.register<VariantIdentityCheckTask>("verifyVariantContracts") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Checks every flavor's application ID, including debug/release isolation."
+    expectedIdentities.set(mapOf(
+        "baselineDebug" to "com.looktube.app.debug",
+        "highspecDebug" to "com.looktube.app.highspec.debug",
+        "baselineRelease" to "com.looktube.app",
+        "highspecRelease" to "com.looktube.app.highspec",
+    ))
+}
+androidComponents.onVariants { variant ->
+    verifyVariantContracts.configure { identities.put(variant.name, variant.applicationId) }
 }

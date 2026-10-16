@@ -11,6 +11,8 @@ tasks.register("verifyHighspec") {
     description = "Runs the highspec compile, unit, and lint lane."
     dependsOn(
         "checkDocs",
+        "verifyLocalRunner",
+        ":app:verifyVariantContracts",
         ":core:heuristics:test",
         ":core:model:test",
         ":core:data:test",
@@ -63,6 +65,8 @@ tasks.register("verifyFast") {
     description = "Runs the fast Ralph loop validation lane."
     dependsOn(
         "checkDocs",
+        "verifyLocalRunner",
+        ":app:verifyVariantContracts",
         ":core:heuristics:test",
         ":core:model:test",
         ":core:data:test",
@@ -108,4 +112,19 @@ tasks.register<Exec>("integrationProbeGiantBombPlayback") {
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     description = "Opt-in manual playback probe that samples extracted Giant Bomb Premium playback targets using the same direct URL handoff shape as the app."
     commandLine("pwsh", "-NoLogo", "-File", "scripts/Invoke-GiantBombPlaybackProbe.ps1")
+}
+
+
+tasks.register("verifyAllLocal") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Offline baseline + highspec unit, screenshot, lint, identity and debug packaging gate."
+    dependsOn("verifyFast", "verifyScreenshots", "verifyHighspec", ":app:lintBaselineDebug", ":app:assembleBaselineDebug",
+        ":app:assembleBaselineDebugAndroidTest", ":app:assembleHighspecDebugAndroidTest", ":app:verifyRoborazziHighspecDebug")
+}
+
+
+tasks.register<Exec>("verifyLocalRunner") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Tests local CI failure detection and explicit-device safeguards (Python standard library)."
+    commandLine(providers.gradleProperty("looktubePython").orElse("python").get(), "-m", "unittest", "discover", "-s", "scripts/tests", "-p", "test_local_ci.py")
 }

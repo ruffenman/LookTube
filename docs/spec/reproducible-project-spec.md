@@ -257,3 +257,11 @@ An implementation that materially changes these choices can still be valid, but 
 - A group uses the same header composition, title, metadata, artwork stack and explicit 48-dp expand/collapse control in both states. Collapsed groups show compact tucked episode previews beneath that header; do not swap between an artwork hero and an opaque structural header.
 - Contract/reveal individually lazy episode rows with one 300-ms vertical motion. Clip the contracting rows without translating their lower controls into view; reveal compact previews in the latter portion of contraction and retract them early on expansion. Retain exiting rows until contraction completes, disable their playback during contraction, and support reversing a toggle mid-transition. Header identity and bounds stay fixed. Transient render retention must not change the persisted collapse choice or make far-offscreen episodes eager.
 - Prefer physical debug-build motion and layout iteration before release signing. Automated continuity/reversal, touch safety, persistence, jump indices and large-text checks supplement native inspection.
+
+
+## Local CI acceptance lanes
+- Adopt `verifyAllLocal` (or the report-producing `python scripts/local_ci.py full`) before committing: docs, all four package identities, runner regression tests, JVM/interaction tests for both flavors, both-flavor screenshots, both-flavor lint and debug app/instrumentation APK builds. No signing credentials or product account are required.
+- Keep the quick `verifyFast` loop and opt-in managed-device lane. Explicit-serial native device checks render synthetic non-playable Library fixtures in a debug-only test Activity and cover contraction/reversal, scrolling/collapse persistence, outside-window dismissal and constrained large text. Capture native evidence per run and fail on partial/zero/crashed instrumentation even if ADB exits zero.
+- Save unique local-CI reports with source/dirty-state metadata, step logs, failures and durations; record debug APK hashes and native screenshots for device runs. A device test pass is not production-artwork, frame-pacing, casting or playback acceptance.
+
+- Native large-text evidence must keep the group role label readable rather than wrapping letter by letter beside the control. Group role/control rows wrap as units when the available width or font size requires it.

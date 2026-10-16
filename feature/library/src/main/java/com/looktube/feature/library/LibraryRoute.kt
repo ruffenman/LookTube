@@ -1469,6 +1469,7 @@ private fun GroupedSeriesSectionCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UnifiedSeriesSectionHeader(
     section: SeriesSection,
@@ -1490,8 +1491,13 @@ private fun UnifiedSeriesSectionHeader(
         border = LookTubeStyle.panelBorder,
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("${section.kindLabel.uppercase()} GROUP", Modifier.weight(1f),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("${section.kindLabel.uppercase()} GROUP",
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(
                     onClick = onToggleExpanded,

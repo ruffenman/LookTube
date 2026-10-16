@@ -141,6 +141,9 @@ class LibraryInteractionTest {
             }
         }
         goToFirstHeader()
+        val role = composeRule.onNode(hasText("SHOW GROUP") and hasAnyAncestor(hasTestTag("library-section-First Show")), useUnmergedTree = true)
+            .getUnclippedBoundsInRoot()
+        assertTrue("Group role must not wrap letter by letter", role.bottom - role.top <= 64.dp)
         composeRule.onNodeWithTag("library-collapse-First Show").assertIsDisplayed().performTouchInput { click() }
         assertCollapsed()
         composeRule.runOnIdle { assertTrue(selected.isEmpty()) }

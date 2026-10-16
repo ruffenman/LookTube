@@ -1,6 +1,26 @@
 # Local validation
 This document covers the local validation and device-check workflow for contributors working on LookTube.
 
+## One-command local CI
+
+Use Python 3.11+ (standard library only), the configured Android/JDK toolchain and Gradle wrapper:
+
+| Command | Coverage |
+| --- | --- |
+| `python scripts/local_ci.py fast` | JVM/unit and interaction tests, docs, runner failure-detection tests, all four package-ID contracts |
+| `python scripts/local_ci.py full` | Fast checks plus both flavors' unit tests, lint, both-flavor screenshot verification, and both flavors’ debug app/test APK builds |
+| `python scripts/local_ci.py device --serial <serial>` | Native populated-library tests on exactly the selected API-35+ arm64 Android device; isolated highspec debug target |
+
+Each invocation writes a unique `artifacts/local-ci/<run-id>/summary.json` plus step logs. Reports include source commit, dirty-worktree flag, selected lane, step status/duration/exit code, and failures. Device reports also record the explicit serial, installed APK hashes and current-run screenshots. A failed build, offline/unauthorized phone, incompatible API/ABI, failed/partial/zero instrumentation tests or missing evidence exits nonzero. ADB exit zero alone does not pass the native lane. Commands have timeouts; interrupted runs are recorded as interrupted rather than passed.
+
+The full lane is also available directly as `.\gradlew.bat verifyAllLocal`. It never starts an emulator or requires a Giant Bomb account, feed URL, release-signing key or phone. Normal Gradle dependency downloads may still be needed on an uncached machine. Set `-PlooktubePython=<interpreter>` when invoking Gradle directly with a non-default Python; the Python runner supplies its own interpreter automatically.
+
+The device lane builds/updates only `com.looktube.app.highspec.debug` and its test APK. It does not uninstall, clear or install over either normal release package. Native tests render synthetic non-playable videos directly in a test Activity; only debug browse preferences are reset. Test screenshots are copied from a unique directory inside that debug app's external files. Device-side evidence remains there until the debug install is removed; no shared device folders are wiped. The runner does not seed the feed/cache or copy account data.
+
+Native coverage now exercises header continuity and interrupted contraction, lazy outgoing rows, collapse persistence after scrolling away and returning with Top, actual outside-window pointer dismissal without activating the underlying header, and a 320-dp content width with 2x text. Five native endpoint/mid-transition screenshots accompany successful runs. This validates real Android mechanics and fixture layout; frame pacing, arbitrary production artwork, casting and real media playback remain separate acceptance checks. It does not claim that a passing screenshot proves an aesthetically seamless animation.
+
+The existing managed-device lane runs the same native tests plus the empty-app smoke test on a disposable baseline emulator. Physical-device runs intentionally select only `NativeLibraryMechanicsTest`, so they do not assume an empty debug install.
+
 ## Fast validation lane
 Run after a focused change:
 
@@ -9,6 +29,8 @@ Run after a focused change:
 ```
 
 Current coverage:
+- explicit baseline/highspec debug/release application-ID contracts
+- seven standard-library runner tests for false-success, failed command, timeout and device-preflight handling
 - required docs presence and basic doc freshness checks
 - `core:heuristics` JVM tests for centralized Giant Bomb site-content inference
 - `core:model` JVM tests
@@ -38,7 +60,7 @@ This adds:
 - optional managed-device smoke tests when `-PskipManagedDevice` is not supplied
 
 ## Managed-device smoke lane
-The baseline app target is configured with a `pixel6Api36` managed virtual device. The smoke lane currently passes locally, though AGP still emits an ABI migration warning during setup:
+The baseline app target is configured with a `pixel6Api36` managed virtual device. This opt-in lane requires the emulator image and virtualization support; a physical-device pass does not establish that the managed lane passed:
 
 ```powershell path=null start=null
 .\gradlew.bat verifyLocal
@@ -178,3 +200,7 @@ The playback probe samples extracted playback targets from the configured feed a
 - when external behavior changes, update the fixture, tests, integration notes, and learnings log together
 - current app behavior persists only the copied feed URL locally, keeps the product strictly feed-first, and treats library-update notifications as a local snapshot-diff result rather than a separate server-push feature
 
+
+## Native dependency compatibility
+
+The API-37 phone run exposed Espresso 3.5.0 arriving transitively through Compose tests: input injection failed in reflective `InputManager.getInstance`. Android instrumentation explicitly depends on Espresso 3.7.0, whose [official release notes](https://developer.android.com/jetpack/androidx/releases/test#espresso-3.7.0) record the switch to `getSystemService`. This is a test-only dependency. Both instrumentation APKs are compiled by the full offline gate so broken imports/dependencies cannot hide until a phone is available.

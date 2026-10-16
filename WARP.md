@@ -4,7 +4,7 @@
 - If a design change affects the transferable project contract, update `docs/spec/reproducible-project-spec.md` and `docs/spec/agent-spec-package/` in the same slice as well.
 - When Giant Bomb site-content conventions change, update the shared heuristics in `core/heuristics` instead of reintroducing local rule tables or one-off inference logic elsewhere.
 - Run `.\gradlew.bat verifyFast` after each thin Ralph loop slice.
-- Run `.\gradlew.bat verifyLocal -PskipManagedDevice=true` before committing unless you also validated the managed-device lane.
+- Run `.\gradlew.bat verifyAllLocal` before committing; use `python scripts/local_ci.py full` for a saved report. Run the explicit-serial native device lane when changing UI mechanics.
 - Once a slice reaches a stable checkpoint, finish the required validation, then commit it, push it, and deploy it before ending the response, without stopping to ask for permission first.
 - Never commit live Giant Bomb credentials, cookies, or raw authenticated feed responses.
 - Copied feed URLs persist through an encrypted-at-rest app store.

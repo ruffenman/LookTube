@@ -32,6 +32,7 @@ Common validation commands:
 ```powershell path=null start=null
 .\gradlew.bat verifyFast
 .\gradlew.bat verifyLocal -PskipManagedDevice=true
+.\gradlew.bat verifyAllLocal
 ```
 
 For contributor workflow, connected-device deployment, integration probes, screenshots, and release packaging, see `CONTRIBUTING.md`.
@@ -51,3 +52,5 @@ For contributor workflow, connected-device deployment, integration probes, scree
 LookTube is licensed under the MIT license in `LICENSE`.
 
 Third-party and bundled-component attribution notes live in `THIRD_PARTY_NOTICES.txt`. Public release artifacts should preserve any required upstream notices for bundled or flavor-specific components.
+
+For per-run local CI logs and a JSON report, use `python scripts/local_ci.py full`. Native populated-library checks use `python scripts/local_ci.py device --serial <serial>` against the separate debug app. See [local validation](docs/testing/local-ci.md) for lane coverage and requirements.

@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.25"
+  version: "0.2.26"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -1504,3 +1504,11 @@ continuous_group_motion:
   episodes: 300-ms vertical contraction/reveal without whole-row translation, compact preview enters late and retracts early, measured outgoing rows retained until complete, reversal supported
   safety: no outgoing-row playback, persist target state only, preserve lazy composition and jump indexing
   surfaces: shared 24-dp neutral outlined panels in Settings Library Player, explicit theme surface-container palettes
+
+local_ci:
+  fast: docs, all variant identities, runner unit tests, JVM and baseline app interaction tests
+  full: verifyAllLocal, both flavors unit/lint/debug app and instrumentation builds, both-flavor screenshot verification
+  device: explicit serial, API35+ arm64, highspec debug-only synthetic Library activity, 3 native tests and 5 current-run screenshots
+  reports: unique artifacts/local-ci run directory with JSON status, source and dirty flag, step logs and duration, APK hashes and evidence for device lane
+  failure_policy: nonzero on command error, timeout, offline device, partial or failed instrumentation, or missing current evidence; never infer pass from adb exit zero
+  limits: no production account or signing, no claims of production artwork, frame pacing, cast, or actual playback acceptance
