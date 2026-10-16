@@ -78,11 +78,12 @@ An implementation that materially changes these choices can still be valid, but 
 - renders an overview panel above the scrolling episode list using the current sync state and last successful summary
 - supports grouping by none, show, or topic
 - supports sorting by latest, show, or oldest
-- supports a default-collapsed Library Config section that wraps library status, grouping, group visibility, sorting, and show filtering
+- exposes search across titles, descriptions, shows, and topics plus All, Unwatched, In progress, and Watched chips with a result count and Reset filters action
+- supports a default-collapsed Browse options section that wraps library status, grouping, group visibility, sorting, and show filtering
 - supports show filtering with the filter tray collapsed by default
 - supports collapsing and expanding individual grouped sections, plus overview-level expand-all and collapse-all actions when grouping is active
 - applies the chosen sort mode consistently to flat lists, grouped section ordering, and episode ordering within each visible group
-- renders grouped section headers as containing cards with progress-aware video cards beneath them, lets the whole header toggle expansion, keeps one stable outer containing card in both states, keeps a circular icon-only expand/collapse affordance pinned in the top-left corner in both states, uses subdued collapsed mosaic art behind a readable info plate while up to three subsequent-video cards remain stacked and partially visible beneath the header with compact date, duration, and title metadata, uses a more vibrant thumbnail-forward content-derived rectangular frame-tile mosaic on the expanded header itself, keeps the child episode cards on their normal single-thumbnail treatment, places the single group watched-state toggle immediately above the divider and child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a right-side jump rail that anchors to the episode-list panel for quick section navigation based on the currently visible section anchors without overlapping card text or interactive controls or painting a full-screen overlay behind the rail
+- renders grouped section headers as containing cards with progress-aware video cards beneath them, lets the whole header toggle expansion, keeps continuous visual group containment with individually lazy episode rows in both states, keeps a circular icon-only expand/collapse affordance pinned in the top-left corner in both states, uses subdued collapsed mosaic art behind a readable info plate while up to three subsequent-video cards remain stacked and partially visible beneath the header with compact date, duration, and title metadata, uses a more vibrant thumbnail-forward content-derived rectangular frame-tile mosaic on the expanded header itself, keeps the child episode cards on their normal single-thumbnail treatment, places the single group watched-state toggle immediately above the divider and child video list, uses a custom progress bar that avoids ambiguous endpoint dots on video cards, and provides a viewport-pinned Top action and explicit Index toggle with readable section navigation and a tap/drag/accessibility scroll track
 - shows watched-versus-total completion on grouped show headers when browsing by show
 - uses explicit `Mark as Watched` and `Mark as Unwatched` labels for manual watched-state actions
 - exposes key per-video metadata on cards and an explicit full-info affordance for inspecting each video's stored details
@@ -108,17 +109,19 @@ An implementation that materially changes these choices can still be valid, but 
 - A saved feed URL survives app restarts.
 - Secure persistence is preferred; plaintext fallback, if required, stores only the feed URL.
 - The persisted feed configuration also carries the automatic-caption toggle for newly discovered videos and daily-open Look Points bookkeeping.
-- Clearing synced data does not clear the saved feed URL.
+- Clearing synced data does not clear the saved feed URL. Library and caption-data clearing each require an explicit confirmation naming their scope.
+- Saved feed URLs are masked until explicitly revealed. Refresh errors remain visible even when cached data is available.
+- Video details scroll independently with Close kept reachable; watch and caption actions wrap on narrow layouts.
 
 ### Sync and library state
 - Blank feed URLs do not start a successful sync.
 - Successful sync replaces the active library with feed-backed items.
 - If no successful feed snapshot is available, the library remains empty and presents a clean next-step empty state instead of placeholder content.
 - Library sorting semantics stay consistent across grouped and ungrouped browsing: latest and oldest are chronological, while show ordering is alphabetical by group/show with newest episodes first within a show.
-- The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the jump rail does not overlap that overview panel.
-- Grouped section collapse state is local UI state that survives scrolling and jump-rail use during the current session without needing cross-launch persistence.
+- The library overview panel remains visually separate from the scrolling episode list, can scroll off screen before the episode list takes over the viewport, and the fixed Top action remains reachable after scrolling without following recycled item coordinates.
+- Grouped section collapse choices use persistent, grouping-qualified keys and survive scrolling, filtering, grouping changes, route recreation, and relaunch. Hidden groups retain their choices; expand/collapse-all affects visible groups only.
 - Grouped sections read as containing cards, with compact header controls that use circular icon-only expand/collapse affordances pinned top-left in both states, a subdued collapsed style whose lead header uses the group's mosaic art while up to three slightly staggered subsequent-video cards remain visibly stacked beneath it with compact date, duration, and title metadata, a thumbnail-forward content-derived expanded full-card rectangular frame-tile mosaic that is limited to the grouped header itself and paired with a stable readable info plate, a single current-state watched toggle instead of parallel watched and unwatched buttons, and expanded episode cards that remain visually nested under the header they belong to while keeping their own single-thumbnail art.
-- The jump rail becomes visible quickly when scrolling starts, fades back out roughly 0.2 seconds after passive scrolling stops, and only lingers longer after an explicit jump-rail selection.
+- Whenever the list can scroll back, Top stays pinned to the viewport. Index explicitly opens a readable, independently scrollable section list beneath it and closes on destination selection. The narrow track supports taps, drags, and accessibility progress actions; grouped jump anchors count every visible lazy episode row.
 
 ### Background refresh and notifications
 - Saving a non-blank feed URL results in one active periodic background refresh registration, may enqueue an immediate catch-up refresh request without resetting the long-lived periodic cadence, and maintains a rolling delayed catch-up fallback while the feed URL remains saved.
@@ -225,5 +228,5 @@ An implementation that materially changes these choices can still be valid, but 
 - architecture: `docs/architecture/overview.md`
 - integration notes: `docs/integration/giantbomb.md`
 - local validation workflow: `docs/testing/local-ci.md`
-- architectural decisions: `docs/decisions/ADR-0001-foundation.md`, `docs/decisions/ADR-0002-auth-persistence.md`, `docs/decisions/ADR-0003-offline-captions.md`
+- architectural decisions: `docs/decisions/ADR-0001-foundation.md`, `docs/decisions/ADR-0002-auth-persistence.md`, `docs/decisions/ADR-0003-offline-captions.md`, `docs/decisions/ADR-0004-library-browse-stability.md`
 

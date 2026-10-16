@@ -28,6 +28,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,11 +82,13 @@ fun AuthRoute(
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     val canSignIn = feedConfiguration.feedUrl.isNotBlank() && !isSigningIn
     val colorScheme = MaterialTheme.colorScheme
+    var clearTarget by remember { mutableStateOf<String?>(null) }
+    var revealFeedUrl by rememberSaveable { mutableStateOf(false) }
     val statusLabel = when {
         isSigningIn -> "Syncing"
+        syncState.phase == SyncPhase.Error -> "Needs attention"
         accountSession.isSignedIn -> "Synced"
         feedConfiguration.feedUrl.isBlank() -> "Setup required"
-        syncState.phase == SyncPhase.Error -> "Needs attention"
         else -> "Ready"
     }
     val statusContainerColor = when (statusLabel) {
@@ -98,6 +107,7 @@ fun AuthRoute(
     }
     val primaryInstruction = when {
         isSigningIn -> "Wait while LookTube refreshes your copied Premium feed."
+        syncState.phase == SyncPhase.Error && accountSession.isSignedIn -> "Refresh failed. Your saved library is still available. Check the feed URL or try syncing again."
         feedConfiguration.feedUrl.isBlank() -> "Paste the RSS URL copied from Giant Bomb feeds, then sync your library."
         accountSession.isSignedIn -> "Your synced library is already saved on this device. Sync again any time to refresh it."
         else -> "Your feed URL is ready. Tap Sync Premium feed to load the library."
@@ -145,14 +155,13 @@ fun AuthRoute(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         LookTubePageHeader(
-            title = "Connect your Giant Bomb Premium feed",
-            subtitle = "Paste the feed URL you copied from Giant Bomb, then sync your library. LookTube uses the copied feed directly and does not automate website sign-in.",
+            title = if (accountSession.isSignedIn) "Settings" else "Connect your Giant Bomb Premium feed",
+            subtitle = if (accountSession.isSignedIn) "Manage your feed, offline captions, and saved data." else "Paste the feed URL you copied from Giant Bomb, then sync your library.",
         )
 
-        LookTubeCard(
-            title = "Next step",
-            body = primaryInstruction,
-        )
+        if (!accountSession.isSignedIn || isSigningIn || syncState.phase == SyncPhase.Error) {
+            LookTubeCard(title = "Next step", body = primaryInstruction)
+        }
 
         LookTubeCard(
             title = "Premium feed status",
@@ -186,6 +195,9 @@ fun AuthRoute(
                     label = { Text("Premium feed URL") },
                     supportingText = { Text(feedUrlSupportingText) },
                     singleLine = true,
+                    visualTransformation = if (revealFeedUrl) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                    trailingIcon = { TextButton(onClick = { revealFeedUrl = !revealFeedUrl }) { Text(if (revealFeedUrl) "Hide" else "Show") } },
                     shape = RoundedCornerShape(18.dp),
                 )
 
@@ -213,7 +225,7 @@ fun AuthRoute(
 
                 if (canClearData) {
                     OutlinedButton(
-                        onClick = onClearSyncedDataRequested,
+                        onClick = { clearTarget = "library" },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(18.dp),
                     ) {
@@ -334,11 +346,26 @@ fun AuthRoute(
                     menuExpanded = captionDataMenuExpanded,
                     onMenuExpandedChanged = { captionDataMenuExpanded = it },
                     onOpenCaptionDataVideoRequested = onOpenCaptionDataVideoRequested,
-                    onClearCaptionDataRequested = onClearCaptionDataRequested,
+                    onClearCaptionDataRequested = { clearTarget = "captions" },
                 )
             }
         }
         additionalSettingsContent()
+    }
+    if (clearTarget != null) {
+        val clearingLibrary = clearTarget == "library"
+        AlertDialog(
+            onDismissRequest = { clearTarget = null },
+            title = { Text(if (clearingLibrary) "Clear synced data?" else "Clear all caption data?") },
+            text = { Text(if (clearingLibrary)
+                "This removes cached videos, playback progress, watch history, watched status, and generated captions. Your saved feed URL stays on this device."
+                else "This removes all completed and partial generated captions. You can generate them again later.") },
+            confirmButton = { TextButton(onClick = {
+                clearTarget = null
+                if (clearingLibrary) onClearSyncedDataRequested() else onClearCaptionDataRequested()
+            }) { Text("Clear data") } },
+            dismissButton = { TextButton(onClick = { clearTarget = null }) { Text("Cancel") } },
+        )
     }
 }
 

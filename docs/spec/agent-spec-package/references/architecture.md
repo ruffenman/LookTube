@@ -24,12 +24,15 @@ Its central promise is deliberately narrow:
 ### Settings
 - sole user input for access is the copied Premium feed URL
 - communicates setup, ready, syncing, synced, and error-adjacent states
-- can clear synced data while preserving the saved feed URL
+- masks the saved feed URL until Show is selected, surfaces refresh errors even with cached data, and confirms library and caption-data clearing separately while preserving the saved feed URL
 - exposes offline caption model readiness, engine selection where the higher-spec target supports it, a local-model download action, a persistent toggle for automatically generating captions for newly discovered videos, and caption-data inspection/clear actions without mixing any future provider credentials into the main feed URL flow
 ### Library
-- combines status, grouping, sorting, filtering, jump navigation, and top-level progress context in one browse surface
+- combines status, search, watch-state filters, reset and result counts, grouping, sorting, jump navigation, and top-level progress context in one browse surface
+- persists collapse choices by grouping and stable identity across filtering, grouping changes, recreation, and relaunch; composes expanded episodes as individual lazy rows with correct section anchors
+- keeps Top pinned whenever scrolling back is possible, opens section labels only through Index, and supports tap, drag, and accessible scroll progress
+- keeps long video details scrollable with an explicit fixed Close action
 - uses a clean empty-state panel before the first successful sync or after clearing synced data, instead of seeded placeholder library items
-- wraps status plus browse controls inside a default-collapsed Library Config element that sits above the scrolling episode list
+- wraps status plus browse controls inside a default-collapsed Browse options element that sits above the scrolling episode list
 - grouped headers can collapse or expand independently with compact circular icon-based expand/collapse controls, allow the entire header to toggle expansion, keep dimmed art visible while collapsed with stacked compact child cards from later videos remaining visible beneath the header and surfacing date, duration, and title metadata, use a subdued neutral collapsed style and a content-derived expanded full-card rectangular frame-tile mosaic with a tighter readable bottom info plate that stays visually separated from the affordance, expose one whole-group watched-state toggle at a time above the divider and child list, keep overview controls for expanding or collapsing all groups, render as containing cards, and visually nest their episode cards beneath the owning header
 - shows watched-versus-total progress for shows while Look Points scoring remains available from the global shell badge and reflects watched videos plus one daily app-open point without adding show-completion bonus points
 - uses explicit `Mark as Watched` and `Mark as Unwatched` wording for manual watch-state actions

@@ -18,6 +18,8 @@ tasks.register("verifyHighspec") {
         ":core:network:test",
         ":app:assembleHighspecDebug",
         ":app:testHighspecDebugUnitTest",
+        ":feature:library:testDebugUnitTest",
+        ":feature:player:testDebugUnitTest",
         ":app:lintHighspecDebug",
     )
 }
@@ -67,6 +69,8 @@ tasks.register("verifyFast") {
         ":core:database:test",
         ":core:network:test",
         ":app:testBaselineDebugUnitTest",
+        ":feature:library:testDebugUnitTest",
+        ":feature:player:testDebugUnitTest",
     )
 }
 

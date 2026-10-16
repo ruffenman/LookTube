@@ -13,6 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +54,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -59,6 +64,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -73,7 +80,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
@@ -104,6 +120,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LibraryRoute(
     paddingValues: PaddingValues,
@@ -121,15 +138,33 @@ fun LibraryRoute(
     initialCollapsedSectionTitles: Set<String> = emptySet(),
 ) {
     val density = LocalDensity.current
+    val context = LocalContext.current
+    val browsePreferences = remember(context) { context.getSharedPreferences("looktube.library.browse", Context.MODE_PRIVATE) }
     val listTopContentPaddingPx = with(density) { LIST_TOP_CONTENT_PADDING.roundToPx() }
-    var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.Latest) }
+    var sortOption by rememberSaveable { mutableStateOf(LibrarySortOption.entries.firstOrNull { it.name == browsePreferences.getString("sort", null) } ?: LibrarySortOption.Latest) }
     var selectedSeriesFilter by rememberSaveable { mutableStateOf(ALL_SERIES_FILTER) }
-    var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.Show) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    var watchFilter by rememberSaveable { mutableStateOf(LibraryWatchFilter.All) }
+    var groupingMode by rememberSaveable { mutableStateOf(HeuristicGroupingMode.entries.firstOrNull { it.name == browsePreferences.getString("grouping", null) } ?: HeuristicGroupingMode.Show) }
     var groupMenuExpanded by remember { mutableStateOf(false) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var railEmphasized by remember { mutableStateOf(false) }
     var lastRailInteraction by remember { mutableStateOf(JumpRailInteraction.Scroll) }
-    var collapsedSectionKeys by remember(groupingMode.name) { mutableStateOf<Set<String>?>(null) }
+    var collapsedSectionKeys by rememberSaveable(
+        stateSaver = listSaver<Set<String>, String>(save = { it.toList() }, restore = { it.toSet() }),
+    ) {
+        mutableStateOf(
+            if (initialCollapsedSectionTitles.isNotEmpty()) {
+                videos.filter { it.displaySeriesTitle in initialCollapsedSectionTitles }
+                    .mapTo(mutableSetOf()) { "Show:${it.groupingKey(HeuristicGroupingMode.Show)}" }
+            } else browsePreferences.getStringSet("collapsed", emptySet()).orEmpty().toSet(),
+        )
+    }
+    var railMenuOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(collapsedSectionKeys, sortOption, groupingMode) {
+        browsePreferences.edit().putStringSet("collapsed", collapsedSectionKeys)
+            .putString("sort", sortOption.name).putString("grouping", groupingMode.name).apply()
+    }
     val isGrouped = groupingMode != HeuristicGroupingMode.None
     val listState = rememberLazyListState()
     val showRailState = rememberLazyListState()
@@ -161,8 +196,19 @@ fun LibraryRoute(
             )
         listOf(ALL_SERIES_FILTER) + sortedFilters
     }
-    val filteredVideos = remember(videos, selectedSeriesFilter) {
-        videos.filter { selectedSeriesFilter == ALL_SERIES_FILTER || it.displaySeriesTitle == selectedSeriesFilter }
+    val filteredVideos = remember(videos, selectedSeriesFilter, searchQuery, watchFilter, playbackProgress, videoEngagement) {
+        val query = searchQuery.trim()
+        videos.filter { video ->
+            val watched = videoEngagement[video.id].isWatched(playbackProgress[video.id])
+            (selectedSeriesFilter == ALL_SERIES_FILTER || video.displaySeriesTitle == selectedSeriesFilter) &&
+                (query.isEmpty() || listOf(video.title, video.description, video.displaySeriesTitle, video.topicGroupingTitle).any { it.contains(query, ignoreCase = true) }) &&
+                when (watchFilter) {
+                    LibraryWatchFilter.All -> true
+                    LibraryWatchFilter.Unwatched -> !watched
+                    LibraryWatchFilter.InProgress -> !watched && (playbackProgress[video.id]?.positionSeconds ?: 0) > 0
+                    LibraryWatchFilter.Watched -> watched
+                }
+        }
     }
     val sortedVideos = remember(filteredVideos, sortOption) {
         filteredVideos.sortedWith(videoComparator(sortOption))
@@ -195,16 +241,7 @@ fun LibraryRoute(
                 .sortedWith(sectionComparator(sortOption))
         }
     }
-    LaunchedEffect(sections, initialCollapsedSectionTitles, collapsedSectionKeys) {
-        val validSectionKeys = sections.mapTo(mutableSetOf(), SeriesSection::key)
-        collapsedSectionKeys = when (val currentKeys = collapsedSectionKeys) {
-            null -> sections
-                .filter { section -> section.title in initialCollapsedSectionTitles }
-                .mapTo(mutableSetOf(), SeriesSection::key)
-            else -> currentKeys.filterTo(mutableSetOf()) { it in validSectionKeys }
-        }
-    }
-    val effectiveCollapsedSectionKeys = collapsedSectionKeys.orEmpty()
+    val effectiveCollapsedSectionKeys = collapsedSectionKeys
     val displayedSections = remember(sections, effectiveCollapsedSectionKeys) {
         buildDisplayedSections(
             sections = sections,
@@ -231,11 +268,7 @@ fun LibraryRoute(
         }
     }
     val hasWideRailLabels = sections.isNotEmpty()
-    val railTextClearance = when {
-        sections.isNotEmpty() -> JUMP_RAIL_TEXT_CLEARANCE
-        sortedVideos.isNotEmpty() -> TOP_ONLY_RAIL_TEXT_CLEARANCE
-        else -> TRACK_ONLY_CONTENT_CLEARANCE
-    }
+    val railTextClearance = 16.dp
     val resultsAnchorOffsetPx by remember(listState, listTopContentPaddingPx) {
         derivedStateOf {
             listState.layoutInfo.visibleItemsInfo
@@ -260,25 +293,17 @@ fun LibraryRoute(
     }
     val railHasScrollableContent by remember(listState, sortedVideos, jumpTargets) {
         derivedStateOf {
-            sortedVideos.isNotEmpty() && (
+            videos.isNotEmpty() && (
                 listState.canScrollBackward ||
                     listState.canScrollForward ||
                     jumpTargets.size > 1
                 )
         }
     }
-    val showRailLabels by remember(listState, railEmphasized, jumpTargets) {
-        derivedStateOf {
-            jumpTargets.isNotEmpty() && (
-                railEmphasized ||
-                    jumpTargets.size > 1 ||
-                    resultsAnchorOffsetPx == 0
-                )
-        }
-    }
-    LaunchedEffect(currentJumpTargetIndex, jumpTargets.size) {
-        if (jumpTargets.isNotEmpty()) {
-            showRailState.animateScrollToItem(currentJumpTargetIndex.coerceAtMost(jumpTargets.lastIndex))
+    val showRailLabels = railMenuOpen
+    LaunchedEffect(currentJumpTargetIndex, jumpTargets.size, railMenuOpen) {
+        if (railMenuOpen && jumpTargets.size > 1 && !showRailState.isScrollInProgress) {
+            showRailState.scrollToItem((currentJumpTargetIndex - 1).coerceIn(0, jumpTargets.size - 2))
         }
     }
 
@@ -303,18 +328,16 @@ fun LibraryRoute(
             .fillMaxSize()
             .padding(paddingValues),
     ) {
-        val railTopOffset = if (resultsAnchorOffsetPx == Int.MAX_VALUE) {
-            maxHeight
-        } else {
-            resultsAnchorOffsetPx.dp
-        }
+        // The rail is anchored to the viewport, never to a recycled list item's pixel offset.
+        val railTopOffset = 0.dp
         val railHeight = (maxHeight - railTopOffset).coerceAtLeast(0.dp)
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("library-list")
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
             contentPadding = PaddingValues(vertical = LIST_TOP_CONTENT_PADDING),
         ) {
             if (videos.isEmpty()) {
@@ -327,6 +350,35 @@ fun LibraryRoute(
             } else {
                 item(key = "library-overview-panel") {
                     LibraryOverviewPanel(
+                        modifier = Modifier.padding(bottom = 14.dp),
+                        searchContent = {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.fillMaxWidth().testTag("library-search"),
+                                label = { Text("Search videos, shows, and topics") },
+                                singleLine = true,
+                                trailingIcon = if (searchQuery.isNotEmpty()) { { TextButton(onClick = { searchQuery = "" }) { Text("Clear") } } } else null,
+                            )
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LibraryWatchFilter.entries.forEach { filter ->
+                                    FilterChip(
+                                        modifier = Modifier.testTag("library-watch-${filter.name}"),
+                                        selected = watchFilter == filter,
+                                        onClick = { watchFilter = filter },
+                                        label = { Text(filter.label) },
+                                    )
+                                }
+                            }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${filteredVideos.size} of ${videos.size} videos", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                if (searchQuery.isNotBlank() || watchFilter != LibraryWatchFilter.All || selectedSeriesFilter != ALL_SERIES_FILTER) {
+                                    TextButton(modifier = Modifier.testTag("library-reset-filters"), onClick = {
+                                        searchQuery = ""; watchFilter = LibraryWatchFilter.All; selectedSeriesFilter = ALL_SERIES_FILTER
+                                    }) { Text("Reset filters") }
+                                }
+                            }
+                        },
                         libraryStatusBody = libraryStatusBody,
                         groupingMode = groupingMode,
                         groupMenuExpanded = groupMenuExpanded,
@@ -340,10 +392,10 @@ fun LibraryRoute(
                         groupSectionCount = displayedSections.size,
                         expandedGroupCount = expandedSectionCount,
                         onExpandAllGroups = {
-                            collapsedSectionKeys = emptySet()
+                            collapsedSectionKeys = collapsedSectionKeys - displayedSections.map { it.section.key }.toSet()
                         },
                         onCollapseAllGroups = {
-                            collapsedSectionKeys = displayedSections.mapTo(mutableSetOf()) { it.section.key }
+                            collapsedSectionKeys = collapsedSectionKeys + displayedSections.map { it.section.key }.toSet()
                         },
                         seriesFilters = seriesFilters,
                         selectedSeriesFilter = selectedSeriesFilter,
@@ -364,10 +416,7 @@ fun LibraryRoute(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = when {
-                                selectedSeriesFilter != ALL_SERIES_FILTER -> "No videos match the current show filter."
-                                else -> "No videos are available in your synced library yet."
-                            },
+                            text = "No videos match these filters. Use Reset filters above to see your library again.",
                             modifier = Modifier.padding(
                                 start = 16.dp,
                                 top = 16.dp,
@@ -390,7 +439,7 @@ fun LibraryRoute(
                         textEndPadding = railTextClearance,
                         onMarkVideoWatched = onMarkVideoWatched,
                         onMarkVideoUnwatched = onMarkVideoUnwatched,
-                        modifier = Modifier.clickable { onVideoSelected(video.id) },
+                        modifier = Modifier.padding(bottom = 14.dp).clickable { onVideoSelected(video.id) },
                     )
                 }
             } else {
@@ -399,12 +448,9 @@ fun LibraryRoute(
                         textEndPadding = railTextClearance,
                         maxPadding = GROUPED_HEADER_MAX_END_PADDING,
                     )
-                    val groupedVideoEndPadding = cappedGroupedContentEndPadding(
-                        textEndPadding = railTextClearance,
-                        maxPadding = GROUPED_VIDEO_MAX_END_PADDING,
-                    )
                     item(key = "section-${displayedSection.section.key}") {
                         GroupedSeriesSectionCard(
+                            modifier = if (displayedSection.isExpanded) Modifier else Modifier.padding(bottom = 14.dp),
                             section = displayedSection.section,
                             watchedVideoCount = displayedSection.section.videos.count { video ->
                                 videoEngagement[video.id].isWatched(playbackProgress[video.id])
@@ -415,7 +461,6 @@ fun LibraryRoute(
                                 null
                             },
                             isExpanded = displayedSection.isExpanded,
-                            dismissDetailsSignal = listState.isScrollInProgress,
                             onToggleExpanded = {
                                 collapsedSectionKeys = effectiveCollapsedSectionKeys.toggle(displayedSection.section.key)
                             },
@@ -426,18 +471,42 @@ fun LibraryRoute(
                                 onMarkVideosUnwatched(displayedSection.section.videos.map(VideoSummary::id))
                             },
                             headerTextEndPadding = groupedHeaderEndPadding,
-                            videoTextEndPadding = groupedVideoEndPadding,
-                            playbackProgress = playbackProgress,
-                            videoEngagement = videoEngagement,
-                            onMarkVideoWatched = onMarkVideoWatched,
-                            onMarkVideoUnwatched = onMarkVideoUnwatched,
-                            onVideoSelected = onVideoSelected,
                         )
+                    }
+                    if (displayedSection.isExpanded) {
+                        itemsIndexed(
+                            items = displayedSection.section.videos,
+                            key = { _, video -> "episode-${displayedSection.section.key}-${video.id}" },
+                            contentType = { _, _ -> "grouped-episode" },
+                        ) { index, video ->
+                            val isLast = index == displayedSection.section.videos.lastIndex
+                            Column {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(bottomStart = if (isLast) 26.dp else 0.dp, bottomEnd = if (isLast) 26.dp else 0.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
+                                ) {
+                                    Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = if (isLast) 10.dp else 0.dp)) {
+                                        GroupedSectionVideoCard(
+                                            video = video,
+                                            progress = playbackProgress[video.id],
+                                            engagementRecord = videoEngagement[video.id],
+                                            dismissDetailsSignal = listState.isScrollInProgress,
+                                            textEndPadding = railTextClearance,
+                                            onMarkVideoWatched = onMarkVideoWatched,
+                                            onMarkVideoUnwatched = onMarkVideoUnwatched,
+                                            onVideoSelected = onVideoSelected,
+                                        )
+                                    }
+                                }
+                                if (isLast) Spacer(Modifier.height(14.dp))
+                            }
+                        }
                     }
                 }
             }
         }
-        if (railHasScrollableContent && railHeight > 0.dp) {
+        if (railHasScrollableContent && railHeight > 0.dp && (listState.canScrollBackward || railMenuOpen)) {
             ShowJumpRail(
                 targets = jumpTargets,
                 contentListState = listState,
@@ -446,12 +515,14 @@ fun LibraryRoute(
                 isEmphasized = railEmphasized,
                 showLabels = showRailLabels,
                 hasWideLabels = hasWideRailLabels,
+                onToggleLabels = { railMenuOpen = !railMenuOpen },
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(y = railTopOffset)
                     .padding(top = LIST_TOP_CONTENT_PADDING, end = 4.dp, bottom = LIST_TOP_CONTENT_PADDING)
                     .height((railHeight - (LIST_TOP_CONTENT_PADDING * 2)).coerceAtLeast(0.dp)),
                 onTargetSelected = { target ->
+                    railMenuOpen = false
                     lastRailInteraction = JumpRailInteraction.TargetSelection
                     railEmphasized = true
                     scope.launch {
@@ -828,6 +899,8 @@ private fun BrowseSelectionDropdown(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
+                    .testTag("browse-dropdown-$label")
+                    .semantics { contentDescription = "$label: $value" }
                     .clickable { onExpandedChanged(true) },
                 shape = RoundedCornerShape(18.dp),
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
@@ -1147,6 +1220,7 @@ private fun buildCollapsedHeaderPreviewMetadataLine(video: VideoSummary): String
 @Composable
 private fun LibraryOverviewPanel(
     modifier: Modifier = Modifier,
+    searchContent: @Composable () -> Unit = {},
     libraryStatusBody: String,
     groupingMode: HeuristicGroupingMode,
     groupMenuExpanded: Boolean,
@@ -1182,6 +1256,7 @@ private fun LibraryOverviewPanel(
                 title = "Library",
                 subtitle = "Browse your synced Premium videos by show or topic and jump between sections quickly.",
             )
+            searchContent()
             LibraryConfigPanel(
                 libraryStatusBody = libraryStatusBody,
                 groupingMode = groupingMode,
@@ -1280,11 +1355,11 @@ private fun LibraryConfigPanel(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        text = "Library Config",
+                        text = "Browse options",
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Text(
-                        text = "Library status, grouping, visibility, sorting, and filters.",
+                        text = "Grouping, sorting, and show filters",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1323,6 +1398,10 @@ private enum class HeuristicGroupingMode(
     None("None", "Videos"),
     Show("Show", "Show"),
     Topic("Topic", "Topic"),
+}
+
+private enum class LibraryWatchFilter(val label: String) {
+    All("All"), Unwatched("Unwatched"), InProgress("In progress"), Watched("Watched")
 }
 
 internal enum class LibrarySortOption(val label: String) {
@@ -1488,28 +1567,21 @@ private fun cappedGroupedContentEndPadding(
 
 @Composable
 private fun GroupedSeriesSectionCard(
+    modifier: Modifier = Modifier,
     section: SeriesSection,
     watchedVideoCount: Int,
     completionSummary: SeriesCompletionSummary?,
     isExpanded: Boolean,
-    dismissDetailsSignal: Boolean,
     onToggleExpanded: () -> Unit,
     onMarkSectionWatched: () -> Unit,
     onMarkSectionUnwatched: () -> Unit,
     headerTextEndPadding: Dp,
-    videoTextEndPadding: Dp,
-    playbackProgress: Map<String, PlaybackProgress>,
-    videoEngagement: Map<String, VideoEngagementRecord>,
-    onMarkVideoWatched: (String) -> Unit,
-    onMarkVideoUnwatched: (String) -> Unit,
-    onVideoSelected: (String) -> Unit,
 ) {
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
-    val collapsedPreviewStackHeight = collapsedHeaderPreviewStackHeight(section.videos.size)
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp, bottomStart = if (isExpanded) 0.dp else 26.dp, bottomEnd = if (isExpanded) 0.dp else 26.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.62f),
         tonalElevation = 0.dp,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.54f)),
@@ -1519,7 +1591,7 @@ private fun GroupedSeriesSectionCard(
                 start = 10.dp,
                 top = 10.dp,
                 end = 10.dp,
-                bottom = if (isExpanded) 10.dp else 4.dp,
+                bottom = if (isExpanded) 0.dp else 4.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(if (isExpanded) 12.dp else 0.dp),
         ) {
@@ -1596,22 +1668,6 @@ private fun GroupedSeriesSectionCard(
                 HorizontalDivider(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.48f),
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    section.videos.forEach { video ->
-                        GroupedSectionVideoCard(
-                            video = video,
-                            progress = playbackProgress[video.id],
-                            engagementRecord = videoEngagement[video.id],
-                            dismissDetailsSignal = dismissDetailsSignal,
-                            textEndPadding = videoTextEndPadding,
-                            onMarkVideoWatched = onMarkVideoWatched,
-                            onMarkVideoUnwatched = onMarkVideoUnwatched,
-                            onVideoSelected = onVideoSelected,
-                        )
-                    }
-                }
             }
         }
     }
@@ -1645,7 +1701,9 @@ private fun SeriesSectionHeader(
             .fillMaxWidth()
             .heightIn(min = headerMinHeight)
             .clip(shape)
-            .clickable(onClick = onToggleExpanded),
+            .testTag("library-section-${section.title}")
+            .semantics { stateDescription = if (isExpanded) "Expanded" else "Collapsed" }
+            .clickable(role = Role.Button, onClickLabel = if (isExpanded) "Collapse ${section.title}" else "Expand ${section.title}", onClick = onToggleExpanded),
         shape = shape,
         color = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -1768,6 +1826,7 @@ private fun GroupedSectionVideoCard(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun VideoListCard(
     video: VideoSummary,
@@ -1869,24 +1928,10 @@ private fun VideoListCard(
                         onTextLayout = { descriptionTruncated = it.hasVisualOverflow },
                     )
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (descriptionTruncated) "More…" else "Info",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable { showFullDetails = true },
-                    )
-                    Text(
-                        text = "ID: ${video.id}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                TextButton(
+                    modifier = Modifier.testTag("library-details-${video.id}"),
+                    onClick = { showFullDetails = true },
+                ) { Text(if (descriptionTruncated) "Read more" else "Details") }
                 if (displayedProgress != null && displayedProgress.durationSeconds > 0) {
                     Text(
                         text = "Resume • ${formatDuration(displayedProgress.positionSeconds)} / ${formatDuration(displayedProgress.durationSeconds)}",
@@ -1894,9 +1939,9 @@ private fun VideoListCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Row(
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
                         text = libraryWatchStatusLabel(isWatched, displayedProgress),
@@ -1919,54 +1964,28 @@ private fun VideoListCard(
         }
     }
     if (showFullDetails) {
-        Dialog(
-            onDismissRequest = { showFullDetails = false },
-        ) {
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                tonalElevation = 6.dp,
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text(
-                        text = video.title,
-                        style = MaterialTheme.typography.headlineSmall,
-                    )
-                    detailRows.forEachIndexed { index, (label, value) ->
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = value,
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+        Dialog(onDismissRequest = { showFullDetails = false }) {
+            Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp) {
+                Column(Modifier.heightIn(max = LocalConfiguration.current.screenHeightDp.dp * 0.85f).padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(video.title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        TextButton(onClick = { showFullDetails = false }) { Text("Close") }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).testTag("video-details-scroll"),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        detailRows.forEach { (label, value) ->
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(value, style = MaterialTheme.typography.bodyMedium)
+                            }
                         }
-                        if (index != detailRows.lastIndex) {
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            )
+                        if (video.description.isNotBlank()) {
+                            HorizontalDivider()
+                            Text(video.description, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                    if (video.description.isNotBlank()) {
-                        Text(
-                            text = video.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                    Text(
-                        text = "Tap outside this card or scroll the list to dismiss.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
@@ -2107,136 +2126,111 @@ private fun ShowJumpRail(
     showLabels: Boolean,
     hasWideLabels: Boolean,
     modifier: Modifier = Modifier,
+    onToggleLabels: () -> Unit,
     onTargetSelected: (JumpRailTarget) -> Unit,
     onScrollFractionChanged: (Float) -> Unit,
 ) {
     val scrollFraction by remember(contentListState) {
         derivedStateOf { contentListState.approximateScrollFraction() }
     }
-    val labelAlpha by animateFloatAsState(
-        targetValue = when {
-            !showLabels -> 0f
-            isEmphasized -> 0.96f
-            else -> 0.26f
-        },
-        animationSpec = tween(durationMillis = 160),
-        label = "jumpRailLabelAlpha",
-    )
-    val flyoutOffset by animateDpAsState(
-        targetValue = if (isEmphasized) 0.dp else 12.dp,
-        animationSpec = tween(durationMillis = 160),
-        label = "jumpRailFlyoutOffset",
-    )
-
-    Row(
-        modifier = modifier
-            .width(if (hasWideLabels) JUMP_RAIL_WIDTH else TOP_ONLY_RAIL_WIDTH),
-        horizontalArrangement = Arrangement.End,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = modifier.width(if (showLabels && hasWideLabels) 224.dp else 80.dp),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        LazyColumn(
-            state = listState,
-            userScrollEnabled = false,
-            modifier = Modifier
-                .width(if (hasWideLabels) JUMP_RAIL_LABEL_WIDTH else TOP_ONLY_LABEL_WIDTH)
-                .graphicsLayer(alpha = labelAlpha)
-                .padding(end = JUMP_RAIL_LABEL_END_PADDING)
-                .scrollable(
-                    state = contentListState,
-                    orientation = Orientation.Vertical,
-                    reverseDirection = true,
-                ),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            horizontalAlignment = Alignment.End,
-            contentPadding = PaddingValues(vertical = 8.dp),
-        ) {
-            itemsIndexed(targets) { index, target ->
-                val selected = index == currentTargetIndex
+        JumpRailPill("↑ Top", "Back to top", Modifier.testTag("library-top")) { onTargetSelected(targets.first()) }
+        if (hasWideLabels) {
+            JumpRailPill(if (showLabels) "Close" else "Index", "Toggle section index", Modifier.testTag("library-index-toggle"), onToggleLabels)
+        }
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.Top) {
+            if (showLabels && targets.size > 1) {
                 Surface(
-                    modifier = Modifier
-                        .offset(x = flyoutOffset)
-                        .widthIn(max = if (hasWideLabels) 148.dp else TOP_ONLY_LABEL_WIDTH)
-                        .clickable { onTargetSelected(target) },
-                    shape = RoundedCornerShape(999.dp),
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
-                    } else {
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.54f)
-                    },
-                    contentColor = if (selected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    tonalElevation = if (selected) 3.dp else 0.dp,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 6.dp,
+                    shadowElevation = 4.dp,
                 ) {
-                    Text(
-                        text = target.title,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.sp,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.End,
-                    )
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.testTag("library-section-index"),
+                        contentPadding = PaddingValues(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        itemsIndexed(targets.drop(1), key = { _, target -> target.itemIndex }) { index, target ->
+                            val selected = index + 1 == currentTargetIndex
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                    .clickable(role = Role.Button, onClickLabel = "Jump to ${target.title}") { onTargetSelected(target) },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                            ) {
+                                Text(target.title, modifier = Modifier.padding(10.dp), style = MaterialTheme.typography.labelLarge,
+                                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
                 }
             }
+            JumpRailTrack(scrollFraction, isEmphasized, onScrollFractionChanged)
         }
-        JumpRailTrack(
-            scrollFraction = scrollFraction,
-            isEmphasized = isEmphasized,
-            onScrollFractionChanged = onScrollFractionChanged,
-        )
     }
 }
 
 @Composable
-private fun JumpRailTrack(
-    scrollFraction: Float,
-    isEmphasized: Boolean,
-    onScrollFractionChanged: (Float) -> Unit,
-) {
-    BoxWithConstraints(
-        modifier = Modifier
-            .width(JUMP_RAIL_TRACK_WIDTH)
-            .fillMaxHeight(),
+private fun JumpRailPill(text: String, description: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(
+        modifier = modifier.width(80.dp).heightIn(min = 48.dp)
+            .semantics { contentDescription = description }
+            .clickable(role = Role.Button, onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        tonalElevation = 3.dp,
     ) {
-        val thumbHeight = 40.dp
-        val availableTravel = (maxHeight - thumbHeight).coerceAtLeast(0.dp)
-        val thumbOffset = availableTravel * scrollFraction
-        val density = LocalDensity.current
-        val trackAlpha by animateFloatAsState(
-            targetValue = if (isEmphasized) 0.94f else 0.68f,
-            animationSpec = tween(durationMillis = 140),
-            label = "jumpRailTrackAlpha",
-        )
+        Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        }
+    }
+}
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .width(3.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(999.dp))
-                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = trackAlpha))
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val availableTravelPx = with(density) { availableTravel.toPx() }.coerceAtLeast(1f)
-                        val targetFraction = ((offset.y - with(density) { thumbHeight.toPx() } / 2f) / availableTravelPx)
-                            .coerceIn(0f, 1f)
-                        onScrollFractionChanged(targetFraction)
-                    }
-                },
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = thumbOffset)
-                .size(width = JUMP_RAIL_TRACK_WIDTH, height = thumbHeight)
-                .clip(RoundedCornerShape(999.dp))
-                .background(MaterialTheme.colorScheme.primary),
-        )
+@Composable
+private fun JumpRailTrack(scrollFraction: Float, isEmphasized: Boolean, onScrollFractionChanged: (Float) -> Unit) {
+    val currentOnFractionChanged by rememberUpdatedState(onScrollFractionChanged)
+    BoxWithConstraints(Modifier.width(48.dp).fillMaxHeight()) {
+        val thumbHeight = 40.dp
+        val density = LocalDensity.current
+        val travelPx = with(density) { (maxHeight - thumbHeight).coerceAtLeast(0.dp).toPx() }.coerceAtLeast(1f)
+        val halfThumbPx = with(density) { thumbHeight.toPx() / 2f }
+        val thumbTravel = (maxHeight - thumbHeight).coerceAtLeast(0.dp)
+        val trackModifier = Modifier.fillMaxSize()
+            .testTag("library-scroll-track")
+            .semantics {
+                contentDescription = "Library scroll position"
+                progressBarRangeInfo = ProgressBarRangeInfo(scrollFraction, 0f..1f)
+                setProgress { currentOnFractionChanged(it.coerceIn(0f, 1f)); true }
+            }
+            .pointerInput(travelPx, halfThumbPx) {
+                detectTapGestures { currentOnFractionChanged(((it.y - halfThumbPx) / travelPx).coerceIn(0f, 1f)) }
+            }
+            .pointerInput(travelPx, halfThumbPx) {
+                detectVerticalDragGestures(
+                    onDragStart = { currentOnFractionChanged(((it.y - halfThumbPx) / travelPx).coerceIn(0f, 1f)) },
+                    onVerticalDrag = { change, _ ->
+                        change.consume()
+                        currentOnFractionChanged(((change.position.y - halfThumbPx) / travelPx).coerceIn(0f, 1f))
+                    },
+                )
+            }
+        Box(trackModifier) {
+            Box(Modifier.align(Alignment.Center).width(3.dp).fillMaxHeight().clip(RoundedCornerShape(999.dp))
+                .background(MaterialTheme.colorScheme.outlineVariant))
+            Box(Modifier.align(Alignment.TopCenter)
+                .offset(y = thumbTravel * scrollFraction.coerceIn(0f, 1f))
+                .size(width = if (isEmphasized) 8.dp else 6.dp, height = thumbHeight)
+                .clip(RoundedCornerShape(999.dp)).background(MaterialTheme.colorScheme.primary))
+        }
     }
 }
 
@@ -2275,7 +2269,7 @@ internal fun buildSectionStartIndices(
     var currentIndex = VIDEO_LIST_START_INDEX
     sections.forEach { section ->
         add(currentIndex)
-        currentIndex += 1
+        currentIndex += 1 + if (section.isExpanded) section.section.videos.size else 0
     }
 }
 

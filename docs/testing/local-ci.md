@@ -15,6 +15,9 @@ Current coverage:
 - `core:data` JVM tests
 - `core:database` JVM tests
 - `core:network` fixture-driven parser tests
+- `feature:library` grouping, ordering, and lazy-row jump-anchor tests, plus `feature:player` unit tests in both fast and highspec gates
+- populated-library interaction tests for collapse persistence across scrolling, filters, grouping changes and recreation; pinned Top, section-index scrolling, accessible scroll progress, lazy episode composition, and scrollable details
+- Settings interaction tests for refresh-error priority, feed URL reveal, and cancel/confirm behavior for both data-clearing actions
 - configurable repository tests for persisted feed URLs, clean empty-library startup behavior, and feed sync transitions
 - `app` baseline unit tests, including no-autoplay launch, cast-control visibility, cast wake-behavior, background refresh diff, and notification-posting regressions
 - committed Roborazzi screenshot baselines can be verified explicitly when UI work lands and currently cover Library, shell intro, Settings/feed, and Player surfaces
@@ -51,6 +54,10 @@ This lane keeps the default contributor flow untouched while separately checking
 
 ## Connected-device deployment
 Use this sequence when validating builds on a physical Android device.
+
+For an existing signed release with user data, use the signed device-update workflow documented in `docs/releases/` and install the matching package and signing certificate with `adb install -r`. Do not substitute a debug build or uninstall the release. Verify the installed APK, first-install timestamp, and data-directory inode before and after the update.
+
+For browse design acceptance, capture real-device screenshots with `adb shell screencap`: collapse a populated group, scroll past several other groups, return with the pinned Top button, and check that the collapse choice survives. Open Index, scroll its section list, and confirm Top stays fixed. Also inspect search/filter reset, long details with the fixed Close action, and masked Settings feed input. Use Cancel when checking clear-data confirmations against a real library.
 
 1. Confirm device visibility first:
 

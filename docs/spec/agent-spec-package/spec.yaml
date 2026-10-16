@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.18"
+  version: "0.2.19"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -260,7 +260,7 @@ contract:
         - open a video with saved caption data in Player without autoplay
         - clear all caption data
     - name: library
-      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards that keep one stable outer container in both states, full-header expansion tap targets, a consistent top-left expand/collapse affordance, subdued collapsed header mosaic art with stacked card peeks beneath the lead header card, a more vibrant expanded full-card content-derived mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
+      description: Browse surface for synced videos with a clean empty state before first sync, an overview panel above the scrolling results once library data exists, grouping, sorting, filtering, collapsible grouped-section cards that keep continuous visual containment with individually lazy episode rows, full-header expansion tap targets, a consistent top-left expand/collapse affordance, subdued collapsed header mosaic art with stacked card peeks beneath the lead header card, a more vibrant expanded full-card content-derived mosaic with a readable bottom info plate, show-completion visualization, rich cards, custom progress bars without ambiguous endpoint dots, and section jumping.
       primary_actions:
         - group by none, show, or topic
         - sort by latest, show, or oldest
@@ -750,6 +750,40 @@ scenarios:
       - the collapsed section's episode cards are hidden
       - other section headers and their expansion state remain unchanged
       - jump rail targets continue to reflect the visible section anchors
+  - id: library_browse_choices_and_navigation_stay_stable
+    description: Filtering and recycling never expand a collapsed group; Top remains reachable.
+    when:
+      surface: library
+      action:
+        collapse a group, scroll away, filter it out, clear filters, change grouping and return, then recreate the route
+    then:
+      - the original grouping retains its collapsed group after every transition and relaunch
+      - expanded episodes compose as individual lazy rows with matching jump anchors
+      - Top stays pinned whenever the list can scroll back
+      - opening Index exposes a readable independently scrollable section list beneath Top
+      - selecting Top or a section closes Index and jumps to the correct visible row
+      - the scroll track supports touch and accessibility progress actions
+  - id: library_search_and_watch_filters
+    description: Search and watch-state filters make a populated library easy to narrow and reset.
+    when:
+      surface: library
+      action:
+        search a title, description, show, or topic and choose a watch-state filter
+    then:
+      - results satisfy both search and watch-state choices
+      - the result count reflects the filtered and total video counts
+      - Reset filters restores all shows and watch states without changing collapse choices
+  - id: settings_clear_data_requires_confirmation
+    description: Data-clearing actions show their scope and accept explicit cancellation.
+    when:
+      surface: settings
+      action:
+        request library or caption-data clearing
+    then:
+      - a confirmation describes the selected scope
+      - Cancel preserves existing data
+      - confirming invokes only the selected clearing action
+      - saved feed URL remains masked until explicitly revealed
   - id: grouped_library_supports_expand_all_and_collapse_all
     description: Grouped browsing exposes overview controls to expand all groups or collapse all groups in one step.
     when:
@@ -810,16 +844,16 @@ scenarios:
       - jump rail contains target "Top"
       - jump rail contains at least one section target
   - id: library_overview_panel_stays_above_scrolling_results
-    description: The default-collapsed Library Config remains above the scrolling episode list, can scroll away before the results take over the viewport, and the jump rail anchors only to the episode-list panel.
+    description: The default-collapsed Browse options remains above the scrolling episode list, can scroll away before the results take over the viewport, while Top and Index stay pinned to the browse viewport whenever scrolling back is possible.
     when:
       surface: library
       state:
-        videos is non-empty array
+        videos: non-empty array
         grouped_sections_exist: true
     then:
-      - Library Config is collapsed before the user expands it
+      - Browse options is collapsed before the user expands it
       - library status and browsing controls remain above the scrolling results panel until scrolled away
-      - jump rail does not overlap the fixed overview panel
+      - Top remains visible while the section index scrolls independently
   - id: library_video_cards_show_resume_progress_when_available
     description: Library cards display resume context when saved playback progress exists for a video.
     when:
@@ -873,7 +907,7 @@ scenarios:
     then:
       - visible card copy contains either "Mark as Watched" or "Mark as Unwatched"
   - id: library_group_headers_allow_batch_watch_updates
-    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, circular icon-only expand or collapse affordances pinned top-left in both states, one stable outer containing card, a subdued collapsed style with stacked compact child-card previews visible beneath the header and surfacing date, duration, and title metadata, a thumbnail-forward content-derived expanded rectangular frame-tile backdrop that is limited to the header itself, and visually nested episode cards inside that containing card when expanded.
+    description: Grouped library headers expose concise status copy, compact integrated controls, a single whole-group watched-state toggle, circular icon-only expand or collapse affordances pinned top-left in both states, continuous visual group containment with individually lazy episode rows, a subdued collapsed style with stacked compact child-card previews visible beneath the header and surfacing date, duration, and title metadata, a thumbnail-forward content-derived expanded rectangular frame-tile backdrop that is limited to the header itself, and visually nested episode cards inside that containing card when expanded.
     when:
       surface: library
       state:
@@ -1314,7 +1348,7 @@ scenarios:
     when:
       call: parse_rss_feed
       args:
-        rss_xml: item has generic category and title similar to "Quick Look: Future Cop L.A.P.D."
+        rss_xml: "item has generic category and title similar to \"Quick Look: Future Cop L.A.P.D.\""
     then:
       - returns.videos[0].series_title == "Quick Look"
       - returns.videos[0].thumbnail_url may come from the first image in description HTML
@@ -1332,7 +1366,7 @@ scenarios:
     when:
       call: parse_rss_feed
       args:
-        rss_xml: item title is "Giant Bombcast 901: Handheld Hot Takes"
+        rss_xml: "item title is \"Giant Bombcast 901: Handheld Hot Takes\""
     then:
       - returns.videos[0].series_title == "Giant Bombcast"
   - id: parser_infers_show_from_giant_bomb_page_slug
