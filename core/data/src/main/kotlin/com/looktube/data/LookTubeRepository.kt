@@ -34,6 +34,7 @@ interface LookTubeRepository {
     suspend fun consumeLaunchIntroMessage(deckSize: Int)
 
     suspend fun updateFeedUrl(feedUrl: String)
+    suspend fun updateAutoplayEnabled(enabled: Boolean)
     suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean)
     suspend fun signInToPremiumFeed()
     suspend fun clearSyncedData()

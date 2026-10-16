@@ -15,6 +15,25 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class LookTubeAppPlaybackTest {
     @Test
+    fun explicitNextSelectionRestartsCompletedBookmarkInsteadOfSeekingToEnd() {
+        val controller = FakePlaybackHandoffController(currentMediaId = "other", currentPositionMs = 0L)
+        handoffSelectedPlaybackTarget(controller,
+            SelectedPlaybackTarget(video("video-1"), PlaybackProgress("video-1", 600, 600), null))
+        assertEquals(listOf(0L), controller.setMediaItemStartPositionsMs)
+        assertTrue(controller.playWhenReady)
+    }
+
+    @Test
+    fun replayOfEndedCurrentItemStartsFromZeroInsteadOfPreservingEndedPosition() {
+        val controller = FakePlaybackHandoffController(currentMediaId = "video-1", currentPositionMs = 600_000L,
+            playbackState = Player.STATE_ENDED)
+        handoffSelectedPlaybackTarget(controller,
+            SelectedPlaybackTarget(video("video-1"), PlaybackProgress("video-1", 600, 600), null), forceReload = true)
+        assertEquals(listOf(0L), controller.setMediaItemStartPositionsMs)
+        assertEquals(1, controller.prepareCount)
+    }
+
+    @Test
     fun handoffSeeksToSavedProgressWhenSwitchingToNewVideo() {
         val controller = FakePlaybackHandoffController(currentMediaId = "other-video", currentPositionMs = 0L)
 

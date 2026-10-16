@@ -95,6 +95,10 @@ class InMemoryLookTubeRepository : LookTubeRepository {
     override suspend fun updateFeedUrl(feedUrl: String) {
         feedConfigurationState.value = feedConfigurationState.value.copy(feedUrl = feedUrl)
     }
+    override suspend fun updateAutoplayEnabled(enabled: Boolean) {
+        feedConfigurationState.value = feedConfigurationState.value.copy(autoplayEnabled = enabled)
+    }
+
     override suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
         feedConfigurationState.value = feedConfigurationState.value.copy(
             autoGenerateCaptionsForNewVideos = enabled,

@@ -62,6 +62,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
+import com.looktube.feature.player.AutoplaySettings
+import com.looktube.heuristics.recommendNextVideo
+import com.looktube.model.isCompletedByProgress
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
@@ -384,6 +387,9 @@ fun LookTubeApp(
                             onOpenCaptionDataVideoRequested = viewModel::inspectVideoInPlayer,
                             onClearSyncedDataRequested = viewModel::clearSyncedData,
                             onClearCaptionDataRequested = viewModel::clearCaptionData,
+                            playbackSettingsContent = {
+                                AutoplaySettings(feedConfiguration.autoplayEnabled, viewModel::updateAutoplayEnabled)
+                            },
                             additionalSettingsContent = {
                                 OutlinedButton(
                                     onClick = { showSplashQuoteSources = true },
@@ -427,6 +433,19 @@ fun LookTubeApp(
                             selectedCaptionGenerationStatus = selectedCaptionGenerationStatus,
                             player = playbackController,
                             isFullscreen = isPlayerFullscreen,
+                            playbackOptions = {
+                                val next = selectedPlaybackTarget?.video?.id?.let { id ->
+                                    recommendNextVideo(id, videos, playbackProgress, videoEngagement)
+                                }
+                                AutoplaySettings(
+                                    enabled = feedConfiguration.autoplayEnabled,
+                                    onEnabledChanged = viewModel::updateAutoplayEnabled,
+                                    nextVideoTitle = next?.video?.title,
+                                    nextVideoReason = next?.reason,
+                                    showNextVideo = true,
+                                    onPlayNext = { next?.video?.id?.let(viewModel::selectVideo) },
+                                )
+                            },
                             onRecentVideoSelected = viewModel::selectVideo,
                             onMarkVideoWatched = viewModel::markVideoWatched,
                             onMarkVideoUnwatched = viewModel::markVideoUnwatched,
@@ -660,8 +679,7 @@ internal fun handoffSelectedPlaybackTarget(
         ?.takeIf { progress ->
             progress.videoId == video.id && progress.positionSeconds > 0
         }
-        ?.positionSeconds
-        ?.times(1_000L)
+        ?.let { progress -> if (progress.isCompletedByProgress()) 0L else progress.positionSeconds * 1_000L }
     val shouldReplaceMediaItem = shouldReplaceMediaItemForPlaybackTarget(
         currentMediaId = controller.currentMediaId,
         targetMediaId = video.id,
@@ -671,6 +689,8 @@ internal fun handoffSelectedPlaybackTarget(
         hasConnectedCastSession = controller.hasConnectedCastSession,
     )
     val startPositionMs = when {
+        shouldReplaceMediaItem && controller.currentMediaId == video.id &&
+            controller.playbackState == Player.STATE_ENDED -> 0L
         shouldReplaceMediaItem &&
             controller.currentMediaId == video.id &&
             controller.currentPositionMs > 0L -> controller.currentPositionMs
@@ -764,7 +784,7 @@ internal fun hasConnectedCastSession(context: android.content.Context): Boolean 
         ?.isConnected == true
 }.getOrDefault(false)
 
-private fun VideoSummary.toPlaybackMediaItem(
+internal fun VideoSummary.toPlaybackMediaItem(
     playbackUrl: String,
     captionTrack: VideoCaptionTrack?,
 ): MediaItem =

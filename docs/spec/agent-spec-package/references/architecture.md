@@ -65,3 +65,6 @@ Future implementations should not assume a browser session, cookies, or a second
 ## Validation posture
 The source repository validates behavior with unit tests, visual tests, smoke tests, and opt-in live probes.
 Future implementations may use different tooling, but should preserve the same externally visible behavior and constraints described in the package spec.
+
+## Autoplay
+The Media3 service owns optional default-on continuation and consumes actual completion once. Shared heuristics choose unwatched same-show/topic continuation, then local recent-viewing affinity, then newest unwatched. Settings and Player share a persisted opt-out; Player exposes a reason and explicit next action. See docs/decisions/0005-local-autoplay.md for the detailed selection and completion contract.

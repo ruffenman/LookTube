@@ -119,6 +119,7 @@ fun PlayerRoute(
     onGenerateCaptionsRequested: (String) -> Unit,
     onDeleteCaptionDataRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
+    playbackOptions: @Composable () -> Unit = {},
 ) {
     val activity = rememberActivity(LocalContext.current)
 
@@ -203,6 +204,7 @@ fun PlayerRoute(
             onGenerateCaptionsRequested = onGenerateCaptionsRequested,
             onDeleteCaptionDataRequested = onDeleteCaptionDataRequested,
             onFullscreenChanged = onFullscreenChanged,
+            playbackOptions = playbackOptions,
         )
     }
 }
@@ -894,6 +896,7 @@ private fun ActivePlayerContent(
     onGenerateCaptionsRequested: (String) -> Unit,
     onDeleteCaptionDataRequested: (String) -> Unit,
     onFullscreenChanged: (Boolean) -> Unit,
+    playbackOptions: @Composable () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     val remotePlaybackStatus = rememberRemotePlaybackStatus(player)
@@ -942,6 +945,7 @@ private fun ActivePlayerContent(
                 onMarkVideoUnwatched = onMarkVideoUnwatched,
             )
         }
+        item { playbackOptions() }
         item {
             LookTubeCard(
                 title = selectedVideo.title,

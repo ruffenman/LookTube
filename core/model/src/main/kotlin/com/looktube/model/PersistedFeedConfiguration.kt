@@ -8,11 +8,13 @@ data class PersistedFeedConfiguration(
     val launchIntroMessageDeckSeed: Long = 1L,
     val launchIntroMessageDeckIndex: Int = 0,
     val lastOpenedAtEpochMillis: Long? = null,
+    val autoplayEnabled: Boolean = true,
 )
 
 fun PersistedFeedConfiguration.toRuntime(): FeedConfiguration =
     FeedConfiguration(
         feedUrl = feedUrl,
+        autoplayEnabled = autoplayEnabled,
         autoGenerateCaptionsForNewVideos = autoGenerateCaptionsForNewVideos,
         dailyOpenPointCount = dailyOpenPointCount,
         lastOpenedAtEpochMillis = lastOpenedAtEpochMillis,

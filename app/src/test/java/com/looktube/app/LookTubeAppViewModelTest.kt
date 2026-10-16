@@ -32,6 +32,22 @@ class LookTubeAppViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
+    fun autoplayOptOutIsSharedWithRepositoryAndSurvivesFeedAndLibraryChanges() = runTest {
+        val repository = com.looktube.data.InMemoryLookTubeRepository()
+        val viewModel = LookTubeAppViewModel(repository)
+        advanceUntilIdle()
+        assertTrue(viewModel.feedConfiguration.value.autoplayEnabled)
+        viewModel.updateAutoplayEnabled(false)
+        advanceUntilIdle()
+        repository.updateFeedUrl("https://example.com/feed")
+        repository.clearSyncedData()
+        assertFalse(viewModel.feedConfiguration.value.autoplayEnabled)
+        viewModel.updateAutoplayEnabled(true)
+        advanceUntilIdle()
+        assertTrue(repository.feedConfiguration.value.autoplayEnabled)
+    }
+
+    @Test
     fun bootstrapsWithEmptyLibraryWithoutTreatingItAsSignedIn() = runTest {
         val repository = ConfigurableLookTubeRepository(
             feedConfigurationStore = FakeFeedConfigurationStore(),

@@ -232,3 +232,11 @@ An implementation that materially changes these choices can still be valid, but 
 - local validation workflow: `docs/testing/local-ci.md`
 - architectural decisions: `docs/decisions/ADR-0001-foundation.md`, `docs/decisions/ADR-0002-auth-persistence.md`, `docs/decisions/ADR-0003-offline-captions.md`, `docs/decisions/ADR-0004-library-browse-stability.md`
 
+
+## Optional autoplay
+- Autoplay next video defaults to enabled on new installations and upgrades. One persisted preference is exposed in Settings and Player and survives restart; it does not change automatic caption generation.
+- Continue only after an item that actually played reaches its end with play intent still active. Preview-only selections, paused ends, stop/idle, errors, and toggling the setting on after completion do not start another item. Consume each completion once and recheck state before handoff.
+- Choose playable, unwatched videos from the cached library, independent of browsing filters. Exclude the current video and videos completed in this playback-service session. Prefer the next chronological episode in the same show and inferred topic, then the next same-show episode, then same-show unwatched backfill. Use shared show/topic heuristics.
+- If no same-show continuation exists, rank shows using the last twenty played-video history records, with stronger weights for more recent records; manually marking watched alone does not establish affinity. Prefer an incomplete resume in the selected show, otherwise its oldest unwatched item. Without relevant history, choose the newest unwatched playable item. Break ties by stable video ID; missing dates sort last for continuation.
+- Player shows the proposed next title and a short reason, with Play next now available even when autoplay is disabled. The service recomputes at completion against current watch state and history. Resume incomplete progress; explicitly unwatched items with completed progress restart at zero. An exhausted library stops.
+- The shared Media3 service owns continuation for local/background playback and the existing cast route. Preserve metadata, saved captions, watch progress, and fullscreen state. Recommendations are deterministic and on-device, with no external AI service or transmission of watch history.

@@ -154,6 +154,34 @@ class SharedPreferencesFeedConfigurationStoreTest {
         assertEquals(1_744_761_600_000L, store.persistedConfiguration.value.lastOpenedAtEpochMillis)
     }
 
+    @Test
+    fun autoplayDefaultsOnForExistingPayloadAndPersistsOptOutAcrossRecreation() = runTest {
+        val preferences = createPreferences("autoplay-migration")
+        preferences.edit().putString("encrypted_payload_v1", encryptForTest(
+            listOf("https://example.com/feed", "false", "7", "20177", "88", "5", "1744761600000")
+                .joinToString("|") { Base64.getEncoder().encodeToString(it.toByteArray(UTF_8)) }
+        )).apply()
+        val store = SharedPreferencesFeedConfigurationStore(preferences, PrefixingSecurePayloadCipher())
+        assertTrue(store.persistedConfiguration.value.autoplayEnabled)
+        store.save(store.persistedConfiguration.value.copy(autoplayEnabled = false))
+        val restored = SharedPreferencesFeedConfigurationStore(preferences, PrefixingSecurePayloadCipher())
+        assertFalse(restored.persistedConfiguration.value.autoplayEnabled)
+        assertEquals("https://example.com/feed", restored.persistedConfiguration.value.feedUrl)
+        assertEquals(7, restored.persistedConfiguration.value.dailyOpenPointCount)
+        assertEquals(88L, restored.persistedConfiguration.value.launchIntroMessageDeckSeed)
+        assertEquals(1_744_761_600_000L, restored.persistedConfiguration.value.lastOpenedAtEpochMillis)
+    }
+
+    @Test
+    fun autoplayOptOutAlsoSurvivesUnavailableCipher() = runTest {
+        val preferences = createPreferences("autoplay-cipher-failure")
+        val store = SharedPreferencesFeedConfigurationStore(preferences, FailingSecurePayloadCipher())
+        assertTrue(store.persistedConfiguration.value.autoplayEnabled)
+        store.save(store.persistedConfiguration.value.copy(autoplayEnabled = false))
+        assertFalse(SharedPreferencesFeedConfigurationStore(preferences, FailingSecurePayloadCipher())
+            .persistedConfiguration.value.autoplayEnabled)
+    }
+
     private fun createPreferences(nameSuffix: String): SharedPreferences {
         val context = RuntimeEnvironment.getApplication().applicationContext as Context
         return context.getSharedPreferences("looktube.feed.config.test.$nameSuffix", Context.MODE_PRIVATE).apply {

@@ -77,6 +77,7 @@ fun AuthRoute(
     onClearSyncedDataRequested: () -> Unit,
     onClearCaptionDataRequested: () -> Unit,
     additionalSettingsContent: @Composable () -> Unit = {},
+    playbackSettingsContent: @Composable () -> Unit = {},
 ) {
     val isSigningIn = syncState.phase == SyncPhase.Refreshing
     var draftFeedUrl by remember(feedConfiguration.feedUrl) { mutableStateOf(feedConfiguration.feedUrl) }
@@ -247,6 +248,8 @@ fun AuthRoute(
                 }
             }
         }
+
+        playbackSettingsContent()
 
         Surface(
             modifier = Modifier.fillMaxWidth(),

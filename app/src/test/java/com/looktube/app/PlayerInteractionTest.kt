@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.looktube.designsystem.LookTubeTheme
 import com.looktube.feature.player.CaptionDeleteAction
+import com.looktube.feature.player.AutoplaySettings
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -44,5 +45,28 @@ class PlayerInteractionTest {
         composeRule.onNodeWithText("Delete captions?").assertDoesNotExist()
         composeRule.onNodeWithText("Delete caption data").assertIsNotEnabled()
         composeRule.runOnIdle { assertEquals(emptyList<String>(), deleted) }
+    }
+
+    @Test fun autoplayToggleUpdatesAndExplicitNextPlayRemainsAvailableWhenOff() {
+        val enabled = mutableStateOf(true)
+        var nextRequests = 0
+        composeRule.setContent {
+            LookTubeTheme {
+                AutoplaySettings(enabled.value, { enabled.value = it }, "Episode 2", "Unwatched continuation",
+                    showNextVideo = true, onPlayNext = { nextRequests++ })
+            }
+        }
+        composeRule.onNodeWithTag("autoplay-toggle").assertIsOn().performClick().assertIsOff()
+        composeRule.onNodeWithText("Autoplay is off. Playback stops after this video.").assertExists()
+        composeRule.onNodeWithText("Play next now").performClick()
+        composeRule.runOnIdle { assertEquals(1, nextRequests) }
+    }
+
+    @Test fun exhaustedLibraryShowsNoNextPlayAction() {
+        composeRule.setContent {
+            LookTubeTheme { AutoplaySettings(true, {}, showNextVideo = true) }
+        }
+        composeRule.onNodeWithText("No unwatched playable videos available").assertExists()
+        composeRule.onNodeWithText("Play next now").assertDoesNotExist()
     }
 }

@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.20"
+  version: "0.2.21"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -13,10 +13,12 @@ spec:
 types:
   FeedConfiguration:
     feed_url: string (required, may be blank only before setup or after explicit clearing)
+    autoplay_enabled: boolean (required, default true; absent persisted value migrates to true)
     auto_generate_captions_for_new_videos: boolean (required)
     daily_open_point_count: integer (required, >= 0)
   PersistedFeedConfiguration:
     feed_url: string (required)
+    autoplay_enabled: boolean (required, default true; absent persisted value migrates to true)
     auto_generate_captions_for_new_videos: boolean (required)
     daily_open_point_count: integer (required, >= 0)
     last_opened_local_epoch_day: integer (optional)
@@ -1466,3 +1468,17 @@ constraints:
     - if a cast session ends or becomes unavailable, the last known item and position must remain recoverable for local playback
     - once generated, local captions should remain available as reusable text tracks for both local playback and cast handoff
     - local caption generation should keep the extracted working audio file-backed instead of requiring whole-file PCM to be loaded into memory for long videos
+
+# Autoplay implementation and acceptance contract
+optional_autoplay:
+  enabled_by_default: true
+  preference: persisted and shared by Settings and Player; independent of captions
+  completion: actual playback followed by ended with play intent; reject previews, pause, stop, errors, stale or duplicate completion
+  candidates: playable unwatched cached videos, excluding current item and session completions; independent of browse filters
+  continuation_order: same show and topic forward chronologically, same show forward, same-show unwatched backfill
+  fallback: last 20 actual played-video records weighted by recency, then incomplete resume or oldest unwatched in preferred show; newest unwatched without relevant history
+  ties: stable video ID; unknown dates last for continuation
+  handoff: service owns local/background and existing cast player; recheck state and setting, persist outgoing progress, resume incomplete next progress with captions; completed explicit-unwatched starts at zero
+  controls: next title and reason, persistent toggle in Settings and Player, explicit Play next now even when disabled
+  exhaustion: stop when no candidate remains; no error retries or watched-video loop
+  privacy: local deterministic recommendations without external model or history upload

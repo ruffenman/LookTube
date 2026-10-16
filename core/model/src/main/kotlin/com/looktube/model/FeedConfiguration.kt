@@ -7,4 +7,5 @@ data class FeedConfiguration(
     val lastOpenedAtEpochMillis: Long? = null,
     val launchIntroMessageDeckSeed: Long = 1L,
     val launchIntroMessageDeckIndex: Int = 0,
+    val autoplayEnabled: Boolean = true,
 )

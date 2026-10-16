@@ -16,6 +16,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.looktube.model.PlaybackProgress
+import com.looktube.model.isCompletedByProgress
+import com.looktube.heuristics.recommendNextVideo
+import com.google.android.gms.cast.MediaStatus
+import com.google.android.gms.cast.framework.CastContext
 @UnstableApi
 
 class PlaybackService : MediaSessionService() {
@@ -27,6 +31,8 @@ class PlaybackService : MediaSessionService() {
     private var localCaptionCastUrlProvider: LocalCaptionCastUrlProvider = NoOpLocalCaptionCastUrlProvider
     private var lastKnownLocalSnapshot: PlaybackSnapshot? = null
     private var lastKnownRemoteSnapshot: PlaybackSnapshot? = null
+    private val autoplayGate = AutoplayCompletionGate()
+    private val completedInSession = mutableSetOf<String>()
     private val progressHandler = Handler(Looper.getMainLooper())
     private val progressRunnable = object : Runnable {
         override fun run() {
@@ -62,6 +68,50 @@ class PlaybackService : MediaSessionService() {
 
         override fun onEvents(player: Player, events: Player.Events) {
             capturePlaybackSnapshot(player)
+            val container = (application as? LookTubeApplication)?.appContainer ?: return
+            val castFinishedId = finishedCastMediaId()
+            val endedId = castFinishedId ?: player.currentMediaItem?.mediaId
+            if (autoplayGate.update(
+                    currentMediaId = endedId,
+                    isPlaying = player.isPlaying,
+                    ended = player.playbackState == Player.STATE_ENDED || castFinishedId != null,
+                    playWhenReady = player.playWhenReady,
+                    enabled = container.feedConfigurationStore.persistedConfiguration.value.autoplayEnabled,
+                    failedOrIdle = player.playerError != null ||
+                        (player.playbackState == Player.STATE_IDLE && castFinishedId == null),
+                )) {
+                // Leave the current Media3 event dispatch before replacing its item.
+                progressHandler.post {
+                    val sameCastCompletion = castFinishedId != null && finishedCastMediaId() == endedId
+                    val sameLocalCompletion = !isPlaybackRouteRemote &&
+                        player.currentMediaItem?.mediaId == endedId && player.playbackState == Player.STATE_ENDED
+                    if ((sameLocalCompletion || sameCastCompletion) && player.playWhenReady &&
+                        player.playerError == null &&
+                        container.repository.selectedVideoId.value == endedId &&
+                        container.feedConfigurationStore.persistedConfiguration.value.autoplayEnabled
+                    ) {
+                        if (sameCastCompletion && endedId != null) persistCastCompletion(endedId)
+                        else persistProgress()
+                        endedId?.let(completedInSession::add)
+                        val repository = container.repository
+                        val next = endedId?.let {
+                            recommendNextVideo(it, repository.videos.value,
+                                container.playbackBookmarkStore.progressSnapshots.value,
+                                container.videoEngagementStore.engagementRecords.value, completedInSession)
+                        } ?: return@post
+                        val progress = container.playbackBookmarkStore.read(next.video.id)
+                            ?.takeUnless { it.isCompletedByProgress() }
+                        player.setMediaItem(next.video.toPlaybackMediaItem(
+                            next.video.playbackUrl ?: return@post,
+                            repository.videoCaptions.value[next.video.id]),
+                            (progress?.positionSeconds ?: 0L).coerceAtLeast(0L) * 1_000L)
+                        player.prepare()
+                        player.play()
+                        container.videoEngagementStore.recordPlayback(next.video.id)
+                        repository.inspectVideo(next.video.id)
+                    }
+                }
+            }
         }
 
         override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
@@ -119,7 +169,7 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = mediaSession
 
     override fun onDestroy() {
-        progressHandler.removeCallbacks(progressRunnable)
+        progressHandler.removeCallbacksAndMessages(null)
         persistProgress()
         player.removeListener(playerListener)
         mediaSession.release()
@@ -140,6 +190,8 @@ class PlaybackService : MediaSessionService() {
         )
 
     private fun persistProgress() {
+        // The receiver may clear its position/timeline when it becomes idle.
+        if (isPlaybackRouteRemote && player.playbackState == Player.STATE_IDLE) return
         val currentMediaItem = player.currentMediaItem ?: return
         val mediaId = currentMediaItem.mediaId.takeIf(String::isNotBlank) ?: return
         val durationMs = player.duration.takeIf { it > 0 } ?: return
@@ -154,6 +206,34 @@ class PlaybackService : MediaSessionService() {
                 container.playbackBookmarkStore.write(progress)
                 container.videoEngagementStore.recordPlaybackProgress(progress)
             }
+    }
+
+    private fun finishedCastMediaId(): String? = runCatching {
+        if (!isPlaybackRouteRemote) return@runCatching null
+        val session = CastContext.getSharedInstance(this).sessionManager.currentCastSession
+            ?.takeIf { it.isConnected } ?: return@runCatching null
+        val status = session.remoteMediaClient?.mediaStatus ?: return@runCatching null
+        val snapshot = lastKnownRemoteSnapshot ?: return@runCatching null
+        snapshot.mediaId.takeIf {
+            isNaturalCastCompletion(
+                isRemote = isPlaybackRouteRemote,
+                isIdle = status.playerState == MediaStatus.PLAYER_STATE_IDLE,
+                finished = status.idleReason == MediaStatus.IDLE_REASON_FINISHED,
+                sameStream = status.mediaInfo?.contentId == snapshot.mediaItem.localConfiguration?.uri?.toString(),
+            )
+        }
+    }.getOrNull()
+
+    private fun persistCastCompletion(videoId: String) {
+        val container = (application as? LookTubeApplication)?.appContainer ?: return
+        val duration = container.playbackBookmarkStore.read(videoId)?.durationSeconds
+            ?.takeIf { it > 0 }
+            ?: container.repository.videos.value.firstOrNull { it.id == videoId }?.durationSeconds
+            ?.takeIf { it > 0 }
+            ?: return
+        val progress = PlaybackProgress(videoId, duration, duration)
+        container.playbackBookmarkStore.write(progress)
+        container.videoEngagementStore.recordPlaybackProgress(progress)
     }
 
     private fun capturePlaybackSnapshot(player: Player) {

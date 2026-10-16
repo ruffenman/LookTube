@@ -197,6 +197,12 @@ class ConfigurableLookTubeRepository(
         publishStatus(statusAfterConfigurationChange(feedConfigurationState.value))
     }
 
+    override suspend fun updateAutoplayEnabled(enabled: Boolean) {
+        val updated = feedConfigurationStore.persistedConfiguration.value.copy(autoplayEnabled = enabled)
+        feedConfigurationStore.save(updated)
+        feedConfigurationState.value = updated.toRuntime()
+    }
+
     override suspend fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
         val updatedConfiguration = feedConfigurationStore.persistedConfiguration.value.copy(
             autoGenerateCaptionsForNewVideos = enabled,

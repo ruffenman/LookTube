@@ -213,6 +213,10 @@ class LookTubeAppViewModel(
         }
     }
 
+    fun updateAutoplayEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.updateAutoplayEnabled(enabled) }
+    }
+
     fun updateAutoGenerateCaptionsForNewVideos(enabled: Boolean) {
         viewModelScope.launch {
             repository.updateAutoGenerateCaptionsForNewVideos(enabled)

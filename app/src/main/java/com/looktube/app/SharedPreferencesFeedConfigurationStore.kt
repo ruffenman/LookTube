@@ -56,6 +56,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         }
         return PersistedFeedConfiguration(
             feedUrl = preferences.all[KEY_FEED_URL].toPersistedFeedUrl(),
+            autoplayEnabled = preferences.getBoolean("autoplay_enabled", true),
         )
     }
 
@@ -67,6 +68,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
         preferences.edit()
             .remove(KEY_ENCRYPTED_PAYLOAD)
             .putString(KEY_FEED_URL, configuration.feedUrl)
+            .putBoolean("autoplay_enabled", configuration.autoplayEnabled)
             .apply()
     }
 
@@ -106,6 +108,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
                 configuration.launchIntroMessageDeckSeed.toString(),
                 configuration.launchIntroMessageDeckIndex.toString(),
                 configuration.lastOpenedAtEpochMillis?.toString().orEmpty(),
+                configuration.autoplayEnabled.toString(),
             ).joinToString(SERIALIZED_SEPARATOR) { field ->
                 Base64.getEncoder().encodeToString(field.toByteArray(UTF_8))
             }
@@ -129,6 +132,7 @@ class SharedPreferencesFeedConfigurationStore internal constructor(
             val fieldOffset = if (resolvedParts.firstOrNull().isLegacyBooleanSentinel()) 1 else 0
             return PersistedFeedConfiguration(
                 feedUrl = resolvedParts.getOrNull(fieldOffset).toPersistedFeedUrl(),
+                autoplayEnabled = resolvedParts.getOrNull(fieldOffset + 7)?.toBooleanStrictOrNull() ?: true,
                 autoGenerateCaptionsForNewVideos = resolvedParts.getOrNull(fieldOffset + 1)?.toBooleanStrictOrNull()
                     ?: false,
                 dailyOpenPointCount = resolvedParts.getOrNull(fieldOffset + 2)?.toIntOrNull()?.coerceAtLeast(0)
