@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -85,6 +86,9 @@ class NativeLibraryMechanicsTest {
     @Test fun contractionKeepsHeaderAndCanReverseWithoutSelectingVideo() {
         showLibrary()
         val bounds = header().getUnclippedBoundsInRoot()
+        val watch = composeRule.onNodeWithTag("library-group-watch-$title").getUnclippedBoundsInRoot()
+        assertTrue(watch.top >= bounds.top && watch.bottom <= bounds.bottom)
+        assertTrue(composeRule.onNodeWithTag("library-video-native-0").getUnclippedBoundsInRoot().top < bounds.bottom)
         evidence("group-expanded")
         composeRule.mainClock.autoAdvance = false
         try {
@@ -102,7 +106,16 @@ class NativeLibraryMechanicsTest {
             header().performTouchInput { click() }
             composeRule.mainClock.advanceTimeBy(400)
             composeRule.onNodeWithTag("library-video-native-0").assertDoesNotExist()
+            val front = composeRule.onNodeWithTag("library-stack-card-native-0").getUnclippedBoundsInRoot()
+            val behind = composeRule.onNodeWithTag("library-stack-card-native-1").getUnclippedBoundsInRoot()
+            assertTrue(front.top < bounds.bottom && front.bottom > bounds.bottom)
+            assertTrue(behind.bottom > front.bottom)
             evidence("group-collapsed")
+            header().performTouchInput { click(Offset(centerX, height - 4f)) }
+            composeRule.mainClock.advanceTimeBy(400)
+            header().performTouchInput { click(Offset(centerX, height - 4f)) }
+            composeRule.mainClock.advanceTimeBy(400)
+            assertCollapsed()
             assertTrue(selected.isEmpty())
         } finally { composeRule.mainClock.autoAdvance = true }
     }

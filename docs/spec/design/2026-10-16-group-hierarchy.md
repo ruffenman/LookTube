@@ -19,3 +19,7 @@ The first revision's unrelated collapsed hero and expanded structural header pro
 Shared structural panel tokens and complete light/dark surface-container palettes align Settings, Library, Player, menus and dialogs. Media overlays retain their contrast because text still has to remain legible over arbitrary thumbnails. This supersedes the earlier decision to retain the mosaic hero unchanged.
 
 Native debug iteration caught an extra upward translation exposing lower episode controls during contraction. The final motion keeps vertical clipping/contraction without translating the whole row, and reveals the compressed previews in the latter portion of the 300-ms transition. The native recording and rapid-toggle/jump checks are recorded in `docs/testing/2026-10-16-continuous-groups.md`.
+
+## Revision: restore physical overlap
+
+The standalone group-watch strip broke the pack silhouette, and adjacent preview cards did not visibly sit under the header. The unified header now contains the group-wide watch action in both states. The first expanded card tucks 24 dp beneath it; its badge is inset below the overlap. Collapsed preview faces tuck 78 dp under the header, exposing a 22-dp front strip followed by evenly stepped rear edges. Preview text is omitted so no truncated fragments appear at those edges. Layered drawing keeps header controls above non-playable peeks and the first playable card. Lazy episode keys and index accounting stay unchanged.

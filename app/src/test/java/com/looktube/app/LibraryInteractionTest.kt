@@ -90,6 +90,9 @@ class LibraryInteractionTest {
         composeRule.setContent { Library(onSelected = { selected += it }) }
         goToFirstHeader()
         val headerBounds = firstHeader().getUnclippedBoundsInRoot()
+        val watchBounds = composeRule.onNodeWithTag("library-group-watch-First Show").getUnclippedBoundsInRoot()
+        assertTrue(watchBounds.top >= headerBounds.top && watchBounds.bottom <= headerBounds.bottom)
+        assertTrue(composeRule.onNodeWithTag("library-video-episode-0").getUnclippedBoundsInRoot().top < headerBounds.bottom)
         val episode = composeRule.onNodeWithTag("library-video-episode-0")
         val initialHeight = episode.getUnclippedBoundsInRoot().let { it.bottom - it.top }
         composeRule.mainClock.autoAdvance = false
@@ -108,10 +111,17 @@ class LibraryInteractionTest {
         firstHeader().performClick()
         composeRule.mainClock.advanceTimeBy(400)
         episode.assertDoesNotExist()
+        val front = composeRule.onNodeWithTag("library-stack-card-episode-0").getUnclippedBoundsInRoot()
+        val behind = composeRule.onNodeWithTag("library-stack-card-episode-1").getUnclippedBoundsInRoot()
+        assertTrue(front.top < headerBounds.bottom && front.bottom > headerBounds.bottom)
+        assertTrue(behind.bottom > front.bottom)
         firstHeader().performClick()
         composeRule.mainClock.advanceTimeBy(400)
         episode.assertExists()
         composeRule.onNodeWithText("Episode 19").assertDoesNotExist()
+        firstHeader().performTouchInput { click(Offset(centerX, height - 4f)) }
+        composeRule.mainClock.advanceTimeBy(400)
+        assertCollapsed()
         composeRule.runOnIdle { assertTrue(selected.isEmpty()) }
         composeRule.mainClock.autoAdvance = true
     }

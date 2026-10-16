@@ -1,6 +1,6 @@
 spec:
   id: looktube-feed-first-android-client
-  version: "0.2.26"
+  version: "0.2.27"
   title: LookTube Feed-First Android Client
   description: >
     A feed-first mobile client for Giant Bomb Premium videos.
@@ -1512,3 +1512,9 @@ local_ci:
   reports: unique artifacts/local-ci run directory with JSON status, source and dirty flag, step logs and duration, APK hashes and evidence for device lane
   failure_policy: nonzero on command error, timeout, offline device, partial or failed instrumentation, or missing current evidence; never infer pass from adb exit zero
   limits: no production account or signing, no claims of production artwork, frame pacing, cast, or actual playback acceptance
+
+overlapping_group_pack:
+  watch_action: inside the persistent header in both states, minimum 48dp, separate from expansion and playback
+  expanded_tuck: first episode overlaps header by 24dp, its play badge stays below header
+  collapsed_tuck: 78dp of 100dp card face tucked under header, 22dp stepped artwork/border edges, no cropped preview text
+  safety: header draws and receives input above cards, retain lazy keys and jump indices, clip animated lower edge

@@ -68,6 +68,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clipToBounds
@@ -454,6 +457,7 @@ fun LibraryRoute(
                             )
                             item(key = "section-${displayedSection.section.key}") {
                                 GroupedSeriesSectionCard(
+                                    modifier = Modifier.zIndex(2f),
                                     section = displayedSection.section,
                                     watchedVideoCount = displayedSection.section.videos.count { video ->
                                         videoEngagement[video.id].isWatched(playbackProgress[video.id])
@@ -487,11 +491,12 @@ fun LibraryRoute(
                                     visibility.targetState = displayedSection.section.key !in collapsedSectionKeys
                                     androidx.compose.animation.AnimatedVisibility(
                                         visibleState = visibility,
-                                        enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top),
-                                        exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top),
+                                        modifier = Modifier.clipTuckedContent(if (index == 0) EXPANDED_CARD_TUCK else 0.dp),
+                                        enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top, clip = false),
+                                        exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top, clip = false),
                                     ) {
                                         Surface(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.fillMaxWidth().tuckUnderPrevious(if (index == 0) EXPANDED_CARD_TUCK else 0.dp),
                                             shape = RoundedCornerShape(bottomStart = if (isLast) 24.dp else 0.dp, bottomEnd = if (isLast) 24.dp else 0.dp),
                                             color = LookTubeStyle.panelColor,
                                             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -499,9 +504,10 @@ fun LibraryRoute(
                                             val gutterColor = MaterialTheme.colorScheme.outlineVariant
                                             Column(Modifier.drawBehind {
                                                 drawLine(gutterColor, Offset(10.dp.toPx(), 0f), Offset(10.dp.toPx(), size.height), 2.dp.toPx())
-                                            }.padding(start = 22.dp, end = 10.dp, top = 12.dp, bottom = if (isLast) 10.dp else 0.dp)) {
+                                            }.padding(start = 22.dp, end = 10.dp, top = if (index == 0) 0.dp else 12.dp, bottom = if (isLast) 10.dp else 0.dp)) {
                                                 GroupedSectionVideoCard(
                                                     positionLabel = "Video ${displayedSection.section.videos.indexOf(video) + 1} of ${displayedSection.section.videos.size}",
+                                                    artworkTopInset = if (index == 0) EXPANDED_CARD_TUCK else 0.dp,
                                                     video = video,
                                                     progress = playbackProgress[video.id],
                                                     engagementRecord = videoEngagement[video.id],
@@ -565,6 +571,7 @@ private fun CollapsedHeaderPreviewStack(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .testTag("library-collapsed-stack-${section.title}")
             .clipToBounds(),
     ) {
         cardVideos.indices.reversed().forEach { index ->
@@ -572,7 +579,7 @@ private fun CollapsedHeaderPreviewStack(
             CollapsedHeaderPreviewCard(
                 video = video,
                 textEndPadding = textEndPadding,
-                showText = index == 0,
+                showText = false,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .offset(y = peekOffsets[index])
@@ -593,9 +600,9 @@ private fun CollapsedHeaderPreviewCard(
     val thumbnailUrl = video.thumbnailUrl
     val metadataLine = remember(video) { buildCollapsedHeaderPreviewMetadataLine(video) }
     Card(
-        modifier = modifier,
+        modifier = modifier.testTag("library-stack-card-${video.id}"),
         shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.82f)),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f)),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -1078,6 +1085,20 @@ private val GROUP_HEADER_PEEK_HORIZONTAL_STAGGER = 18.dp
 private const val GROUP_HEADER_PEEK_CARD_WIDTH_FRACTION = 0.96f
 private val GROUP_HEADER_COMPACT_PREVIEW_CARD_HEIGHT = 100.dp
 private const val GROUP_TRANSITION_MILLIS = 300
+private val EXPANDED_CARD_TUCK = 24.dp
+private val COLLAPSED_CARD_TUCK = 78.dp
+
+/** Draw into the previous header's area without changing lazy keys or hit targets. */
+private fun Modifier.tuckUnderPrevious(tuck: Dp): Modifier = layout { measurable, constraints ->
+    val card = measurable.measure(constraints)
+    val tuckPx = tuck.roundToPx().coerceAtMost(card.height)
+    layout(card.width, card.height - tuckPx) { card.place(0, -tuckPx) }
+}
+
+/** Keep the overlap visible, but clip the outgoing row at its animated lower edge. */
+private fun Modifier.clipTuckedContent(tuck: Dp): Modifier = drawWithContent {
+    clipRect(top = -tuck.toPx(), bottom = size.height) { this@drawWithContent.drawContent() }
+}
 private fun collapsedHeaderPreviewStackHeight(videoCount: Int): Dp {
     val cardCount = videoCount.coerceIn(0, GROUP_HEADER_MAX_PEEK_COUNT + 1)
     return if (cardCount == 0) 0.dp
@@ -1433,37 +1454,26 @@ private fun GroupedSeriesSectionCard(
 ) {
     val sectionIsFullyWatched = watchedVideoCount == section.videos.size && section.videos.isNotEmpty()
     Column(modifier = modifier.fillMaxWidth()) {
-        // One identity, title, artwork and touch target in both states. Only the
-        // material below this header moves; it never swaps to another composition.
-        UnifiedSeriesSectionHeader(section, watchedVideoCount, completionSummary, isExpanded, onToggleExpanded)
+        UnifiedSeriesSectionHeader(
+            section, watchedVideoCount, completionSummary, isExpanded, onToggleExpanded,
+            sectionIsFullyWatched,
+            { if (sectionIsFullyWatched) onMarkSectionUnwatched() else onMarkSectionWatched() },
+        )
         AnimatedVisibility(
             visible = !isExpanded,
-            enter = expandVertically(tween(140, delayMillis = 160), expandFrom = Alignment.Top),
-            exit = shrinkVertically(tween(140), shrinkTowards = Alignment.Top),
+            modifier = Modifier.clipTuckedContent(COLLAPSED_CARD_TUCK),
+            enter = expandVertically(tween(140, delayMillis = 160), expandFrom = Alignment.Top, clip = false),
+            exit = shrinkVertically(tween(140), shrinkTowards = Alignment.Top, clip = false),
         ) {
             Column {
                 CollapsedHeaderPreviewStack(
                     section = section,
                     textEndPadding = headerTextEndPadding,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                        .tuckUnderPrevious(COLLAPSED_CARD_TUCK)
                         .height(collapsedHeaderPreviewStackHeight(section.videos.size)),
                 )
                 Spacer(Modifier.height(14.dp))
-            }
-        }
-        AnimatedVisibility(
-            visible = isExpanded,
-            enter = expandVertically(tween(GROUP_TRANSITION_MILLIS), expandFrom = Alignment.Top),
-            exit = shrinkVertically(tween(GROUP_TRANSITION_MILLIS), shrinkTowards = Alignment.Top),
-        ) {
-            Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp, top = 4.dp)) {
-                FilterChip(
-                    selected = sectionIsFullyWatched,
-                    enabled = isExpanded,
-                    onClick = { if (sectionIsFullyWatched) onMarkSectionUnwatched() else onMarkSectionWatched() },
-                    modifier = Modifier.testTag("library-group-watch-${section.title}"),
-                    label = { Text(if (sectionIsFullyWatched) "Mark all unwatched" else "Mark all watched") },
-                )
             }
         }
     }
@@ -1477,9 +1487,11 @@ private fun UnifiedSeriesSectionHeader(
     completionSummary: SeriesCompletionSummary?,
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
+    sectionIsFullyWatched: Boolean,
+    onToggleSectionWatched: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth().clip(LookTubeStyle.panelShape)
+        modifier = Modifier.fillMaxWidth().zIndex(2f).clip(LookTubeStyle.panelShape)
             .testTag("library-section-${section.title}")
             .semantics { stateDescription = if (isExpanded) "Expanded" else "Collapsed" }
             .clickable(role = Role.Button,
@@ -1517,6 +1529,15 @@ private fun UnifiedSeriesSectionHeader(
                 }
                 GroupArtworkStack(section)
             }
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(
+                    onClick = onToggleSectionWatched,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("library-group-watch-${section.title}"),
+                ) { Text(if (sectionIsFullyWatched) "Mark all unwatched" else "Mark all watched") }
+            }
         }
     }
 }
@@ -1524,6 +1545,7 @@ private fun UnifiedSeriesSectionHeader(
 @Composable
 private fun GroupedSectionVideoCard(
     positionLabel: String,
+    artworkTopInset: Dp = 0.dp,
     video: VideoSummary,
     progress: PlaybackProgress?,
     engagementRecord: VideoEngagementRecord?,
@@ -1542,6 +1564,7 @@ private fun GroupedSectionVideoCard(
         onMarkVideoWatched = onMarkVideoWatched,
         onMarkVideoUnwatched = onMarkVideoUnwatched,
         positionLabel = positionLabel,
+        artworkTopInset = artworkTopInset,
         modifier = Modifier.testTag("library-video-${video.id}")
             .clickable(role = Role.Button, onClickLabel = "Play ${video.title}") { onVideoSelected(video.id) },
     )
@@ -1559,6 +1582,7 @@ private fun VideoListCard(
     onMarkVideoUnwatched: (String) -> Unit,
     modifier: Modifier = Modifier,
     positionLabel: String? = null,
+    artworkTopInset: Dp = 0.dp,
 ) {
     val isWatched = engagementRecord.isWatched(progress)
     val displayedProgress = displayedPlaybackProgress(
@@ -1596,7 +1620,7 @@ private fun VideoListCard(
                 VideoThumbnail(video)
                 positionLabel?.let { label ->
                     Surface(
-                        modifier = Modifier.align(Alignment.TopStart).padding(10.dp),
+                        modifier = Modifier.align(Alignment.TopStart).padding(start = 10.dp, top = 10.dp + artworkTopInset),
                         shape = RoundedCornerShape(8.dp),
                         color = Color.Black.copy(alpha = 0.84f),
                         contentColor = Color.White,

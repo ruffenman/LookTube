@@ -125,7 +125,7 @@ Improve real-device local-caption runtime so the newly exposed caption-managemen
 
 ## Unified surfaces and continuous group motion
 - Use the shared 24-dp structural panel shape, neutral surface treatment and thin outline across Settings, Library and Player. Specify every Material surface-container tone in the slate/gold and warm-light palettes so default cards, dialogs and menus cannot introduce an unrelated tint. Keep semantic status colors and media readability overlays.
-- A group uses the same header composition, title, metadata, artwork stack and explicit 48-dp expand/collapse control in both states. Collapsed groups show compact tucked episode previews beneath that header; do not swap between an artwork hero and an opaque structural header.
+- A group uses the same header composition, title, metadata, artwork stack and explicit 48-dp expand/collapse control in both states. Collapsed groups show compact episode edges tucked under that header; do not swap between an artwork hero and an opaque structural header.
 - Contract/reveal individually lazy episode rows with one 300-ms vertical motion. Clip the contracting rows without translating their lower controls into view; reveal compact previews in the latter portion of contraction and retract them early on expansion. Retain exiting rows until contraction completes, disable their playback during contraction, and support reversing a toggle mid-transition. Header identity and bounds stay fixed. Transient render retention must not change the persisted collapse choice or make far-offscreen episodes eager.
 - Prefer physical debug-build motion and layout iteration before release signing. Automated continuity/reversal, touch safety, persistence, jump indices and large-text checks supplement native inspection.
 
@@ -136,3 +136,10 @@ Improve real-device local-caption runtime so the newly exposed caption-managemen
 - Save unique local-CI reports with source/dirty-state metadata, step logs, failures and durations; record debug APK hashes and native screenshots for device runs. A device test pass is not production-artwork, frame-pacing, casting or playback acceptance.
 
 - Native large-text evidence must keep the group role label readable rather than wrapping letter by letter beside the control. Group role/control rows wrap as units when the available width or font size requires it.
+
+
+## Overlapping group card packs
+- Keep Mark all watched/unwatched inside the unified header in both states. It remains a separate minimum-48-dp action; do not reserve an exposed strip between header and episodes for it.
+- The header sits above the first expanded episode with a 24-dp overlap. Move that episode's play/position badge below the overlap so header controls cannot obscure it. Preserve independently lazy rows, their video keys and jump indices.
+- Collapsed previews tuck 78 dp of their 100-dp card face under the header, leaving a 22-dp front edge and equally stepped rear card edges. These are decorative artwork/border strips, without cropped episode-title text. The header draws and receives touches above the overlapped cards.
+- Clip contracting rows at their animated lower edge while allowing the tucked upper region to draw under the header. Verify both geometry and real phone appearance: the group watch action stays inside the header, the expanded card starts above its bottom edge, and collapsed rear edges extend below the front edge.
