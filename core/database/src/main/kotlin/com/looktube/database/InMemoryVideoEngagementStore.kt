@@ -14,8 +14,6 @@ class InMemoryVideoEngagementStore : VideoEngagementStore {
 
     override val engagementRecords: StateFlow<Map<String, VideoEngagementRecord>> = recordsState.asStateFlow()
 
-    override fun read(videoId: String): VideoEngagementRecord? = recordsByVideoId[videoId]
-
     override fun recordPlayback(videoId: String, playedAtEpochMillis: Long) {
         updateRecord(videoId) { existingRecord ->
             existingRecord.copy(lastPlayedAtEpochMillis = playedAtEpochMillis)

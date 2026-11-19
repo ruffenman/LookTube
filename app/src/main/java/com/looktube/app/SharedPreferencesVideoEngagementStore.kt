@@ -19,8 +19,6 @@ class SharedPreferencesVideoEngagementStore(
 
     override val engagementRecords: StateFlow<Map<String, VideoEngagementRecord>> = recordsState.asStateFlow()
 
-    override fun read(videoId: String): VideoEngagementRecord? = recordsState.value[videoId]
-
     override fun recordPlayback(videoId: String, playedAtEpochMillis: Long) {
         updateRecord(videoId) { existingRecord ->
             existingRecord.copy(lastPlayedAtEpochMillis = playedAtEpochMillis)
